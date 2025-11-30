@@ -22,6 +22,18 @@ export const MemoryGauge: React.FC<MemoryGaugeProps> = ({
     showLabel = true,
     compact = false,
 }) => {
+    const [prevMB, setPrevMB] = React.useState(currentMB);
+    const [isUpdating, setIsUpdating] = React.useState(false);
+
+    React.useEffect(() => {
+        if (currentMB !== prevMB) {
+            setIsUpdating(true);
+            setPrevMB(currentMB);
+            const timer = setTimeout(() => setIsUpdating(false), 500);
+            return () => clearTimeout(timer);
+        }
+    }, [currentMB, prevMB]);
+
     const percentage = Math.min((currentMB / maxMB) * 100, 100);
     const isWarning = percentage > 70;
     const isCritical = percentage > 90;
@@ -62,10 +74,12 @@ export const MemoryGauge: React.FC<MemoryGaugeProps> = ({
                     flex: 1,
                     height: compact ? 6 : 8,
                     background: 'rgba(0, 0, 0, 0.4)',
-                    border: `1px solid ${colors.borderMedium}`,
+                    border: `1px solid ${isUpdating ? barColor : colors.borderMedium}`,
                     borderRadius: 1,
                     overflow: 'hidden',
                     position: 'relative',
+                    boxShadow: isUpdating ? `0 0 8px ${barColor}` : 'none',
+                    transition: 'border-color 0.3s ease, box-shadow 0.3s ease',
                 }}
             >
                 {/* Fill */}
