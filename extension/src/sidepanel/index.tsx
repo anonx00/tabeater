@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
+import { colors, spacing, typography, borderRadius, transitions, faviconFallback } from '../shared/theme';
 
 interface TabInfo {
     id: number;
@@ -16,14 +17,22 @@ interface TabGroup {
     tabs: TabInfo[];
 }
 
+interface ChatMessage {
+    role: 'user' | 'assistant';
+    content: string;
+}
+
 const Sidepanel = () => {
     const [tabs, setTabs] = useState<TabInfo[]>([]);
     const [groups, setGroups] = useState<TabGroup[]>([]);
     const [view, setView] = useState<'list' | 'grouped'>('grouped');
     const [chatInput, setChatInput] = useState('');
-    const [chatMessages, setChatMessages] = useState<{ role: string; content: string }[]>([]);
+    const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
     const [loading, setLoading] = useState(false);
     const [provider, setProvider] = useState('none');
+    const [hoveredTab, setHoveredTab] = useState<number | null>(null);
+    const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+    const chatEndRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         initializeAndLoad();
@@ -31,13 +40,24 @@ const Sidepanel = () => {
         return () => clearInterval(interval);
     }, []);
 
-    const sendMessage = async (action: string, payload?: any) => {
+    useEffect(() => {
+        // Auto-scroll to bottom of chat when new messages arrive
+        chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, [chatMessages]);
+
+    // Expand all groups by default
+    useEffect(() => {
+        if (groups.length > 0 && expandedGroups.size === 0) {
+            setExpandedGroups(new Set(groups.map(g => g.id)));
+        }
+    }, [groups]);
+
+    const sendMessage = useCallback(async (action: string, payload?: any) => {
         const response = await chrome.runtime.sendMessage({ action, payload });
         return response;
-    };
+    }, []);
 
     const initializeAndLoad = async () => {
-        // Reinitialize AI to ensure it's ready
         await sendMessage('reinitializeAI');
         await loadData();
     };
@@ -54,16 +74,29 @@ const Sidepanel = () => {
         if (providerRes.success) setProvider(providerRes.data.provider);
     };
 
-    const switchToTab = (tabId: number) => {
+    const switchToTab = useCallback((tabId: number, windowId: number) => {
+        chrome.windows.update(windowId, { focused: true });
         chrome.tabs.update(tabId, { active: true });
-    };
+    }, []);
 
-    const closeTab = async (tabId: number) => {
+    const closeTab = useCallback(async (tabId: number) => {
         await sendMessage('closeTab', { tabId });
         loadData();
-    };
+    }, [sendMessage]);
 
-    const askAI = async () => {
+    const toggleGroup = useCallback((groupId: string) => {
+        setExpandedGroups(prev => {
+            const next = new Set(prev);
+            if (next.has(groupId)) {
+                next.delete(groupId);
+            } else {
+                next.add(groupId);
+            }
+            return next;
+        });
+    }, []);
+
+    const askAI = useCallback(async () => {
         if (!chatInput.trim() || provider === 'none') return;
 
         const userMessage = chatInput;
@@ -71,18 +104,35 @@ const Sidepanel = () => {
         setChatMessages(prev => [...prev, { role: 'user', content: userMessage }]);
         setLoading(true);
 
-        const tabContext = tabs.map(t => `${t.title} (${new URL(t.url).hostname})`).join(', ');
-        const prompt = `Context: User has ${tabs.length} tabs open: ${tabContext}\n\nUser question: ${userMessage}`;
+        try {
+            const tabContext = tabs.map(t => {
+                try {
+                    return `${t.title} (${new URL(t.url).hostname})`;
+                } catch {
+                    return t.title;
+                }
+            }).join(', ');
+            const prompt = `Context: User has ${tabs.length} tabs open: ${tabContext}\n\nUser question: ${userMessage}`;
 
-        const response = await sendMessage('askAI', { prompt });
+            const response = await sendMessage('askAI', { prompt });
 
-        if (response.success) {
-            setChatMessages(prev => [...prev, { role: 'assistant', content: response.data.response }]);
-        } else {
-            setChatMessages(prev => [...prev, { role: 'assistant', content: `Error: ${response.error}` }]);
+            if (response.success) {
+                setChatMessages(prev => [...prev, { role: 'assistant', content: response.data.response }]);
+            } else {
+                setChatMessages(prev => [...prev, { role: 'assistant', content: `Error: ${response.error}` }]);
+            }
+        } catch (err: any) {
+            setChatMessages(prev => [...prev, { role: 'assistant', content: `Error: ${err.message}` }]);
         }
         setLoading(false);
-    };
+    }, [chatInput, provider, tabs, sendMessage]);
+
+    const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            askAI();
+        }
+    }, [askAI]);
 
     const getHostname = (url: string) => {
         try {
@@ -92,99 +142,231 @@ const Sidepanel = () => {
         }
     };
 
+    const getProviderDisplay = () => {
+        const labels: Record<string, string> = {
+            nano: 'Nano',
+            gemini: 'Gemini',
+            openai: 'OpenAI',
+            anthropic: 'Claude',
+            none: 'Not configured'
+        };
+        return labels[provider] || provider;
+    };
+
     return (
         <div style={styles.container}>
+            {/* Header */}
             <header style={styles.header}>
-                <h1 style={styles.title}>PHANTOM TABS</h1>
-                <div style={styles.subtitle}>Tactical Command Center</div>
+                <div style={styles.headerTop}>
+                    <h1 style={styles.title}>PHANTOM TABS</h1>
+                    <button
+                        style={styles.settingsBtn}
+                        onClick={() => chrome.runtime.openOptionsPage()}
+                        title="Settings"
+                        aria-label="Open Settings"
+                    >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <circle cx="12" cy="12" r="3" />
+                            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                        </svg>
+                    </button>
+                </div>
                 <div style={styles.stats}>
-                    {tabs.length} tabs | {groups.length} domains | AI: {provider}
+                    <span style={styles.statItem}>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                        </svg>
+                        {tabs.length} tabs
+                    </span>
+                    <span style={styles.statDivider}>|</span>
+                    <span style={styles.statItem}>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <circle cx="12" cy="12" r="10" />
+                        </svg>
+                        {groups.length} domains
+                    </span>
+                    <span style={styles.statDivider}>|</span>
+                    <span style={{ ...styles.statItem, color: provider === 'none' ? colors.error : colors.primary }}>
+                        AI: {getProviderDisplay()}
+                    </span>
                 </div>
             </header>
 
+            {/* View Toggle */}
             <div style={styles.viewToggle}>
                 <button
                     style={{ ...styles.toggleBtn, ...(view === 'grouped' ? styles.toggleActive : {}) }}
                     onClick={() => setView('grouped')}
+                    aria-pressed={view === 'grouped'}
                 >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                    </svg>
                     By Domain
                 </button>
                 <button
                     style={{ ...styles.toggleBtn, ...(view === 'list' ? styles.toggleActive : {}) }}
                     onClick={() => setView('list')}
+                    aria-pressed={view === 'list'}
                 >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <line x1="8" y1="6" x2="21" y2="6" />
+                        <line x1="8" y1="12" x2="21" y2="12" />
+                        <line x1="8" y1="18" x2="21" y2="18" />
+                        <line x1="3" y1="6" x2="3.01" y2="6" />
+                        <line x1="3" y1="12" x2="3.01" y2="12" />
+                        <line x1="3" y1="18" x2="3.01" y2="18" />
+                    </svg>
                     All Tabs
                 </button>
             </div>
 
+            {/* Content Area */}
             <div style={styles.content}>
                 {view === 'grouped' && (
                     <div style={styles.groupList}>
-                        {groups.map(group => (
-                            <div key={group.id} style={styles.group}>
-                                <div style={styles.groupHeader}>
-                                    <span style={styles.groupName}>{group.name}</span>
-                                    <span style={styles.groupCount}>{group.tabs.length}</span>
-                                </div>
-                                <div style={styles.groupTabs}>
-                                    {group.tabs.map(tab => (
-                                        <div
-                                            key={tab.id}
-                                            style={styles.tabItem}
-                                            onClick={() => switchToTab(tab.id)}
-                                        >
-                                            <img
-                                                src={tab.favIconUrl || 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg"/>'}
-                                                style={styles.favicon}
-                                                alt=""
-                                            />
-                                            <span style={styles.tabTitle}>{tab.title}</span>
-                                            <button
-                                                style={styles.closeBtn}
-                                                onClick={(e) => { e.stopPropagation(); closeTab(tab.id); }}
+                        {groups.length === 0 ? (
+                            <div style={styles.emptyState}>No tabs open</div>
+                        ) : (
+                            groups.map(group => (
+                                <div key={group.id} style={styles.group}>
+                                    <button
+                                        style={styles.groupHeader}
+                                        onClick={() => toggleGroup(group.id)}
+                                        aria-expanded={expandedGroups.has(group.id)}
+                                    >
+                                        <span style={styles.groupName}>
+                                            <svg
+                                                width="10"
+                                                height="10"
+                                                viewBox="0 0 24 24"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                strokeWidth="2"
+                                                style={{
+                                                    transform: expandedGroups.has(group.id) ? 'rotate(90deg)' : 'rotate(0deg)',
+                                                    transition: `transform ${transitions.fast}`,
+                                                    marginRight: spacing.sm,
+                                                }}
                                             >
-                                                x
-                                            </button>
+                                                <path d="m9 18 6-6-6-6" />
+                                            </svg>
+                                            {group.name}
+                                        </span>
+                                        <span style={styles.groupCount}>{group.tabs.length}</span>
+                                    </button>
+                                    {expandedGroups.has(group.id) && (
+                                        <div style={styles.groupTabs}>
+                                            {group.tabs.map(tab => (
+                                                <div
+                                                    key={tab.id}
+                                                    style={{
+                                                        ...styles.tabItem,
+                                                        ...(hoveredTab === tab.id ? styles.tabItemHover : {}),
+                                                        ...(tab.active ? styles.tabItemActive : {}),
+                                                    }}
+                                                    onClick={() => switchToTab(tab.id, tab.windowId)}
+                                                    onMouseEnter={() => setHoveredTab(tab.id)}
+                                                    onMouseLeave={() => setHoveredTab(null)}
+                                                    role="button"
+                                                    tabIndex={0}
+                                                    onKeyDown={(e) => e.key === 'Enter' && switchToTab(tab.id, tab.windowId)}
+                                                >
+                                                    <img
+                                                        src={tab.favIconUrl || faviconFallback}
+                                                        style={styles.favicon}
+                                                        alt=""
+                                                        onError={(e) => { e.currentTarget.src = faviconFallback; }}
+                                                    />
+                                                    <span style={styles.tabTitle}>{tab.title || 'Untitled'}</span>
+                                                    <button
+                                                        style={{
+                                                            ...styles.closeBtn,
+                                                            opacity: hoveredTab === tab.id ? 1 : 0,
+                                                        }}
+                                                        onClick={(e) => { e.stopPropagation(); closeTab(tab.id); }}
+                                                        aria-label={`Close ${tab.title}`}
+                                                    >
+                                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                                            <path d="M18 6 6 18M6 6l12 12" />
+                                                        </svg>
+                                                    </button>
+                                                </div>
+                                            ))}
                                         </div>
-                                    ))}
+                                    )}
                                 </div>
-                            </div>
-                        ))}
+                            ))
+                        )}
                     </div>
                 )}
 
                 {view === 'list' && (
                     <div style={styles.tabList}>
-                        {tabs.map(tab => (
-                            <div
-                                key={tab.id}
-                                style={{ ...styles.tabItem, ...styles.tabItemFull }}
-                                onClick={() => switchToTab(tab.id)}
-                            >
-                                <img
-                                    src={tab.favIconUrl || 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg"/>'}
-                                    style={styles.favicon}
-                                    alt=""
-                                />
-                                <div style={styles.tabInfo}>
-                                    <div style={styles.tabTitleFull}>{tab.title}</div>
-                                    <div style={styles.tabUrl}>{getHostname(tab.url)}</div>
-                                </div>
-                                <button
-                                    style={styles.closeBtn}
-                                    onClick={(e) => { e.stopPropagation(); closeTab(tab.id); }}
+                        {tabs.length === 0 ? (
+                            <div style={styles.emptyState}>No tabs open</div>
+                        ) : (
+                            tabs.map(tab => (
+                                <div
+                                    key={tab.id}
+                                    style={{
+                                        ...styles.tabItemFull,
+                                        ...(hoveredTab === tab.id ? styles.tabItemHover : {}),
+                                        ...(tab.active ? styles.tabItemActive : {}),
+                                    }}
+                                    onClick={() => switchToTab(tab.id, tab.windowId)}
+                                    onMouseEnter={() => setHoveredTab(tab.id)}
+                                    onMouseLeave={() => setHoveredTab(null)}
+                                    role="button"
+                                    tabIndex={0}
+                                    onKeyDown={(e) => e.key === 'Enter' && switchToTab(tab.id, tab.windowId)}
                                 >
-                                    x
-                                </button>
-                            </div>
-                        ))}
+                                    <img
+                                        src={tab.favIconUrl || faviconFallback}
+                                        style={styles.favicon}
+                                        alt=""
+                                        onError={(e) => { e.currentTarget.src = faviconFallback; }}
+                                    />
+                                    <div style={styles.tabInfo}>
+                                        <div style={styles.tabTitleFull}>{tab.title || 'Untitled'}</div>
+                                        <div style={styles.tabUrl}>{getHostname(tab.url)}</div>
+                                    </div>
+                                    <button
+                                        style={{
+                                            ...styles.closeBtn,
+                                            opacity: hoveredTab === tab.id ? 1 : 0,
+                                        }}
+                                        onClick={(e) => { e.stopPropagation(); closeTab(tab.id); }}
+                                        aria-label={`Close ${tab.title}`}
+                                    >
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                            <path d="M18 6 6 18M6 6l12 12" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            ))
+                        )}
                     </div>
                 )}
             </div>
 
+            {/* Chat Section */}
             <div style={styles.chatSection}>
-                <div style={styles.chatHeader}>AI Assistant</div>
+                <div style={styles.chatHeader}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                    </svg>
+                    AI Assistant
+                    {provider !== 'none' && <span style={styles.providerBadge}>{getProviderDisplay()}</span>}
+                </div>
                 <div style={styles.chatMessages}>
+                    {chatMessages.length === 0 && (
+                        <div style={styles.chatPlaceholder}>
+                            {provider === 'none'
+                                ? 'Configure AI in settings to use the assistant'
+                                : 'Ask about your tabs, get suggestions, or request help organizing...'}
+                        </div>
+                    )}
                     {chatMessages.map((msg, i) => (
                         <div
                             key={i}
@@ -193,24 +375,41 @@ const Sidepanel = () => {
                             {msg.content}
                         </div>
                     ))}
-                    {loading && <div style={styles.loading}>Thinking...</div>}
+                    {loading && (
+                        <div style={styles.loadingMessage}>
+                            <div style={styles.loadingDots}>
+                                <span style={styles.dot} />
+                                <span style={{ ...styles.dot, animationDelay: '0.2s' }} />
+                                <span style={{ ...styles.dot, animationDelay: '0.4s' }} />
+                            </div>
+                        </div>
+                    )}
+                    <div ref={chatEndRef} />
                 </div>
                 <div style={styles.chatInputRow}>
                     <input
                         type="text"
                         value={chatInput}
                         onChange={(e) => setChatInput(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && askAI()}
-                        placeholder={provider === 'none' ? 'Configure AI first...' : 'Ask about your tabs...'}
+                        onKeyDown={handleKeyDown}
+                        placeholder={provider === 'none' ? 'AI not configured...' : 'Ask about your tabs...'}
                         disabled={provider === 'none'}
                         style={styles.chatInput}
+                        aria-label="Chat input"
                     />
                     <button
-                        style={styles.sendBtn}
+                        style={{
+                            ...styles.sendBtn,
+                            ...(provider === 'none' || loading || !chatInput.trim() ? styles.sendBtnDisabled : {}),
+                        }}
                         onClick={askAI}
-                        disabled={provider === 'none' || loading}
+                        disabled={provider === 'none' || loading || !chatInput.trim()}
+                        aria-label="Send message"
                     >
-                        Send
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <line x1="22" y1="2" x2="11" y2="13" />
+                            <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                        </svg>
                     </button>
                 </div>
             </div>
@@ -221,204 +420,357 @@ const Sidepanel = () => {
 const styles: { [key: string]: React.CSSProperties } = {
     container: {
         height: '100vh',
-        background: '#0a0a0a',
-        color: '#e0e0e0',
-        fontFamily: 'system-ui, -apple-system, sans-serif',
-        fontSize: 13,
+        background: colors.bgDarker,
+        color: colors.textSecondary,
+        fontFamily: typography.fontFamily,
+        fontSize: typography.sizeLg,
         display: 'flex',
         flexDirection: 'column',
     },
     header: {
-        padding: '16px',
-        borderBottom: '1px solid #222',
-        background: '#111',
+        padding: spacing.lg,
+        borderBottom: `1px solid ${colors.borderMedium}`,
+        background: colors.bgCard,
+        flexShrink: 0,
+    },
+    headerTop: {
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: spacing.sm,
     },
     title: {
         margin: 0,
-        fontSize: 18,
-        fontWeight: 600,
-        color: '#00ff88',
-        letterSpacing: 1,
+        fontSize: typography.sizeDisplay,
+        fontWeight: typography.semibold,
+        color: colors.primary,
+        letterSpacing: typography.letterNormal,
     },
-    subtitle: {
-        fontSize: 11,
-        color: '#666',
-        marginTop: 2,
+    settingsBtn: {
+        background: 'transparent',
+        border: 'none',
+        color: colors.textDim,
+        cursor: 'pointer',
+        padding: spacing.sm,
+        borderRadius: borderRadius.sm,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        transition: `all ${transitions.fast}`,
     },
     stats: {
-        fontSize: 11,
-        color: '#888',
-        marginTop: 8,
+        fontSize: typography.sizeMd,
+        color: colors.textDim,
+        display: 'flex',
+        alignItems: 'center',
+        gap: spacing.sm,
+    },
+    statItem: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: spacing.xs,
+    },
+    statDivider: {
+        color: colors.borderLight,
     },
     viewToggle: {
         display: 'flex',
-        padding: '8px 16px',
-        gap: 8,
-        borderBottom: '1px solid #222',
+        padding: `${spacing.sm}px ${spacing.lg}px`,
+        gap: spacing.sm,
+        borderBottom: `1px solid ${colors.borderMedium}`,
+        flexShrink: 0,
     },
     toggleBtn: {
         flex: 1,
-        padding: '6px 12px',
-        background: '#1a1a1a',
-        border: '1px solid #333',
-        borderRadius: 4,
-        color: '#888',
+        padding: `${spacing.sm}px ${spacing.md}px`,
+        background: colors.bgCardHover,
+        border: `1px solid ${colors.borderLight}`,
+        borderRadius: borderRadius.md,
+        color: colors.textDim,
         cursor: 'pointer',
-        fontSize: 12,
+        fontSize: typography.sizeBase,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: spacing.sm,
+        transition: `all ${transitions.fast}`,
     },
     toggleActive: {
-        background: '#00ff88',
-        color: '#000',
-        borderColor: '#00ff88',
+        background: colors.primary,
+        color: colors.bgDarkest,
+        borderColor: colors.primary,
     },
     content: {
         flex: 1,
         overflowY: 'auto',
-        padding: '8px 16px',
+        padding: `${spacing.sm}px ${spacing.lg}px`,
     },
     groupList: {
         display: 'flex',
         flexDirection: 'column',
-        gap: 12,
+        gap: spacing.md,
     },
     group: {
-        background: '#111',
-        borderRadius: 6,
+        background: colors.bgCard,
+        borderRadius: borderRadius.lg,
         overflow: 'hidden',
+        border: `1px solid ${colors.borderDark}`,
     },
     groupHeader: {
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        padding: '8px 12px',
-        background: '#1a1a1a',
+        padding: `${spacing.md}px ${spacing.md}px`,
+        background: colors.bgCardHover,
+        cursor: 'pointer',
+        width: '100%',
+        border: 'none',
+        color: 'inherit',
+        textAlign: 'left',
+        transition: `background ${transitions.fast}`,
     },
     groupName: {
-        fontWeight: 500,
-        color: '#00ff88',
+        fontWeight: typography.medium,
+        color: colors.primary,
+        display: 'flex',
+        alignItems: 'center',
     },
     groupCount: {
-        fontSize: 11,
-        color: '#666',
-        background: '#222',
-        padding: '2px 6px',
-        borderRadius: 10,
+        fontSize: typography.sizeMd,
+        color: colors.textDimmer,
+        background: colors.borderMedium,
+        padding: `2px ${spacing.sm}px`,
+        borderRadius: borderRadius.full,
     },
     groupTabs: {
-        padding: '4px',
+        padding: spacing.xs,
     },
     tabList: {
         display: 'flex',
         flexDirection: 'column',
-        gap: 4,
+        gap: spacing.xs,
     },
     tabItem: {
         display: 'flex',
         alignItems: 'center',
-        padding: '6px 8px',
-        borderRadius: 4,
+        padding: `${spacing.sm}px ${spacing.sm}px`,
+        borderRadius: borderRadius.sm,
         cursor: 'pointer',
-        gap: 8,
+        gap: spacing.sm,
+        transition: `background ${transitions.fast}`,
     },
     tabItemFull: {
-        background: '#111',
+        display: 'flex',
+        alignItems: 'center',
+        padding: spacing.md,
+        borderRadius: borderRadius.md,
+        cursor: 'pointer',
+        gap: spacing.md,
+        background: colors.bgCard,
+        transition: `background ${transitions.fast}`,
+    },
+    tabItemHover: {
+        background: colors.bgCardHover,
+    },
+    tabItemActive: {
+        borderLeft: `3px solid ${colors.primary}`,
+        paddingLeft: spacing.sm - 3,
     },
     favicon: {
         width: 16,
         height: 16,
-        borderRadius: 2,
+        borderRadius: borderRadius.sm,
         flexShrink: 0,
+        objectFit: 'contain',
     },
     tabTitle: {
         flex: 1,
         whiteSpace: 'nowrap',
         overflow: 'hidden',
         textOverflow: 'ellipsis',
-        fontSize: 12,
+        fontSize: typography.sizeBase,
     },
     tabTitleFull: {
         whiteSpace: 'nowrap',
         overflow: 'hidden',
         textOverflow: 'ellipsis',
+        fontSize: typography.sizeLg,
     },
     tabInfo: {
         flex: 1,
         minWidth: 0,
     },
     tabUrl: {
-        fontSize: 11,
-        color: '#666',
+        fontSize: typography.sizeMd,
+        color: colors.textDimmer,
+        whiteSpace: 'nowrap',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        marginTop: 2,
     },
     closeBtn: {
-        width: 18,
-        height: 18,
+        width: 22,
+        height: 22,
         background: 'transparent',
         border: 'none',
-        color: '#666',
+        color: colors.textDim,
         cursor: 'pointer',
-        fontSize: 14,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderRadius: borderRadius.sm,
         flexShrink: 0,
+        transition: `opacity ${transitions.fast}`,
+    },
+    emptyState: {
+        textAlign: 'center',
+        color: colors.textDimmest,
+        padding: spacing.xxxl,
+        fontSize: typography.sizeLg,
     },
     chatSection: {
-        borderTop: '1px solid #222',
-        background: '#111',
+        borderTop: `1px solid ${colors.borderMedium}`,
+        background: colors.bgCard,
+        flexShrink: 0,
     },
     chatHeader: {
-        padding: '8px 16px',
-        fontSize: 12,
-        fontWeight: 500,
-        color: '#00ff88',
-        borderBottom: '1px solid #222',
+        padding: `${spacing.md}px ${spacing.lg}px`,
+        fontSize: typography.sizeBase,
+        fontWeight: typography.medium,
+        color: colors.primary,
+        borderBottom: `1px solid ${colors.borderMedium}`,
+        display: 'flex',
+        alignItems: 'center',
+        gap: spacing.sm,
+    },
+    providerBadge: {
+        marginLeft: 'auto',
+        fontSize: typography.sizeSm,
+        color: colors.textDim,
+        background: colors.bgCardHover,
+        padding: `2px ${spacing.sm}px`,
+        borderRadius: borderRadius.sm,
     },
     chatMessages: {
-        height: 120,
+        height: 140,
         overflowY: 'auto',
-        padding: '8px 16px',
+        padding: spacing.lg,
+    },
+    chatPlaceholder: {
+        color: colors.textDimmest,
+        fontSize: typography.sizeBase,
+        textAlign: 'center',
+        padding: spacing.lg,
     },
     userMessage: {
-        background: '#1a1a1a',
-        padding: '6px 10px',
-        borderRadius: 4,
-        marginBottom: 6,
-        fontSize: 12,
+        background: colors.bgCardHover,
+        padding: `${spacing.sm}px ${spacing.md}px`,
+        borderRadius: borderRadius.md,
+        marginBottom: spacing.sm,
+        fontSize: typography.sizeBase,
+        lineHeight: 1.5,
     },
     assistantMessage: {
-        background: '#0d2818',
-        padding: '6px 10px',
-        borderRadius: 4,
-        marginBottom: 6,
-        fontSize: 12,
-        borderLeft: '2px solid #00ff88',
+        background: colors.primaryBg,
+        padding: `${spacing.sm}px ${spacing.md}px`,
+        borderRadius: borderRadius.md,
+        marginBottom: spacing.sm,
+        fontSize: typography.sizeBase,
+        lineHeight: 1.5,
+        borderLeft: `3px solid ${colors.primary}`,
     },
-    loading: {
-        color: '#00ff88',
-        fontSize: 12,
+    loadingMessage: {
+        padding: spacing.md,
+        display: 'flex',
+        justifyContent: 'center',
+    },
+    loadingDots: {
+        display: 'flex',
+        gap: spacing.xs,
+    },
+    dot: {
+        width: 8,
+        height: 8,
+        borderRadius: '50%',
+        background: colors.primary,
+        animation: 'pulse 1.4s infinite ease-in-out',
     },
     chatInputRow: {
         display: 'flex',
-        padding: '8px 16px',
-        gap: 8,
-        borderTop: '1px solid #222',
+        padding: spacing.lg,
+        gap: spacing.sm,
+        borderTop: `1px solid ${colors.borderMedium}`,
     },
     chatInput: {
         flex: 1,
-        padding: '8px 12px',
-        background: '#0a0a0a',
-        border: '1px solid #333',
-        borderRadius: 4,
-        color: '#fff',
-        fontSize: 13,
+        padding: `${spacing.md}px ${spacing.md}px`,
+        background: colors.bgDarker,
+        border: `1px solid ${colors.borderLight}`,
+        borderRadius: borderRadius.md,
+        color: colors.textPrimary,
+        fontSize: typography.sizeLg,
+        outline: 'none',
+        transition: `border-color ${transitions.fast}`,
     },
     sendBtn: {
-        padding: '8px 16px',
-        background: '#00ff88',
+        padding: `${spacing.md}px ${spacing.lg}px`,
+        background: colors.primary,
         border: 'none',
-        borderRadius: 4,
-        color: '#000',
+        borderRadius: borderRadius.md,
+        color: colors.bgDarkest,
         cursor: 'pointer',
-        fontWeight: 500,
+        fontWeight: typography.medium,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        transition: `all ${transitions.fast}`,
+    },
+    sendBtnDisabled: {
+        background: colors.borderLight,
+        color: colors.textDimmest,
+        cursor: 'not-allowed',
     },
 };
+
+// Add keyframe animation
+const styleSheet = document.createElement('style');
+styleSheet.textContent = `
+    @keyframes pulse {
+        0%, 80%, 100% {
+            transform: scale(0.6);
+            opacity: 0.5;
+        }
+        40% {
+            transform: scale(1);
+            opacity: 1;
+        }
+    }
+    input:focus {
+        border-color: ${colors.primary} !important;
+    }
+    button:focus-visible {
+        outline: 2px solid ${colors.primary};
+        outline-offset: 2px;
+    }
+    .settingsBtn:hover {
+        color: ${colors.textSecondary};
+        background: ${colors.bgCardHover};
+    }
+    ::-webkit-scrollbar {
+        width: 6px;
+    }
+    ::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+        background: ${colors.borderLight};
+        border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+        background: ${colors.textDimmest};
+    }
+`;
+document.head.appendChild(styleSheet);
 
 const container = document.getElementById('root');
 if (container) {

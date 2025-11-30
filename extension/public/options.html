@@ -1,21 +1,51 @@
 <!DOCTYPE html>
-<html>
-
+<html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <title>PHANTOM TABS - Configuration</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="dark">
+    <title>Phantom Tabs - Settings</title>
     <style>
-        body {
+        * {
             margin: 0;
-            background: #000;
-            color: #fff;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        html, body {
+            min-height: 100vh;
+            background-color: #0a0a0a;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            color: #e0e0e0;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        #root {
+            min-height: 100vh;
+        }
+        /* Prevent Flash of Unstyled Content */
+        #root:empty {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+        #root:empty::before {
+            content: '';
+            display: block;
+            width: 40px;
+            height: 40px;
+            border: 3px solid #333;
+            border-top-color: #00ff88;
+            border-radius: 50%;
+            animation: loading-spin 0.8s linear infinite;
+        }
+        @keyframes loading-spin {
+            to { transform: rotate(360deg); }
         }
     </style>
 </head>
-
 <body>
     <div id="root"></div>
     <script src="options.js"></script>
 </body>
-
 </html>
