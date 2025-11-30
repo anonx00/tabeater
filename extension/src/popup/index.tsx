@@ -31,6 +31,16 @@ interface TabHealth {
     reason: string;
 }
 
+interface TabAnalytics {
+    topDomains: { domain: string; count: number; percentage: number }[];
+    categoryBreakdown: { category: string; count: number; percentage: number }[];
+    avgTabAge: number;
+    oldestTabDays: number;
+    healthScore: number;
+    healthLabel: 'Excellent' | 'Good' | 'Fair' | 'Needs Attention';
+    insights: string[];
+}
+
 interface AutoPilotReport {
     totalTabs: number;
     totalMemoryMB: number;
@@ -42,10 +52,11 @@ interface AutoPilotReport {
         groupSuggestions: { name: string; tabIds: number[] }[];
         memoryHogs: TabHealth[];
     };
+    analytics?: TabAnalytics;
     aiInsights?: string;
 }
 
-type View = 'tabs' | 'analyze' | 'duplicates' | 'upgrade' | 'autopilot';
+type View = 'tabs' | 'analyze' | 'duplicates' | 'upgrade' | 'autopilot' | 'analytics';
 
 const Popup = () => {
     const [tabs, setTabs] = useState<TabInfo[]>([]);
@@ -221,11 +232,32 @@ const Popup = () => {
         return null;
     };
 
-    const buttonLabels: Record<string, { label: string; title: string }> = {
-        auto: { label: 'AUTO', title: 'Auto Pilot - AI-powered cleanup & organization' },
-        group: { label: 'GROUP', title: 'Smart Group - Organize tabs by purpose' },
-        dupes: { label: 'DUPES', title: 'Find Duplicates - Identify duplicate tabs' },
-        scan: { label: 'SCAN', title: 'AI Scan - Analyze all tabs' },
+    const showAnalytics = useCallback(async () => {
+        if (!license?.paid) {
+            setView('upgrade');
+            return;
+        }
+        setLoading(true);
+        setView('analytics');
+        const response = await sendMessage('autoPilotAnalyzeWithAI');
+        if (response.success) {
+            setAutoPilotReport(response.data);
+        }
+        setLoading(false);
+    }, [license, sendMessage]);
+
+    const getHealthScoreColor = (score: number) => {
+        if (score >= 80) return colors.success;
+        if (score >= 60) return colors.accent;
+        if (score >= 40) return colors.warning;
+        return colors.error;
+    };
+
+    const buttonLabels: Record<string, { label: string; title: string; icon: string }> = {
+        auto: { label: 'Pilot', title: 'Auto Pilot - AI-powered cleanup', icon: 'M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5' },
+        group: { label: 'Group', title: 'Smart Group - Organize by purpose', icon: 'M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z' },
+        scan: { label: 'Scan', title: 'AI Scan - Analyze tabs', icon: 'M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z' },
+        stats: { label: 'Stats', title: 'Analytics - View insights', icon: 'M18 20V10M12 20V4M6 20v-6' },
     };
 
     return (
@@ -234,11 +266,16 @@ const Popup = () => {
             <header style={styles.header}>
                 <div style={styles.headerMain}>
                     <div style={styles.logoSection}>
-                        <div style={styles.logo}>PT</div>
+                        <div style={styles.logo}>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                <circle cx="12" cy="12" r="10"/>
+                                <path d="M8 12l2 2 4-4"/>
+                            </svg>
+                        </div>
                         <div>
-                            <div style={styles.title}>PHANTOM TABS</div>
+                            <div style={styles.title}>TabEater</div>
                             <div style={styles.subtitle}>
-                                {tabs.length} tab{tabs.length !== 1 ? 's' : ''} | {getProviderDisplay()}
+                                {tabs.length} tab{tabs.length !== 1 ? 's' : ''} {provider !== 'none' && `· ${getProviderDisplay()}`}
                             </div>
                         </div>
                     </div>
@@ -254,19 +291,20 @@ const Popup = () => {
 
             {/* Actions */}
             <div style={styles.actions}>
-                {Object.entries(buttonLabels).map(([key, { label, title }]) => (
+                {Object.entries(buttonLabels).map(([key, { label, title, icon }]) => (
                     <button
                         key={key}
                         style={{
                             ...styles.btn,
                             ...(key === 'auto' && license?.paid ? styles.btnPrimary : {}),
+                            ...(key === 'stats' && license?.paid ? styles.btnAccent : {}),
                             ...(hoveredButton === key ? styles.btnHover : {}),
                         }}
                         onClick={() => {
                             if (key === 'auto') runAutoPilot();
                             else if (key === 'group') smartOrganize();
-                            else if (key === 'dupes') findDuplicates();
                             else if (key === 'scan') analyzeWithAI();
+                            else if (key === 'stats') showAnalytics();
                         }}
                         onMouseEnter={() => setHoveredButton(key)}
                         onMouseLeave={() => setHoveredButton(null)}
@@ -274,6 +312,9 @@ const Popup = () => {
                         title={title}
                         aria-label={title}
                     >
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: 4 }}>
+                            <path d={icon} />
+                        </svg>
                         {label}
                     </button>
                 ))}
@@ -290,7 +331,7 @@ const Popup = () => {
                 >
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <circle cx="12" cy="12" r="3" />
-                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                        <path d="M12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4" />
                     </svg>
                 </button>
             </div>
@@ -541,6 +582,118 @@ const Popup = () => {
                 </div>
             )}
 
+            {/* Analytics View */}
+            {view === 'analytics' && (
+                <div style={styles.panel}>
+                    <div style={styles.panelHeader}>
+                        <span>Analytics</span>
+                        <span style={styles.tagPro}>PRO</span>
+                    </div>
+                    <div style={styles.panelContent}>
+                        {loading ? (
+                            <div style={styles.loadingContainer}>
+                                <div style={styles.loadingSpinner} />
+                                <span>Analyzing...</span>
+                            </div>
+                        ) : autoPilotReport?.analytics ? (
+                            <>
+                                {/* Health Score */}
+                                <div style={styles.healthScoreCard}>
+                                    <div style={styles.healthScoreCircle}>
+                                        <svg width="80" height="80" viewBox="0 0 80 80">
+                                            <circle cx="40" cy="40" r="35" fill="none" stroke={colors.borderMedium} strokeWidth="6" />
+                                            <circle
+                                                cx="40"
+                                                cy="40"
+                                                r="35"
+                                                fill="none"
+                                                stroke={getHealthScoreColor(autoPilotReport.analytics.healthScore)}
+                                                strokeWidth="6"
+                                                strokeLinecap="round"
+                                                strokeDasharray={`${(autoPilotReport.analytics.healthScore / 100) * 220} 220`}
+                                                transform="rotate(-90 40 40)"
+                                            />
+                                        </svg>
+                                        <div style={styles.healthScoreValue}>
+                                            <span style={{ fontSize: 24, fontWeight: typography.bold, color: getHealthScoreColor(autoPilotReport.analytics.healthScore) }}>
+                                                {autoPilotReport.analytics.healthScore}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div style={styles.healthLabel}>
+                                        <span style={{ color: getHealthScoreColor(autoPilotReport.analytics.healthScore) }}>
+                                            {autoPilotReport.analytics.healthLabel}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                {/* Insights */}
+                                <div style={styles.insightBox}>
+                                    <div style={styles.insightLabel}>Insights</div>
+                                    {autoPilotReport.analytics.insights.map((insight, i) => (
+                                        <div key={i} style={styles.insightItem}>
+                                            <span style={styles.insightBullet}>·</span>
+                                            {insight}
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {/* Category Breakdown */}
+                                <div style={styles.section}>
+                                    <div style={styles.sectionHead}>
+                                        <span>Categories</span>
+                                    </div>
+                                    {autoPilotReport.analytics.categoryBreakdown.slice(0, 5).map(cat => (
+                                        <div key={cat.category} style={styles.analyticsRow}>
+                                            <span style={styles.analyticsLabel}>{cat.category}</span>
+                                            <div style={styles.analyticsBar}>
+                                                <div style={{
+                                                    ...styles.analyticsBarFill,
+                                                    width: `${cat.percentage}%`,
+                                                    background: `linear-gradient(90deg, ${colors.primary}, ${colors.accent})`,
+                                                }} />
+                                            </div>
+                                            <span style={styles.analyticsValue}>{cat.count}</span>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {/* Top Domains */}
+                                <div style={styles.section}>
+                                    <div style={styles.sectionHead}>
+                                        <span>Top Domains</span>
+                                    </div>
+                                    {autoPilotReport.analytics.topDomains.map(domain => (
+                                        <div key={domain.domain} style={styles.analyticsRow}>
+                                            <span style={styles.analyticsLabel}>{domain.domain}</span>
+                                            <span style={styles.analyticsValue}>{domain.percentage}%</span>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {/* Stats Grid */}
+                                <div style={styles.statsRow}>
+                                    <div style={styles.stat}>
+                                        <div style={styles.statNum}>{autoPilotReport.analytics.avgTabAge}</div>
+                                        <div style={styles.statLabel}>Avg Age (days)</div>
+                                    </div>
+                                    <div style={styles.stat}>
+                                        <div style={styles.statNum}>{autoPilotReport.analytics.oldestTabDays}</div>
+                                        <div style={styles.statLabel}>Oldest (days)</div>
+                                    </div>
+                                </div>
+                            </>
+                        ) : null}
+                    </div>
+                    <button style={styles.btnBack} onClick={() => setView('tabs')}>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="m15 18-6-6 6-6" />
+                        </svg>
+                        Back to tabs
+                    </button>
+                </div>
+            )}
+
             {/* Upgrade View */}
             {view === 'upgrade' && (
                 <div style={styles.panel}>
@@ -702,6 +855,11 @@ const styles: { [key: string]: React.CSSProperties } = {
         background: colors.primaryBg,
         border: `1px solid ${colors.primary}`,
         color: colors.primary,
+    },
+    btnAccent: {
+        background: colors.accentBg,
+        border: `1px solid ${colors.accent}`,
+        color: colors.accent,
     },
     btnIcon: {
         padding: `${spacing.sm}px ${spacing.md}px`,
@@ -1112,6 +1270,79 @@ const styles: { [key: string]: React.CSSProperties } = {
         cursor: 'pointer',
         borderRadius: borderRadius.sm,
         transition: `all ${transitions.fast}`,
+    },
+    // Analytics styles
+    healthScoreCard: {
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        padding: spacing.lg,
+        marginBottom: spacing.md,
+    },
+    healthScoreCircle: {
+        position: 'relative',
+        width: 80,
+        height: 80,
+    },
+    healthScoreValue: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    healthLabel: {
+        marginTop: spacing.sm,
+        fontSize: typography.sizeLg,
+        fontWeight: typography.semibold,
+    },
+    insightItem: {
+        display: 'flex',
+        gap: spacing.sm,
+        fontSize: typography.sizeMd,
+        color: colors.textMuted,
+        marginBottom: spacing.xs,
+        lineHeight: 1.4,
+    },
+    insightBullet: {
+        color: colors.primary,
+        fontWeight: typography.bold,
+    },
+    analyticsRow: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: spacing.md,
+        padding: `${spacing.sm}px 0`,
+        borderBottom: `1px solid ${colors.borderDark}`,
+    },
+    analyticsLabel: {
+        flex: 1,
+        fontSize: typography.sizeMd,
+        color: colors.textMuted,
+        whiteSpace: 'nowrap',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+    },
+    analyticsBar: {
+        width: 80,
+        height: 6,
+        background: colors.borderMedium,
+        borderRadius: borderRadius.full,
+        overflow: 'hidden',
+    },
+    analyticsBarFill: {
+        height: '100%',
+        borderRadius: borderRadius.full,
+        transition: `width ${transitions.normal}`,
+    },
+    analyticsValue: {
+        fontSize: typography.sizeMd,
+        color: colors.textDim,
+        minWidth: 28,
+        textAlign: 'right',
     },
 };
 

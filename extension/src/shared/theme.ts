@@ -1,11 +1,17 @@
-// Phantom Tabs - Shared Theme Constants
+// TabEater - Shared Theme Constants
 // Centralized styling for consistent UI across all components
 
 export const colors = {
-    // Primary palette
-    primary: '#00ff88',
-    primaryDark: '#00cc6a',
-    primaryBg: '#002200',
+    // Primary palette - Premium gradient purple/blue
+    primary: '#8b5cf6',
+    primaryLight: '#a78bfa',
+    primaryDark: '#7c3aed',
+    primaryBg: 'rgba(139, 92, 246, 0.1)',
+
+    // Accent colors
+    accent: '#06b6d4',
+    accentLight: '#22d3ee',
+    accentBg: 'rgba(6, 182, 212, 0.1)',
 
     // Background colors
     bgDarkest: '#000000',
@@ -30,25 +36,30 @@ export const colors = {
     textDimmest: '#444444',
 
     // Status colors
-    success: '#00ff88',
-    warning: '#ff8800',
-    warningBg: '#1a1a00',
-    warningText: '#ffcc00',
-    error: '#ff4444',
-    errorBg: '#330000',
-    info: '#4488ff',
-    infoBg: '#0a0a1a',
+    success: '#22c55e',
+    successBg: 'rgba(34, 197, 94, 0.1)',
+    warning: '#f59e0b',
+    warningBg: 'rgba(245, 158, 11, 0.1)',
+    warningText: '#fbbf24',
+    error: '#ef4444',
+    errorBg: 'rgba(239, 68, 68, 0.1)',
+    info: '#3b82f6',
+    infoBg: 'rgba(59, 130, 246, 0.1)',
 
     // Provider colors
-    providerNano: '#00ff88',
+    providerNano: '#22c55e',
     providerGemini: '#4285f4',
     providerOpenai: '#10a37f',
     providerAnthropic: '#d4a574',
 
     // License colors
-    licensePro: '#00ff88',
-    licenseTrial: '#ff8800',
-    licenseExpired: '#ff4444',
+    licensePro: '#8b5cf6',
+    licenseTrial: '#f59e0b',
+    licenseExpired: '#ef4444',
+
+    // Gradient colors
+    gradientStart: '#8b5cf6',
+    gradientEnd: '#06b6d4',
 };
 
 export const spacing = {

@@ -158,7 +158,7 @@ const Sidepanel = () => {
             {/* Header */}
             <header style={styles.header}>
                 <div style={styles.headerTop}>
-                    <h1 style={styles.title}>PHANTOM TABS</h1>
+                    <h1 style={styles.title}>TabEater</h1>
                     <button
                         style={styles.settingsBtn}
                         onClick={() => chrome.runtime.openOptionsPage()}

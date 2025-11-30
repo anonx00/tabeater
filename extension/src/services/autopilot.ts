@@ -16,6 +16,16 @@ export interface TabHealth {
     reason: string;
 }
 
+export interface TabAnalytics {
+    topDomains: { domain: string; count: number; percentage: number }[];
+    categoryBreakdown: { category: string; count: number; percentage: number }[];
+    avgTabAge: number;
+    oldestTabDays: number;
+    healthScore: number; // 0-100
+    healthLabel: 'Excellent' | 'Good' | 'Fair' | 'Needs Attention';
+    insights: string[];
+}
+
 export interface AutoPilotReport {
     totalTabs: number;
     totalMemoryMB: number;
@@ -27,6 +37,7 @@ export interface AutoPilotReport {
         groupSuggestions: { name: string; tabIds: number[] }[];
         memoryHogs: TabHealth[];
     };
+    analytics?: TabAnalytics;
     aiInsights?: string;
 }
 
@@ -113,6 +124,9 @@ class AutoPilotService {
         const staleCount = tabHealths.filter(th => th.isStale).length;
         const duplicateCount = duplicateGroups.reduce((sum, g) => sum + g.length - 1, 0);
 
+        // Calculate analytics
+        const analytics = this.calculateAnalytics(tabs, tabHealths, categoryGroups, staleCount, duplicateCount);
+
         return {
             totalTabs: tabs.length,
             totalMemoryMB: Math.round(totalMemoryMB),
@@ -123,7 +137,121 @@ class AutoPilotService {
                 closeSuggestions,
                 groupSuggestions,
                 memoryHogs
+            },
+            analytics
+        };
+    }
+
+    private calculateAnalytics(
+        tabs: TabInfo[],
+        tabHealths: TabHealth[],
+        categoryGroups: { [key: string]: TabHealth[] },
+        staleCount: number,
+        duplicateCount: number
+    ): TabAnalytics {
+        const totalTabs = tabs.length;
+
+        // Top domains
+        const domainCounts: Map<string, number> = new Map();
+        for (const tab of tabs) {
+            try {
+                const domain = new URL(tab.url).hostname.replace('www.', '');
+                domainCounts.set(domain, (domainCounts.get(domain) || 0) + 1);
+            } catch {
+                // Skip invalid URLs
             }
+        }
+        const topDomains = Array.from(domainCounts.entries())
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 5)
+            .map(([domain, count]) => ({
+                domain,
+                count,
+                percentage: Math.round((count / totalTabs) * 100)
+            }));
+
+        // Category breakdown
+        const categoryBreakdown = Object.entries(categoryGroups)
+            .map(([category, tabs]) => ({
+                category,
+                count: tabs.length,
+                percentage: Math.round((tabs.length / totalTabs) * 100)
+            }))
+            .sort((a, b) => b.count - a.count);
+
+        // Tab age stats
+        const now = Date.now();
+        const tabAges = tabHealths.map(th => th.staleDays);
+        const avgTabAge = tabAges.length > 0
+            ? Math.round(tabAges.reduce((a, b) => a + b, 0) / tabAges.length)
+            : 0;
+        const oldestTabDays = tabAges.length > 0 ? Math.max(...tabAges) : 0;
+
+        // Health score calculation (0-100)
+        let healthScore = 100;
+
+        // Deduct for stale tabs (up to -30)
+        const stalePercentage = totalTabs > 0 ? staleCount / totalTabs : 0;
+        healthScore -= Math.min(30, Math.round(stalePercentage * 60));
+
+        // Deduct for duplicates (up to -20)
+        const dupePercentage = totalTabs > 0 ? duplicateCount / totalTabs : 0;
+        healthScore -= Math.min(20, Math.round(dupePercentage * 40));
+
+        // Deduct for too many tabs (up to -20)
+        if (totalTabs > 50) healthScore -= 10;
+        if (totalTabs > 100) healthScore -= 10;
+
+        // Deduct for too many "Other" category (up to -15)
+        const otherCount = categoryGroups['Other']?.length || 0;
+        const otherPercentage = totalTabs > 0 ? otherCount / totalTabs : 0;
+        healthScore -= Math.min(15, Math.round(otherPercentage * 30));
+
+        // Bonus for good organization (up to +10)
+        const categories = Object.keys(categoryGroups).filter(c => c !== 'Other').length;
+        if (categories >= 3) healthScore += 5;
+        if (categories >= 5) healthScore += 5;
+
+        healthScore = Math.max(0, Math.min(100, healthScore));
+
+        const healthLabel: TabAnalytics['healthLabel'] =
+            healthScore >= 80 ? 'Excellent' :
+            healthScore >= 60 ? 'Good' :
+            healthScore >= 40 ? 'Fair' : 'Needs Attention';
+
+        // Generate insights
+        const insights: string[] = [];
+
+        if (staleCount > 0) {
+            insights.push(`${staleCount} tab${staleCount > 1 ? 's' : ''} haven't been accessed in ${this.settings.staleDaysThreshold}+ days`);
+        }
+        if (duplicateCount > 0) {
+            insights.push(`${duplicateCount} duplicate tab${duplicateCount > 1 ? 's' : ''} found`);
+        }
+        if (topDomains[0] && topDomains[0].percentage > 30) {
+            insights.push(`${topDomains[0].domain} dominates your tabs (${topDomains[0].percentage}%)`);
+        }
+        if (totalTabs > 50) {
+            insights.push(`You have ${totalTabs} tabs open - consider closing some`);
+        }
+        if (avgTabAge > 3) {
+            insights.push(`Average tab age is ${avgTabAge} days`);
+        }
+        if (oldestTabDays > 14) {
+            insights.push(`Your oldest tab is ${oldestTabDays} days old`);
+        }
+        if (insights.length === 0) {
+            insights.push('Your tabs are well organized!');
+        }
+
+        return {
+            topDomains,
+            categoryBreakdown,
+            avgTabAge,
+            oldestTabDays,
+            healthScore,
+            healthLabel,
+            insights
         };
     }
 
@@ -207,67 +335,115 @@ Give 2-3 actionable recommendations for better tab hygiene. Be concise.`;
         const url = tab.url.toLowerCase();
         const title = tab.title.toLowerCase();
 
-        // Social Media
-        if (url.includes('facebook.com') || url.includes('twitter.com') ||
-            url.includes('instagram.com') || url.includes('linkedin.com') ||
-            url.includes('reddit.com') || url.includes('tiktok.com')) {
-            return 'Social Media';
+        // AI & Chat Assistants (highest priority - recognize all AI tools)
+        if (url.includes('chat.openai.com') || url.includes('chatgpt.com') ||
+            url.includes('claude.ai') || url.includes('anthropic.com') ||
+            url.includes('grok.x.ai') || url.includes('x.com/i/grok') ||
+            url.includes('gemini.google.com') || url.includes('bard.google.com') ||
+            url.includes('aistudio.google.com') || url.includes('ai.google') ||
+            url.includes('perplexity.ai') || url.includes('poe.com') ||
+            url.includes('character.ai') || url.includes('huggingface.co/chat') ||
+            url.includes('copilot.microsoft.com') || url.includes('bing.com/chat') ||
+            url.includes('you.com') || url.includes('phind.com') ||
+            url.includes('mistral.ai') || url.includes('cohere.ai') ||
+            title.includes('chatgpt') || title.includes('claude') ||
+            title.includes('grok') || title.includes('gemini') ||
+            title.includes('copilot') || title.includes('perplexity')) {
+            return 'AI';
+        }
+
+        // Cloud & DevOps
+        if (url.includes('console.cloud.google') || url.includes('cloud.google.com') ||
+            url.includes('console.aws.amazon') || url.includes('aws.amazon.com') ||
+            url.includes('portal.azure.com') || url.includes('azure.microsoft.com') ||
+            url.includes('vercel.com') || url.includes('netlify.com') ||
+            url.includes('heroku.com') || url.includes('railway.app') ||
+            url.includes('firebase.google.com') || url.includes('supabase.com') ||
+            url.includes('digitalocean.com') || url.includes('cloudflare.com')) {
+            return 'Cloud';
         }
 
         // Development
         if (url.includes('github.com') || url.includes('gitlab.com') ||
-            url.includes('stackoverflow.com') || url.includes('localhost') ||
+            url.includes('bitbucket.org') || url.includes('stackoverflow.com') ||
+            url.includes('localhost') || url.includes('127.0.0.1') ||
             url.includes('codepen.io') || url.includes('codesandbox.io') ||
-            title.includes('documentation') || title.includes('api reference')) {
-            return 'Development';
+            url.includes('replit.com') || url.includes('jsfiddle.net') ||
+            url.includes('npmjs.com') || url.includes('pypi.org') ||
+            title.includes('documentation') || title.includes('api reference') ||
+            title.includes('docs') || url.includes('/docs')) {
+            return 'Dev';
+        }
+
+        // Social Media
+        if (url.includes('facebook.com') || url.includes('twitter.com') ||
+            url.includes('x.com') || url.includes('instagram.com') ||
+            url.includes('linkedin.com') || url.includes('reddit.com') ||
+            url.includes('tiktok.com') || url.includes('threads.net') ||
+            url.includes('mastodon')) {
+            return 'Social';
         }
 
         // Email & Communication
         if (url.includes('mail.google.com') || url.includes('outlook.') ||
+            url.includes('protonmail.com') || url.includes('yahoo.com/mail') ||
             url.includes('slack.com') || url.includes('discord.com') ||
-            url.includes('teams.microsoft.com')) {
+            url.includes('teams.microsoft.com') || url.includes('zoom.us') ||
+            url.includes('meet.google.com')) {
             return 'Communication';
+        }
+
+        // Payments & Finance
+        if (url.includes('stripe.com') || url.includes('paypal.com') ||
+            url.includes('square.com') || url.includes('venmo.com') ||
+            url.includes('coinbase.com') || url.includes('robinhood.com') ||
+            url.includes('bank') || url.includes('billing') ||
+            title.includes('payment') || title.includes('checkout') ||
+            title.includes('invoice') || title.includes('billing')) {
+            return 'Finance';
         }
 
         // Shopping
         if (url.includes('amazon.') || url.includes('ebay.') ||
             url.includes('shopify') || url.includes('etsy.com') ||
-            title.includes('cart') || title.includes('checkout')) {
+            url.includes('aliexpress.com') || url.includes('walmart.com') ||
+            title.includes('cart') || title.includes('shopping')) {
             return 'Shopping';
         }
 
-        // Entertainment
+        // Streaming & Entertainment
         if (url.includes('youtube.com') || url.includes('netflix.com') ||
             url.includes('spotify.com') || url.includes('twitch.tv') ||
-            url.includes('hulu.com') || url.includes('disney')) {
+            url.includes('hulu.com') || url.includes('disney') ||
+            url.includes('primevideo.com') || url.includes('hbomax.com') ||
+            url.includes('crunchyroll.com') || url.includes('anime') ||
+            url.includes('stan.com.au')) {
             return 'Entertainment';
         }
 
-        // News & Media
+        // News & Reading
         if (url.includes('news') || url.includes('cnn.com') ||
             url.includes('bbc.') || url.includes('nytimes.com') ||
-            url.includes('medium.com') || url.includes('substack.com')) {
-            return 'News & Reading';
+            url.includes('medium.com') || url.includes('substack.com') ||
+            url.includes('techcrunch.com') || url.includes('theverge.com') ||
+            url.includes('arstechnica.com')) {
+            return 'News';
         }
 
         // Productivity
-        if (url.includes('docs.google.com') || url.includes('notion.') ||
+        if (url.includes('docs.google.com') || url.includes('sheets.google.com') ||
+            url.includes('slides.google.com') || url.includes('notion.') ||
             url.includes('trello.com') || url.includes('asana.com') ||
-            url.includes('figma.com') || url.includes('canva.com')) {
+            url.includes('monday.com') || url.includes('clickup.com') ||
+            url.includes('figma.com') || url.includes('canva.com') ||
+            url.includes('miro.com') || url.includes('airtable.com')) {
             return 'Productivity';
         }
 
         // Search
         if (url.includes('google.com/search') || url.includes('bing.com/search') ||
-            url.includes('duckduckgo.com')) {
+            url.includes('duckduckgo.com') || url.includes('ecosia.org')) {
             return 'Search';
-        }
-
-        // Finance
-        if (url.includes('bank') || url.includes('paypal.com') ||
-            url.includes('venmo.com') || url.includes('coinbase.com') ||
-            url.includes('robinhood.com')) {
-            return 'Finance';
         }
 
         return 'Other';

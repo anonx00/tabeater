@@ -126,7 +126,13 @@ class TabService {
     private normalizeUrl(url: string): string {
         try {
             const parsed = new URL(url);
-            return `${parsed.hostname}${parsed.pathname}`.replace(/\/$/, '');
+            // Include hostname, pathname, and search params for accurate duplicate detection
+            // Only tabs with EXACT same URL (minus fragment) are considered duplicates
+            let normalized = `${parsed.hostname}${parsed.pathname}`;
+            if (parsed.search) {
+                normalized += parsed.search;
+            }
+            return normalized.replace(/\/$/, '');
         } catch {
             return url;
         }

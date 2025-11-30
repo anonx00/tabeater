@@ -235,9 +235,9 @@ const Options = () => {
             <header style={styles.header}>
                 <div style={styles.headerContent}>
                     <div style={styles.logoSection}>
-                        <div style={styles.logo}>PT</div>
+                        <div style={styles.logo}>TE</div>
                         <div>
-                            <h1 style={styles.title}>PHANTOM TABS</h1>
+                            <h1 style={styles.title}>TabEater</h1>
                             <div style={styles.subtitle}>Settings & Configuration</div>
                         </div>
                     </div>
@@ -644,10 +644,10 @@ const Options = () => {
                     </div>
                     <div style={styles.card}>
                         <div style={styles.aboutContent}>
-                            <div style={styles.aboutLogo}>PT</div>
+                            <div style={styles.aboutLogo}>TE</div>
                             <div>
-                                <p style={styles.aboutName}>PHANTOM TABS</p>
-                                <p style={styles.aboutTagline}>Tactical Tab Intelligence System</p>
+                                <p style={styles.aboutName}>TabEater</p>
+                                <p style={styles.aboutTagline}>AI-Powered Tab Management</p>
                                 <p style={styles.aboutVersion}>Version 1.0.0</p>
                             </div>
                         </div>
