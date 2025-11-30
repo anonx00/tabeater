@@ -253,10 +253,7 @@ const Options = () => {
                 <div style={styles.headerContent}>
                     <div style={styles.logoSection}>
                         <div style={styles.logo}>TE</div>
-                        <div>
-                            <h1 style={styles.title}>TabEater</h1>
-                            <div style={styles.subtitle}>Settings & Configuration</div>
-                        </div>
+                        <h1 style={styles.title}>TabEater Settings</h1>
                     </div>
                     <div style={styles.version}>v1.0.0</div>
                 </div>
@@ -269,26 +266,20 @@ const Options = () => {
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={colors.primary} strokeWidth="2">
                             <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
                         </svg>
-                        <h2 style={styles.sectionTitle}>License Status</h2>
+                        <h2 style={styles.sectionTitle}>License</h2>
                     </div>
                     <div style={styles.licenseCard}>
                         <div style={styles.licenseStatus}>
-                            <span style={{ color: licenseDisplay.color, fontWeight: typography.semibold, fontSize: typography.sizeXxl }}>
+                            <span style={{ color: licenseDisplay.color, fontWeight: typography.semibold, fontSize: typography.sizeXl }}>
                                 {licenseDisplay.text}
                             </span>
                         </div>
-                        <button style={styles.secondaryBtn} onClick={loadLicense}>
+                        <button style={styles.compactBtn} onClick={loadLicense}>
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                 <path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16" />
                             </svg>
-                            Refresh Status
+                            Refresh
                         </button>
-                        {license?.paid && (
-                            <p style={styles.proMessage}>Thank you for your support!</p>
-                        )}
-                        <p style={styles.licenseNote}>
-                            License is bound to this device. One purchase = one device.
-                        </p>
                     </div>
                 </section>
 
@@ -299,20 +290,14 @@ const Options = () => {
                             <path d="M12 2a10 10 0 1 0 10 10H12V2z" />
                             <path d="M12 2a10 10 0 0 1 10 10" />
                         </svg>
-                        <h2 style={styles.sectionTitle}>Current AI Provider</h2>
+                        <h2 style={styles.sectionTitle}>Active AI Provider</h2>
                     </div>
-                    <div style={styles.card}>
+                    <div style={styles.compactCard}>
                         <div style={styles.providerStatusRow}>
-                            <span style={styles.providerLabel}>Active Provider:</span>
                             <span style={{ ...styles.providerValue, color: getProviderColor(activeProvider) }}>
                                 {getProviderLabel(activeProvider)}
                             </span>
                         </div>
-                        <p style={styles.providerInfo}>
-                            {activeProvider === 'nano' && 'Using Chrome built-in AI. Fast and private - no API key needed.'}
-                            {activeProvider !== 'nano' && activeProvider !== 'none' && `Using ${getProviderLabel(activeProvider)} cloud API.`}
-                            {activeProvider === 'none' && 'No AI configured. Set up Nano or a cloud provider below.'}
-                        </p>
                     </div>
                 </section>
 
@@ -364,7 +349,7 @@ const Options = () => {
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={colors.primary} strokeWidth="2">
                             <path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z" />
                         </svg>
-                        <h2 style={styles.sectionTitle}>Cloud AI (Fallback)</h2>
+                        <h2 style={styles.sectionTitle}>Cloud AI</h2>
                     </div>
                     <div style={styles.card}>
                         <div style={styles.formGroup}>
@@ -523,13 +508,10 @@ const Options = () => {
                             <circle cx="12" cy="12" r="10" />
                             <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" />
                         </svg>
-                        <h2 style={styles.sectionTitle}>Auto Pilot Settings</h2>
+                        <h2 style={styles.sectionTitle}>Auto Pilot</h2>
                         <span style={styles.proBadge}>PRO</span>
                     </div>
                     <div style={styles.card}>
-                        <p style={styles.cardDescription}>
-                            Auto Pilot analyzes your tabs, identifies stale and duplicate tabs, and provides AI-powered recommendations.
-                        </p>
 
                         <div style={styles.settingRow}>
                             <div style={styles.settingInfo}>
@@ -575,14 +557,7 @@ const Options = () => {
 
                         <div style={styles.divider} />
 
-                        <p style={styles.experimentalNote}>
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-                                <line x1="12" y1="9" x2="12" y2="13" />
-                                <line x1="12" y1="17" x2="12.01" y2="17" />
-                            </svg>
-                            Auto-actions (experimental - use with caution)
-                        </p>
+                        <p style={styles.experimentalNote}>Auto-actions (use with caution)</p>
 
                         <div style={styles.checkboxRow}>
                             <label style={styles.checkboxLabel}>
@@ -621,72 +596,6 @@ const Options = () => {
                     </div>
                 </section>
 
-                {/* Privacy & Data */}
-                <section style={styles.section}>
-                    <div style={styles.sectionHeader}>
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={colors.primary} strokeWidth="2">
-                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                        </svg>
-                        <h2 style={styles.sectionTitle}>Privacy & Data</h2>
-                    </div>
-                    <div style={styles.card}>
-                        <div style={styles.privacyGrid}>
-                            <div style={styles.privacyColumn}>
-                                <p style={styles.privacyTitle}>
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={colors.success} strokeWidth="2">
-                                        <polyline points="20 6 9 17 4 12" />
-                                    </svg>
-                                    What we collect:
-                                </p>
-                                <ul style={styles.privacyList}>
-                                    <li>Device ID (anonymous, for license)</li>
-                                    <li>License status (trial/pro)</li>
-                                    <li>Daily usage count</li>
-                                </ul>
-                            </div>
-                            <div style={styles.privacyColumn}>
-                                <p style={styles.privacyTitle}>
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={colors.error} strokeWidth="2">
-                                        <line x1="18" y1="6" x2="6" y2="18" />
-                                        <line x1="6" y1="6" x2="18" y2="18" />
-                                    </svg>
-                                    What we DON'T collect:
-                                </p>
-                                <ul style={styles.privacyList}>
-                                    <li>Browsing history</li>
-                                    <li>Tab contents or URLs</li>
-                                    <li>Personal information</li>
-                                    <li>AI conversation data</li>
-                                </ul>
-                            </div>
-                        </div>
-                        <div style={styles.privacyNote}>
-                            AI analysis happens locally (Nano) or via your API key. Tab data never leaves your browser unless you use a cloud provider.
-                        </div>
-                    </div>
-                </section>
-
-                {/* About */}
-                <section style={styles.section}>
-                    <div style={styles.sectionHeader}>
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={colors.primary} strokeWidth="2">
-                            <circle cx="12" cy="12" r="10" />
-                            <line x1="12" y1="16" x2="12" y2="12" />
-                            <line x1="12" y1="8" x2="12.01" y2="8" />
-                        </svg>
-                        <h2 style={styles.sectionTitle}>About</h2>
-                    </div>
-                    <div style={styles.card}>
-                        <div style={styles.aboutContent}>
-                            <div style={styles.aboutLogo}>TE</div>
-                            <div>
-                                <p style={styles.aboutName}>TabEater</p>
-                                <p style={styles.aboutTagline}>AI-Powered Tab Management</p>
-                                <p style={styles.aboutVersion}>Version 1.0.0</p>
-                            </div>
-                        </div>
-                    </div>
-                </section>
             </main>
         </div>
     );
@@ -735,13 +644,8 @@ const styles: { [key: string]: React.CSSProperties } = {
         margin: 0,
         fontSize: typography.sizeHero,
         fontWeight: typography.semibold,
-        color: colors.primary,
+        color: colors.textPrimary,
         letterSpacing: typography.letterNormal,
-    },
-    subtitle: {
-        fontSize: typography.sizeLg,
-        color: colors.textDim,
-        marginTop: 2,
     },
     version: {
         fontSize: typography.sizeMd,
@@ -855,26 +759,15 @@ const styles: { [key: string]: React.CSSProperties } = {
         border: `1px solid ${colors.borderMedium}`,
     },
     licenseCard: {
-        background: `linear-gradient(135deg, ${colors.bgCard}, #16213e)`,
-        padding: spacing.xl,
-        borderRadius: borderRadius.lg,
-        border: `1px solid ${colors.borderLight}`,
-        textAlign: 'center',
+        background: colors.bgCard,
+        padding: spacing.lg,
+        borderRadius: borderRadius.md,
+        border: `1px solid ${colors.borderDark}`,
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
     },
-    licenseStatus: {
-        marginBottom: spacing.lg,
-    },
-    proMessage: {
-        fontSize: typography.sizeLg,
-        color: colors.success,
-        margin: `${spacing.lg}px 0 0 0`,
-    },
-    licenseNote: {
-        fontSize: typography.sizeMd,
-        color: colors.textDimmest,
-        marginTop: spacing.lg,
-        marginBottom: 0,
-    },
+    licenseStatus: {},
     providerStatusRow: {
         display: 'flex',
         justifyContent: 'space-between',
@@ -1144,10 +1037,10 @@ const styles: { [key: string]: React.CSSProperties } = {
         display: 'flex',
         alignItems: 'center',
         gap: spacing.sm,
-        fontSize: typography.sizeLg,
-        color: colors.warning,
+        fontSize: typography.sizeMd,
+        color: colors.textDim,
         marginTop: 0,
-        marginBottom: spacing.lg,
+        marginBottom: spacing.md,
     },
     privacyGrid: {
         display: 'grid',

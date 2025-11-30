@@ -2,16 +2,18 @@
 // Centralized styling for consistent UI across all components
 
 export const colors = {
-    // Primary palette - Premium gradient purple/blue
-    primary: '#8b5cf6',
-    primaryLight: '#a78bfa',
-    primaryDark: '#7c3aed',
-    primaryBg: 'rgba(139, 92, 246, 0.1)',
+    // Primary palette - Cyber security theme
+    primary: '#00ff88',
+    primaryLight: '#33ffaa',
+    primaryDark: '#00cc66',
+    primaryBg: 'rgba(0, 255, 136, 0.08)',
+    primaryGlow: '0 0 8px rgba(0, 255, 136, 0.4), 0 0 12px rgba(0, 255, 136, 0.2)',
 
-    // Accent colors
-    accent: '#06b6d4',
-    accentLight: '#22d3ee',
-    accentBg: 'rgba(6, 182, 212, 0.1)',
+    // Accent colors - Matrix green
+    accent: '#00ff41',
+    accentLight: '#66ff77',
+    accentBg: 'rgba(0, 255, 65, 0.08)',
+    accentGlow: '0 0 6px rgba(0, 255, 65, 0.3)',
 
     // Background colors - softened for reduced eye strain
     bgDarkest: '#121212',
@@ -21,11 +23,13 @@ export const colors = {
     bgCardHover: '#2a2a2a',
     bgInput: '#1a1a1a',
 
-    // Border colors
+    // Border colors - cyber theme
     borderDark: '#1a1a1a',
-    borderMedium: '#222222',
-    borderLight: '#333333',
+    borderMedium: '#2a2a2a',
+    borderLight: '#3a3a3a',
     borderPrimary: '#00ff88',
+    borderAccent: '#00ff41',
+    borderCyber: 'rgba(0, 255, 136, 0.3)',
 
     // Text colors
     textPrimary: '#ffffff',
@@ -53,7 +57,7 @@ export const colors = {
     providerAnthropic: '#d4a574',
 
     // License colors
-    licensePro: '#8b5cf6',
+    licensePro: '#00ff88',
     licenseTrial: '#f59e0b',
     licenseExpired: '#ef4444',
 
@@ -113,6 +117,9 @@ export const shadows = {
     sm: '0 1px 2px rgba(0, 0, 0, 0.3)',
     md: '0 2px 4px rgba(0, 0, 0, 0.4)',
     lg: '0 4px 8px rgba(0, 0, 0, 0.5)',
+    glow: '0 0 10px rgba(0, 255, 136, 0.3), 0 0 20px rgba(0, 255, 136, 0.1)',
+    glowSm: '0 0 6px rgba(0, 255, 136, 0.2)',
+    glowAccent: '0 0 10px rgba(0, 255, 65, 0.3)',
 };
 
 export const transitions = {

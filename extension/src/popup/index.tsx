@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
-import { colors, spacing, typography, borderRadius, transitions, faviconFallback, commonStyles } from '../shared/theme';
+import { colors, spacing, typography, borderRadius, transitions, shadows, faviconFallback, commonStyles } from '../shared/theme';
 import { UndoToast } from '../ui/components/UndoToast';
 import { SkeletonLoader } from '../ui/components/SkeletonLoader';
 import { EmptyState } from '../ui/components/EmptyState';
+import { formatMarkdown, formatInsights } from '../shared/markdown';
 
 interface TabInfo {
     id: number;
@@ -399,15 +400,10 @@ const Popup = () => {
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                 <path d="M12 2v20M2 12h20M6 6l12 12M6 18L18 6" />
                             </svg>
-                            INSIGHTS
+                            AI INSIGHTS
                         </div>
                         <div style={styles.analysisCardContent}>
-                            {analysis.insights.map((insight: string, i: number) => (
-                                <div key={i} style={{ ...styles.analysisItem, display: 'flex', gap: spacing.sm }}>
-                                    <span style={{ color: colors.accent }}>•</span>
-                                    <span>{insight}</span>
-                                </div>
-                            ))}
+                            {formatInsights(analysis.insights)}
                         </div>
                     </div>
                 )}
@@ -491,34 +487,36 @@ const Popup = () => {
                 </button>
             </div>
 
-            {/* Search */}
-            <div style={styles.searchWrap}>
-                <div style={styles.searchContainer}>
-                    <svg style={styles.searchIcon} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <circle cx="11" cy="11" r="8" />
-                        <path d="m21 21-4.35-4.35" />
-                    </svg>
-                    <input
-                        type="text"
-                        placeholder="Search tabs..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        style={styles.search}
-                        aria-label="Search tabs"
-                    />
-                    {searchQuery && (
-                        <button
-                            style={styles.searchClear}
-                            onClick={() => setSearchQuery('')}
-                            aria-label="Clear search"
-                        >
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <path d="M18 6 6 18M6 6l12 12" />
-                            </svg>
-                        </button>
-                    )}
+            {/* Search - Only show in tabs view */}
+            {view === 'tabs' && (
+                <div style={styles.searchWrap}>
+                    <div style={styles.searchContainer}>
+                        <svg style={styles.searchIcon} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <circle cx="11" cy="11" r="8" />
+                            <path d="m21 21-4.35-4.35" />
+                        </svg>
+                        <input
+                            type="text"
+                            placeholder="Search tabs..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            style={styles.search}
+                            aria-label="Search tabs"
+                        />
+                        {searchQuery && (
+                            <button
+                                style={styles.searchClear}
+                                onClick={() => setSearchQuery('')}
+                                aria-label="Clear search"
+                            >
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <path d="M18 6 6 18M6 6l12 12" />
+                                </svg>
+                            </button>
+                        )}
+                    </div>
                 </div>
-            </div>
+            )}
 
             {/* Tab List View */}
             {view === 'tabs' && (
@@ -683,8 +681,15 @@ const Popup = () => {
 
                                 {autoPilotReport.aiInsights && (
                                     <div style={styles.insightBox}>
-                                        <div style={styles.insightLabel}>AI Insights</div>
-                                        <div style={styles.insightText}>{autoPilotReport.aiInsights}</div>
+                                        <div style={styles.insightLabel}>
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                <path d="M12 2v20M2 12h20M6 6l12 12M6 18L18 6" />
+                                            </svg>
+                                            AI INSIGHTS
+                                        </div>
+                                        <div style={styles.insightText}>
+                                            {formatMarkdown(autoPilotReport.aiInsights)}
+                                        </div>
                                     </div>
                                 )}
 
@@ -781,13 +786,15 @@ const Popup = () => {
 
                                 {/* Insights */}
                                 <div style={styles.insightBox}>
-                                    <div style={styles.insightLabel}>Insights</div>
-                                    {autoPilotReport.analytics.insights.map((insight, i) => (
-                                        <div key={i} style={styles.insightItem}>
-                                            <span style={styles.insightBullet}>·</span>
-                                            {insight}
-                                        </div>
-                                    ))}
+                                    <div style={styles.insightLabel}>
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                            <path d="M12 2v20M2 12h20M6 6l12 12M6 18L18 6" />
+                                        </svg>
+                                        KEY INSIGHTS
+                                    </div>
+                                    <div style={styles.insightText}>
+                                        {formatInsights(autoPilotReport.analytics.insights)}
+                                    </div>
                                 </div>
 
                                 {/* Category Breakdown */}
@@ -918,6 +925,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     header: {
         background: colors.bgCard,
         borderBottom: `2px solid ${colors.primary}`,
+        boxShadow: `0 2px 0 ${colors.primary}, ${shadows.glow}`,
         flexShrink: 0,
     },
     headerMain: {
@@ -941,7 +949,10 @@ const styles: { [key: string]: React.CSSProperties } = {
         justifyContent: 'center',
         fontWeight: typography.bold,
         fontSize: typography.sizeBase,
+        fontFamily: typography.fontMono,
         borderRadius: borderRadius.md,
+        boxShadow: shadows.glow,
+        border: `1px solid ${colors.primaryLight}`,
     },
     title: {
         fontSize: typography.sizeXl,
@@ -1015,11 +1026,13 @@ const styles: { [key: string]: React.CSSProperties } = {
         background: colors.primaryBg,
         border: `1px solid ${colors.primary}`,
         color: colors.primary,
+        boxShadow: shadows.glowSm,
     },
     btnAccent: {
         background: colors.accentBg,
         border: `1px solid ${colors.accent}`,
         color: colors.accent,
+        boxShadow: shadows.glowAccent,
     },
     btnIcon: {
         padding: `${spacing.sm}px ${spacing.md}px`,
@@ -1324,6 +1337,9 @@ const styles: { [key: string]: React.CSSProperties } = {
         borderRadius: borderRadius.sm,
     },
     insightLabel: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: spacing.xs,
         fontSize: typography.sizeXs,
         color: colors.primary,
         letterSpacing: typography.letterNormal,
@@ -1332,10 +1348,9 @@ const styles: { [key: string]: React.CSSProperties } = {
         fontWeight: typography.semibold,
     },
     insightText: {
-        fontSize: typography.sizeMd,
-        lineHeight: 1.5,
-        color: '#88cc88',
-        whiteSpace: 'pre-wrap',
+        fontSize: typography.sizeLg,
+        lineHeight: 1.6,
+        color: colors.textSecondary,
     },
     section: {
         marginBottom: spacing.md,
@@ -1568,15 +1583,16 @@ styleSheet.textContent = `
         to { transform: rotate(360deg); }
     }
 
-    /* Enhanced focus states for accessibility */
+    /* Cyber-themed focus states */
     input:focus {
         border-color: ${colors.primary} !important;
-        box-shadow: 0 0 0 3px ${colors.primaryBg};
+        box-shadow: ${shadows.glow}, 0 0 0 2px ${colors.primaryBg};
     }
 
     button:focus-visible {
-        outline: 3px solid ${colors.primary};
+        outline: 2px solid ${colors.primary};
         outline-offset: 2px;
+        box-shadow: ${shadows.glowSm};
         z-index: 1;
     }
 
@@ -1585,6 +1601,12 @@ styleSheet.textContent = `
         outline: 2px solid ${colors.primary};
         outline-offset: 1px;
         background: ${colors.bgCardHover};
+        box-shadow: ${shadows.glowSm};
+    }
+
+    /* Button hover effects with glow */
+    button:hover:not(:disabled) {
+        box-shadow: ${shadows.glowSm};
     }
 
     /* Improved scrollbar styling */
@@ -1599,11 +1621,12 @@ styleSheet.textContent = `
     ::-webkit-scrollbar-thumb {
         background: ${colors.borderLight};
         border-radius: 4px;
-        transition: background 0.2s ease;
+        transition: all 0.2s ease;
     }
 
     ::-webkit-scrollbar-thumb:hover {
-        background: ${colors.borderMedium};
+        background: ${colors.primary};
+        box-shadow: ${shadows.glowSm};
     }
 
     /* CSS-based hover states for better performance */
