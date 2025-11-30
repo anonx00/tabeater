@@ -2,6 +2,7 @@ import { aiService } from '../services/ai';
 import { tabService, TabInfo } from '../services/tabs';
 import { licenseService } from '../services/license';
 import { autoPilotService } from '../services/autopilot';
+import { memoryService } from '../services/memory.service';
 
 interface Message {
     action: string;
@@ -149,6 +150,15 @@ async function handleMessage(message: Message): Promise<MessageResponse> {
         case 'setAutoPilotSettings':
             await autoPilotService.saveSettings(message.payload);
             return { success: true };
+
+        // Memory tracking
+        case 'getMemoryReport':
+            const memoryReport = await memoryService.generateReport();
+            return { success: true, data: memoryReport };
+
+        case 'getMemoryOptimizations':
+            const suggestions = await memoryService.getOptimizationSuggestions();
+            return { success: true, data: { suggestions } };
 
         default:
             return { success: false, error: 'Unknown action' };
