@@ -67,33 +67,54 @@ class AIService {
     }
 
     private getAIApi(): any {
-        // Try multiple access patterns for Chrome built-in AI
-        // Note: window doesn't exist in service workers, only use globalThis/self/chrome
+        // Chrome Built-in AI (Gemini Nano) access patterns
+        // The API location varies by Chrome version and context
         try {
-            if (typeof globalThis !== 'undefined' && (globalThis as any).ai) {
-                return (globalThis as any).ai;
-            }
-            if (typeof self !== 'undefined' && (self as any).ai) {
+            // Chrome 128+: self.ai in service workers
+            if (typeof self !== 'undefined' && (self as any).ai?.languageModel) {
                 return (self as any).ai;
             }
-            if (typeof chrome !== 'undefined' && (chrome as any).ai) {
-                return (chrome as any).ai;
+            // Alternative: globalThis.ai
+            if (typeof globalThis !== 'undefined' && (globalThis as any).ai?.languageModel) {
+                return (globalThis as any).ai;
+            }
+            // Chrome extension specific: chrome.aiOriginTrial or chrome.ai
+            if (typeof chrome !== 'undefined') {
+                if ((chrome as any).aiOriginTrial?.languageModel) {
+                    return (chrome as any).aiOriginTrial;
+                }
+                if ((chrome as any).ai?.languageModel) {
+                    return (chrome as any).ai;
+                }
             }
             return null;
-        } catch {
+        } catch (e) {
+            console.log('Nano detection error:', e);
             return null;
         }
     }
 
     async checkNanoAvailability(): Promise<NanoStatus> {
         try {
+            // Debug: Check what's available
+            const hasGlobalAi = typeof globalThis !== 'undefined' && !!(globalThis as any).ai;
+            const hasSelfAi = typeof self !== 'undefined' && !!(self as any).ai;
+            const hasChromeAi = typeof chrome !== 'undefined' && !!(chrome as any).ai;
+
             const ai = this.getAIApi();
 
             if (!ai) {
+                // Provide detailed info about why it's not available
+                let details = 'Gemini Nano not detected. ';
+                if (!hasGlobalAi && !hasSelfAi && !hasChromeAi) {
+                    details += 'Chrome 128+ required with flags enabled. ';
+                }
+                details += 'Using cloud AI instead.';
+
                 this.nanoStatus = {
                     available: false,
                     status: 'not_available',
-                    message: 'Gemini Nano requires Chrome 127+ with flags enabled. This is optional - cloud AI works fine.'
+                    message: details
                 };
                 return this.nanoStatus;
             }
@@ -102,7 +123,7 @@ class AIService {
                 this.nanoStatus = {
                     available: false,
                     status: 'not_available',
-                    message: 'Language Model API not available. Enable chrome://flags/#prompt-api-for-gemini-nano'
+                    message: 'Language Model API found but not ready. Enable chrome://flags/#prompt-api-for-gemini-nano'
                 };
                 return this.nanoStatus;
             }
@@ -113,7 +134,7 @@ class AIService {
                 this.nanoStatus = {
                     available: false,
                     status: 'not_available',
-                    message: 'Gemini Nano not available on this device. Check chrome://flags settings.'
+                    message: 'Nano model not available. Ensure both Chrome flags are enabled and Chrome is relaunched.'
                 };
                 return this.nanoStatus;
             }
@@ -122,7 +143,7 @@ class AIService {
                 this.nanoStatus = {
                     available: false,
                     status: 'downloading',
-                    message: 'Gemini Nano is downloading. This may take a few minutes. Try again soon.'
+                    message: 'Downloading Gemini Nano model (~1.7GB). Check chrome://components for progress.'
                 };
                 // Trigger the download
                 try {
@@ -137,7 +158,7 @@ class AIService {
                 this.nanoStatus = {
                     available: true,
                     status: 'ready',
-                    message: 'Gemini Nano is ready to use!'
+                    message: 'Gemini Nano ready - local AI enabled!'
                 };
                 return this.nanoStatus;
             }
@@ -145,14 +166,14 @@ class AIService {
             this.nanoStatus = {
                 available: false,
                 status: 'not_available',
-                message: `Unknown status: ${capabilities.available}`
+                message: `Status: ${capabilities.available}. Try relaunching Chrome.`
             };
             return this.nanoStatus;
         } catch (err: any) {
             this.nanoStatus = {
                 available: false,
                 status: 'error',
-                message: `Error checking Nano: ${err.message}`
+                message: `Detection error: ${err.message}`
             };
             return this.nanoStatus;
         }
