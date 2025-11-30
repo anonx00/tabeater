@@ -5,7 +5,7 @@ const functions = require('@google-cloud/functions-framework');
 const db = new Firestore();
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
-const PRICE_CENTS = 999;
+const PRICE_CENTS = 600; // 6.00 AUD
 const TRIAL_DAYS = 7;
 const FREE_DAILY_LIMIT = 20;
 
@@ -199,7 +199,7 @@ async function handleCheckout(req, res) {
         payment_method_types: ['card'],
         line_items: [{
             price_data: {
-                currency: 'usd',
+                currency: 'aud',
                 product_data: {
                     name: 'PHANTOM TABS Pro',
                     description: 'Lifetime access - One-time payment'
