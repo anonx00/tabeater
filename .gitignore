@@ -5,3 +5,5 @@ dist
 *.local
 .env
 .env.*
+store-assets.zip
+phantom-tabs.zip
