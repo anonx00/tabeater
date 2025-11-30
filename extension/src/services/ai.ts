@@ -68,11 +68,21 @@ class AIService {
 
     private getAIApi(): any {
         // Try multiple access patterns for Chrome built-in AI
-        // Different Chrome versions expose the API differently
-        return (globalThis as any).ai
-            || (self as any).ai
-            || (chrome as any).ai
-            || (window as any)?.ai;
+        // Note: window doesn't exist in service workers, only use globalThis/self/chrome
+        try {
+            if (typeof globalThis !== 'undefined' && (globalThis as any).ai) {
+                return (globalThis as any).ai;
+            }
+            if (typeof self !== 'undefined' && (self as any).ai) {
+                return (self as any).ai;
+            }
+            if (typeof chrome !== 'undefined' && (chrome as any).ai) {
+                return (chrome as any).ai;
+            }
+            return null;
+        } catch {
+            return null;
+        }
     }
 
     async checkNanoAvailability(): Promise<NanoStatus> {
