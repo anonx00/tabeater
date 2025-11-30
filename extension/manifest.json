@@ -10,7 +10,9 @@
         "sidePanel",
         "scripting",
         "activeTab",
-        "system.memory",
+        "system.memory"
+    ],
+    "optional_permissions": [
         "processes"
     ],
     "background": {
