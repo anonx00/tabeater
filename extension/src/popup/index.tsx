@@ -28,6 +28,8 @@ const Popup = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [provider, setProvider] = useState<string>('none');
     const [license, setLicense] = useState<LicenseStatus | null>(null);
+    const [email, setEmail] = useState('');
+    const [checkoutLoading, setCheckoutLoading] = useState(false);
 
     useEffect(() => {
         loadTabs();
@@ -112,10 +114,15 @@ const Popup = () => {
     };
 
     const handleUpgrade = async () => {
-        const response = await sendMessage('getCheckoutUrl');
+        if (!email.trim() || !email.includes('@')) {
+            return;
+        }
+        setCheckoutLoading(true);
+        const response = await sendMessage('getCheckoutUrl', { email: email.trim() });
         if (response.success) {
             chrome.tabs.create({ url: response.data.url });
         }
+        setCheckoutLoading(false);
     };
 
     const filteredTabs = searchQuery
@@ -147,7 +154,7 @@ const Popup = () => {
                 <div style={styles.headerRow}>
                     <h1 style={styles.title}>PHANTOM TABS</h1>
                     {license && !license.paid && (
-                        <button style={styles.upgradeBtn} onClick={handleUpgrade}>
+                        <button style={styles.upgradeBtn} onClick={() => setView('upgrade')}>
                             Upgrade
                         </button>
                     )}
@@ -253,11 +260,30 @@ const Popup = () => {
                             <li>Unlimited AI queries</li>
                             <li>All current features</li>
                             <li>Future updates included</li>
-                            <li>Priority support</li>
                         </ul>
-                        <button style={styles.upgradeBtnLarge} onClick={handleUpgrade}>
-                            Upgrade Now
+
+                        <input
+                            type="email"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            placeholder="Enter your email"
+                            style={styles.emailInput}
+                        />
+                        <div style={styles.emailHint}>
+                            Your activation code will be sent here
+                        </div>
+
+                        <button
+                            style={styles.upgradeBtnLarge}
+                            onClick={handleUpgrade}
+                            disabled={checkoutLoading || !email.includes('@')}
+                        >
+                            {checkoutLoading ? 'Loading...' : 'Pay with Card'}
                         </button>
+
+                        <div style={styles.alreadyPaid}>
+                            Already paid? Enter your code in Config
+                        </div>
                     </div>
                     <button style={styles.btnBack} onClick={() => setView('tabs')}>
                         Back to Tabs
@@ -478,7 +504,25 @@ const styles: { [key: string]: React.CSSProperties } = {
         textAlign: 'left',
         listStyle: 'none',
         padding: 0,
-        margin: '0 0 20px 0',
+        margin: '0 0 16px 0',
+        fontSize: 13,
+    },
+    emailInput: {
+        width: '100%',
+        padding: '12px',
+        background: '#0a0a0a',
+        border: '1px solid #444',
+        borderRadius: 6,
+        color: '#fff',
+        fontSize: 14,
+        textAlign: 'center',
+        boxSizing: 'border-box',
+    },
+    emailHint: {
+        fontSize: 11,
+        color: '#666',
+        marginTop: 6,
+        marginBottom: 16,
     },
     upgradeBtnLarge: {
         width: '100%',
@@ -490,6 +534,11 @@ const styles: { [key: string]: React.CSSProperties } = {
         fontSize: 16,
         fontWeight: 700,
         cursor: 'pointer',
+    },
+    alreadyPaid: {
+        fontSize: 11,
+        color: '#666',
+        marginTop: 12,
     },
 };
 

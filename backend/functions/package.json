@@ -1,16 +1,17 @@
 {
-  "name": "phantom-tabs-backend",
+  "name": "phantom-tabs-api",
   "version": "1.0.0",
   "main": "index.js",
   "engines": {
-    "node": "18"
+    "node": "20"
   },
   "scripts": {
-    "deploy": "gcloud functions deploy api --runtime nodejs18 --trigger-http --allow-unauthenticated"
+    "start": "functions-framework --target=api",
+    "deploy": "gcloud functions deploy api --gen2 --runtime=nodejs20 --trigger-http --allow-unauthenticated --region=us-central1 --set-env-vars STRIPE_SECRET_KEY=$STRIPE_SECRET_KEY,STRIPE_WEBHOOK_SECRET=$STRIPE_WEBHOOK_SECRET,SENDGRID_API_KEY=$SENDGRID_API_KEY,FROM_EMAIL=$FROM_EMAIL"
   },
   "dependencies": {
     "@google-cloud/firestore": "^7.1.0",
-    "cors": "^2.8.5",
+    "@google-cloud/functions-framework": "^3.3.0",
     "stripe": "^14.0.0"
   }
 }

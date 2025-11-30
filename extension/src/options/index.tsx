@@ -3,6 +3,14 @@ import { createRoot } from 'react-dom/client';
 
 type CloudProvider = 'gemini' | 'openai' | 'anthropic';
 
+interface LicenseStatus {
+    status: 'trial' | 'pro' | 'expired' | 'none';
+    paid: boolean;
+    usageRemaining: number;
+    trialEndDate?: string;
+    canUse: boolean;
+}
+
 const PROVIDER_INFO = {
     gemini: {
         name: 'Google Gemini',
@@ -35,9 +43,14 @@ const Options = () => {
     const [saved, setSaved] = useState(false);
     const [testing, setTesting] = useState(false);
     const [testResult, setTestResult] = useState<string | null>(null);
+    const [license, setLicense] = useState<LicenseStatus | null>(null);
+    const [activationCode, setActivationCode] = useState('');
+    const [activating, setActivating] = useState(false);
+    const [activationResult, setActivationResult] = useState<{ success: boolean; message: string } | null>(null);
 
     useEffect(() => {
         loadConfig();
+        loadLicense();
     }, []);
 
     const loadConfig = async () => {
@@ -48,6 +61,13 @@ const Options = () => {
             setModel(stored.aiConfig.model || '');
         }
         checkProvider();
+    };
+
+    const loadLicense = async () => {
+        const response = await chrome.runtime.sendMessage({ action: 'getLicenseStatus', payload: { forceRefresh: true } });
+        if (response.success) {
+            setLicense(response.data);
+        }
     };
 
     const checkProvider = async () => {
@@ -94,6 +114,28 @@ const Options = () => {
         setTesting(false);
     };
 
+    const handleActivate = async () => {
+        if (!activationCode.trim()) return;
+
+        setActivating(true);
+        setActivationResult(null);
+
+        const response = await chrome.runtime.sendMessage({
+            action: 'activateCode',
+            payload: { code: activationCode.trim() }
+        });
+
+        if (response.success) {
+            setActivationResult({ success: true, message: 'Pro activated! Enjoy unlimited access.' });
+            setActivationCode('');
+            loadLicense();
+        } else {
+            setActivationResult({ success: false, message: response.error || 'Activation failed' });
+        }
+
+        setActivating(false);
+    };
+
     const getProviderColor = (p: string) => {
         if (p === 'nano') return '#00ff88';
         if (p === 'gemini') return '#4285f4';
@@ -110,14 +152,79 @@ const Options = () => {
         return 'Not Configured';
     };
 
+    const getLicenseDisplay = () => {
+        if (!license) return { text: 'Loading...', color: '#666' };
+        if (license.paid) return { text: 'PRO - Unlimited Access', color: '#00ff88' };
+        if (license.status === 'trial') {
+            const daysLeft = license.trialEndDate
+                ? Math.ceil((new Date(license.trialEndDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+                : 0;
+            return { text: `Free Trial - ${daysLeft} days left (${license.usageRemaining}/day remaining)`, color: '#ffaa00' };
+        }
+        if (license.status === 'expired') return { text: 'Trial Expired', color: '#ff4444' };
+        return { text: 'Not Registered', color: '#ff4444' };
+    };
+
+    const licenseDisplay = getLicenseDisplay();
+
     return (
         <div style={styles.container}>
             <header style={styles.header}>
                 <h1 style={styles.title}>PHANTOM TABS</h1>
-                <div style={styles.subtitle}>AI Configuration</div>
+                <div style={styles.subtitle}>Settings</div>
             </header>
 
             <main style={styles.main}>
+                <section style={styles.section}>
+                    <h2 style={styles.sectionTitle}>License Status</h2>
+                    <div style={styles.licenseCard}>
+                        <div style={styles.licenseStatus}>
+                            <span style={{ color: licenseDisplay.color, fontWeight: 600, fontSize: 16 }}>
+                                {licenseDisplay.text}
+                            </span>
+                        </div>
+
+                        {license && !license.paid && (
+                            <div style={styles.activationForm}>
+                                <p style={styles.activationHint}>
+                                    Have an activation code? Enter it below:
+                                </p>
+                                <div style={styles.activationRow}>
+                                    <input
+                                        type="text"
+                                        value={activationCode}
+                                        onChange={(e) => setActivationCode(e.target.value.toUpperCase())}
+                                        placeholder="PT-XXXXXXXX"
+                                        style={styles.activationInput}
+                                    />
+                                    <button
+                                        style={styles.activateBtn}
+                                        onClick={handleActivate}
+                                        disabled={activating || !activationCode.trim()}
+                                    >
+                                        {activating ? 'Activating...' : 'Activate'}
+                                    </button>
+                                </div>
+                                {activationResult && (
+                                    <div style={{
+                                        ...styles.activationResult,
+                                        background: activationResult.success ? '#0d2818' : '#2a1010',
+                                        borderColor: activationResult.success ? '#00ff88' : '#ff4444',
+                                    }}>
+                                        {activationResult.message}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {license?.paid && (
+                            <p style={styles.proMessage}>
+                                Thank you for your support! You have unlimited AI access.
+                            </p>
+                        )}
+                    </div>
+                </section>
+
                 <section style={styles.section}>
                     <h2 style={styles.sectionTitle}>Current AI Provider</h2>
                     <div style={styles.statusCard}>
@@ -300,6 +407,64 @@ const styles: { [key: string]: React.CSSProperties } = {
         fontWeight: 600,
         marginBottom: 12,
         color: '#fff',
+    },
+    licenseCard: {
+        background: 'linear-gradient(135deg, #1a1a2e, #16213e)',
+        padding: 20,
+        borderRadius: 12,
+        border: '1px solid #333',
+    },
+    licenseStatus: {
+        textAlign: 'center',
+        marginBottom: 16,
+    },
+    activationForm: {
+        borderTop: '1px solid #333',
+        paddingTop: 16,
+    },
+    activationHint: {
+        fontSize: 13,
+        color: '#888',
+        margin: '0 0 12px 0',
+    },
+    activationRow: {
+        display: 'flex',
+        gap: 10,
+    },
+    activationInput: {
+        flex: 1,
+        padding: '10px 14px',
+        background: '#0a0a0a',
+        border: '1px solid #444',
+        borderRadius: 6,
+        color: '#fff',
+        fontSize: 15,
+        fontFamily: 'monospace',
+        letterSpacing: 1,
+    },
+    activateBtn: {
+        padding: '10px 20px',
+        background: 'linear-gradient(135deg, #ffd700, #ff8c00)',
+        border: 'none',
+        borderRadius: 6,
+        color: '#000',
+        fontSize: 14,
+        fontWeight: 600,
+        cursor: 'pointer',
+    },
+    activationResult: {
+        marginTop: 12,
+        padding: 10,
+        borderRadius: 6,
+        border: '1px solid',
+        fontSize: 13,
+        textAlign: 'center',
+    },
+    proMessage: {
+        fontSize: 13,
+        color: '#00ff88',
+        textAlign: 'center',
+        margin: 0,
     },
     statusCard: {
         background: '#111',
