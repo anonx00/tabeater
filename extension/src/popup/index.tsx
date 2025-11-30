@@ -1,9 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
-import { colors, spacing, typography, borderRadius, transitions, shadows, faviconFallback, commonStyles } from '../shared/theme';
+import { colors, spacing, typography, borderRadius, transitions, shadows, faviconFallback, commonStyles, effects } from '../shared/theme';
 import { UndoToast } from '../ui/components/UndoToast';
 import { SkeletonLoader } from '../ui/components/SkeletonLoader';
 import { EmptyState } from '../ui/components/EmptyState';
+import { ScanlineOverlay } from '../ui/components/ScanlineOverlay';
+import { MicroLabel } from '../ui/components/MicroLabel';
+import { MemoryGauge } from '../ui/components/MemoryGauge';
+import { ScrambleText } from '../ui/components/ScrambleText';
 import { formatMarkdown, formatInsights } from '../shared/markdown';
 
 interface TabInfo {
@@ -281,9 +285,17 @@ const Popup = () => {
                             </svg>
                         </div>
                         <div>
-                            <div style={styles.title}>TabEater</div>
+                            <div style={styles.title}>
+                                <ScrambleText text="TabEater" speed={40} scrambleIterations={2} />
+                            </div>
                             <div style={styles.subtitle}>
-                                {tabs.length} tab{tabs.length !== 1 ? 's' : ''} {provider !== 'none' && `· ${getProviderDisplay()}`}
+                                <MicroLabel label="TABS" value={tabs.length} />
+                                {provider !== 'none' && (
+                                    <span style={{ margin: `0 ${spacing.xs}px`, color: colors.textDimmer }}>·</span>
+                                )}
+                                {provider !== 'none' && (
+                                    <MicroLabel label="AI" value={getProviderDisplay()} />
+                                )}
                             </div>
                         </div>
                     </div>
@@ -295,6 +307,15 @@ const Popup = () => {
                         {statusMessage}
                     </div>
                 )}
+
+                {/* Memory Gauge */}
+                <div style={styles.memoryBar}>
+                    <MemoryGauge
+                        currentMB={tabs.length * 75} // Estimate: ~75MB per tab
+                        maxMB={2048} // 2GB reference
+                        compact={true}
+                    />
+                </div>
             </header>
 
             {/* Actions */}
@@ -740,6 +761,9 @@ const Popup = () => {
                     </button>
                 </div>
             )}
+
+            {/* MGS Scanline Overlay */}
+            <ScanlineOverlay />
         </div>
     );
 };
@@ -757,7 +781,9 @@ const styles: { [key: string]: React.CSSProperties } = {
         overflow: 'hidden',
     },
     header: {
-        background: colors.bgCard,
+        background: 'rgba(33, 33, 33, 0.85)',
+        backdropFilter: effects.glassMedium,
+        WebkitBackdropFilter: effects.glassMedium,
         borderBottom: `2px solid ${colors.primary}`,
         boxShadow: `0 2px 0 ${colors.primary}, ${shadows.glow}`,
         flexShrink: 0,
@@ -798,6 +824,9 @@ const styles: { [key: string]: React.CSSProperties } = {
         fontSize: typography.sizeSm,
         color: colors.textDimmer,
         marginTop: 2,
+        display: 'flex',
+        alignItems: 'center',
+        gap: spacing.xs,
     },
     tagPro: {
         background: colors.primary,
@@ -829,6 +858,11 @@ const styles: { [key: string]: React.CSSProperties } = {
     statusIcon: {
         color: colors.warning,
         fontWeight: typography.bold,
+    },
+    memoryBar: {
+        background: 'rgba(0, 0, 0, 0.3)',
+        padding: `${spacing.sm}px ${spacing.md}px`,
+        borderTop: `1px solid ${colors.borderMedium}`,
     },
     actions: {
         display: 'flex',
