@@ -28,8 +28,6 @@ const Popup = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [provider, setProvider] = useState<string>('none');
     const [license, setLicense] = useState<LicenseStatus | null>(null);
-    const [email, setEmail] = useState('');
-    const [checkoutLoading, setCheckoutLoading] = useState(false);
 
     useEffect(() => {
         loadTabs();
@@ -57,7 +55,7 @@ const Popup = () => {
     };
 
     const checkLicense = async () => {
-        const response = await sendMessage('getLicenseStatus');
+        const response = await sendMessage('getLicenseStatus', { forceRefresh: true });
         if (response.success) {
             setLicense(response.data);
         }
@@ -105,6 +103,7 @@ const Popup = () => {
         } else {
             if (response.error?.startsWith('TRIAL_EXPIRED:') || response.error?.startsWith('LIMIT_REACHED:')) {
                 setView('upgrade');
+                setLoading(false);
                 return;
             }
             setAnalysis(response.error || 'Analysis failed');
@@ -114,15 +113,12 @@ const Popup = () => {
     };
 
     const handleUpgrade = async () => {
-        if (!email.trim() || !email.includes('@')) {
-            return;
-        }
-        setCheckoutLoading(true);
-        const response = await sendMessage('getCheckoutUrl', { email: email.trim() });
+        setLoading(true);
+        const response = await sendMessage('getCheckoutUrl');
         if (response.success) {
             chrome.tabs.create({ url: response.data.url });
         }
-        setCheckoutLoading(false);
+        setLoading(false);
     };
 
     const filteredTabs = searchQuery
@@ -262,28 +258,23 @@ const Popup = () => {
                             <li>Future updates included</li>
                         </ul>
 
-                        <input
-                            type="email"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            placeholder="Enter your email"
-                            style={styles.emailInput}
-                        />
-                        <div style={styles.emailHint}>
-                            Your activation code will be sent here
-                        </div>
-
                         <button
                             style={styles.upgradeBtnLarge}
                             onClick={handleUpgrade}
-                            disabled={checkoutLoading || !email.includes('@')}
+                            disabled={loading}
                         >
-                            {checkoutLoading ? 'Loading...' : 'Pay with Card'}
+                            {loading ? 'Loading...' : 'Pay Now'}
                         </button>
 
-                        <div style={styles.alreadyPaid}>
-                            Already paid? Enter your code in Config
+                        <div style={styles.paymentNote}>
+                            Secure payment via Stripe
                         </div>
+                        <div style={styles.refreshNote}>
+                            After payment, click here to refresh your status
+                        </div>
+                        <button style={styles.refreshBtn} onClick={checkLicense}>
+                            Refresh Status
+                        </button>
                     </div>
                     <button style={styles.btnBack} onClick={() => setView('tabs')}>
                         Back to Tabs
@@ -504,25 +495,8 @@ const styles: { [key: string]: React.CSSProperties } = {
         textAlign: 'left',
         listStyle: 'none',
         padding: 0,
-        margin: '0 0 16px 0',
+        margin: '0 0 20px 0',
         fontSize: 13,
-    },
-    emailInput: {
-        width: '100%',
-        padding: '12px',
-        background: '#0a0a0a',
-        border: '1px solid #444',
-        borderRadius: 6,
-        color: '#fff',
-        fontSize: 14,
-        textAlign: 'center',
-        boxSizing: 'border-box',
-    },
-    emailHint: {
-        fontSize: 11,
-        color: '#666',
-        marginTop: 6,
-        marginBottom: 16,
     },
     upgradeBtnLarge: {
         width: '100%',
@@ -535,10 +509,25 @@ const styles: { [key: string]: React.CSSProperties } = {
         fontWeight: 700,
         cursor: 'pointer',
     },
-    alreadyPaid: {
+    paymentNote: {
         fontSize: 11,
         color: '#666',
-        marginTop: 12,
+        marginTop: 8,
+    },
+    refreshNote: {
+        fontSize: 11,
+        color: '#888',
+        marginTop: 16,
+    },
+    refreshBtn: {
+        marginTop: 8,
+        padding: '6px 12px',
+        background: '#333',
+        border: 'none',
+        borderRadius: 4,
+        color: '#00ff88',
+        fontSize: 12,
+        cursor: 'pointer',
     },
 };
 

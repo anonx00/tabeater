@@ -30,8 +30,6 @@ functions.http('api', async (req, res) => {
                 return await handleUse(req, res);
             case 'checkout':
                 return await handleCheckout(req, res);
-            case 'activate':
-                return await handleActivate(req, res);
             case 'webhook':
                 return await handleWebhook(req, res);
             default:
@@ -69,9 +67,7 @@ async function handleRegister(req, res) {
         licenseKey,
         createdAt: now.toISOString(),
         trialEndDate: trialEnd.toISOString(),
-        paid: false,
-        activationCode: null,
-        email: null
+        paid: false
     });
 
     return res.json({ licenseKey });
@@ -166,10 +162,9 @@ async function handleUse(req, res) {
 
 async function handleCheckout(req, res) {
     const licenseKey = req.headers['x-license-key'];
-    const { email } = req.body;
 
-    if (!licenseKey || !email) {
-        return res.status(400).json({ error: 'License key and email required' });
+    if (!licenseKey) {
+        return res.status(400).json({ error: 'License key required' });
     }
 
     const doc = await db.collection('devices').doc(licenseKey).get();
@@ -177,8 +172,6 @@ async function handleCheckout(req, res) {
     if (!doc.exists) {
         return res.status(404).json({ error: 'License not found' });
     }
-
-    const functionUrl = process.env.FUNCTION_URL || `https://${process.env.GOOGLE_CLOUD_REGION || 'us-central1'}-${process.env.GOOGLE_CLOUD_PROJECT}.cloudfunctions.net/api`;
 
     const session = await stripe.checkout.sessions.create({
         payment_method_types: ['card'],
@@ -194,58 +187,14 @@ async function handleCheckout(req, res) {
             quantity: 1
         }],
         mode: 'payment',
-        customer_email: email,
         metadata: {
-            licenseKey,
-            email
+            licenseKey
         },
-        success_url: 'https://phantom-tabs.web.app/success?code={CHECKOUT_SESSION_ID}',
+        success_url: 'https://phantom-tabs.web.app/success',
         cancel_url: 'https://phantom-tabs.web.app/cancel'
     });
 
-    await db.collection('devices').doc(licenseKey).update({
-        email,
-        pendingSessionId: session.id
-    });
-
     return res.json({ url: session.url });
-}
-
-async function handleActivate(req, res) {
-    const licenseKey = req.headers['x-license-key'];
-    const { code } = req.body;
-
-    if (!licenseKey || !code) {
-        return res.status(400).json({ error: 'License key and activation code required' });
-    }
-
-    const cleanCode = code.trim().toUpperCase();
-
-    const codeDoc = await db.collection('activationCodes').doc(cleanCode).get();
-
-    if (!codeDoc.exists) {
-        return res.status(400).json({ error: 'Invalid activation code' });
-    }
-
-    const codeData = codeDoc.data();
-
-    if (codeData.used) {
-        return res.status(400).json({ error: 'Code already used' });
-    }
-
-    await db.collection('activationCodes').doc(cleanCode).update({
-        used: true,
-        usedBy: licenseKey,
-        usedAt: new Date().toISOString()
-    });
-
-    await db.collection('devices').doc(licenseKey).update({
-        paid: true,
-        activationCode: cleanCode,
-        activatedAt: new Date().toISOString()
-    });
-
-    return res.json({ success: true, message: 'Pro activated!' });
 }
 
 async function handleWebhook(req, res) {
@@ -265,86 +214,20 @@ async function handleWebhook(req, res) {
 
     if (event.type === 'checkout.session.completed') {
         const session = event.data.object;
-        const { licenseKey, email } = session.metadata;
+        const { licenseKey } = session.metadata;
 
-        if (licenseKey && email) {
-            const activationCode = generateActivationCode();
-
-            await db.collection('activationCodes').doc(activationCode).set({
-                licenseKey,
-                email,
-                createdAt: new Date().toISOString(),
-                sessionId: session.id,
-                used: false
-            });
-
+        if (licenseKey) {
             await db.collection('devices').doc(licenseKey).update({
-                purchasedAt: new Date().toISOString(),
-                purchaseEmail: email,
-                generatedCode: activationCode
+                paid: true,
+                paidAt: new Date().toISOString(),
+                stripeSessionId: session.id
             });
 
-            await sendActivationEmail(email, activationCode);
-
-            console.log(`Activation code ${activationCode} sent to ${email}`);
+            console.log(`License ${licenseKey} upgraded to Pro`);
         }
     }
 
     return res.json({ received: true });
-}
-
-async function sendActivationEmail(email, code) {
-    const sgApiKey = process.env.SENDGRID_API_KEY;
-
-    if (!sgApiKey) {
-        console.log('SendGrid not configured. Code:', code, 'Email:', email);
-        return;
-    }
-
-    const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${sgApiKey}`,
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            personalizations: [{
-                to: [{ email }]
-            }],
-            from: {
-                email: process.env.FROM_EMAIL || 'noreply@phantom-tabs.com',
-                name: 'PHANTOM TABS'
-            },
-            subject: 'Your PHANTOM TABS Activation Code',
-            content: [{
-                type: 'text/html',
-                value: `
-                    <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px;">
-                        <h1 style="color: #00ff88; text-align: center;">PHANTOM TABS</h1>
-                        <p>Thank you for your purchase!</p>
-                        <p>Your activation code is:</p>
-                        <div style="background: #1a1a1a; border: 2px solid #00ff88; border-radius: 8px; padding: 20px; text-align: center; margin: 20px 0;">
-                            <code style="font-size: 24px; color: #00ff88; letter-spacing: 2px;">${code}</code>
-                        </div>
-                        <p><strong>To activate:</strong></p>
-                        <ol>
-                            <li>Open the PHANTOM TABS extension</li>
-                            <li>Click the Config button</li>
-                            <li>Enter your activation code</li>
-                            <li>Click Activate</li>
-                        </ol>
-                        <p style="color: #666; font-size: 12px; margin-top: 30px;">
-                            This is a one-time code. Keep it safe - you can use it to reactivate if needed.
-                        </p>
-                    </div>
-                `
-            }]
-        })
-    });
-
-    if (!response.ok) {
-        console.error('Failed to send email:', await response.text());
-    }
 }
 
 function generateLicenseKey() {
@@ -358,13 +241,4 @@ function generateLicenseKey() {
         segments.push(segment);
     }
     return segments.join('-');
-}
-
-function generateActivationCode() {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    let code = 'PT-';
-    for (let i = 0; i < 8; i++) {
-        code += chars[Math.floor(Math.random() * chars.length)];
-    }
-    return code;
 }

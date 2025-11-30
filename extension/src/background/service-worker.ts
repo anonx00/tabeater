@@ -93,15 +93,8 @@ async function handleMessage(message: Message): Promise<MessageResponse> {
             return { success: true, data: status };
 
         case 'getCheckoutUrl':
-            const checkoutUrl = await licenseService.getCheckoutUrl(message.payload.email);
+            const checkoutUrl = await licenseService.getCheckoutUrl();
             return { success: true, data: { url: checkoutUrl } };
-
-        case 'activateCode':
-            const activateResult = await licenseService.activateCode(message.payload.code);
-            if (activateResult.success) {
-                return { success: true, data: { message: activateResult.message } };
-            }
-            return { success: false, error: activateResult.error };
 
         default:
             return { success: false, error: 'Unknown action' };

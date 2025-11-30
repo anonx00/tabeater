@@ -44,9 +44,6 @@ const Options = () => {
     const [testing, setTesting] = useState(false);
     const [testResult, setTestResult] = useState<string | null>(null);
     const [license, setLicense] = useState<LicenseStatus | null>(null);
-    const [activationCode, setActivationCode] = useState('');
-    const [activating, setActivating] = useState(false);
-    const [activationResult, setActivationResult] = useState<{ success: boolean; message: string } | null>(null);
 
     useEffect(() => {
         loadConfig();
@@ -114,28 +111,6 @@ const Options = () => {
         setTesting(false);
     };
 
-    const handleActivate = async () => {
-        if (!activationCode.trim()) return;
-
-        setActivating(true);
-        setActivationResult(null);
-
-        const response = await chrome.runtime.sendMessage({
-            action: 'activateCode',
-            payload: { code: activationCode.trim() }
-        });
-
-        if (response.success) {
-            setActivationResult({ success: true, message: 'Pro activated! Enjoy unlimited access.' });
-            setActivationCode('');
-            loadLicense();
-        } else {
-            setActivationResult({ success: false, message: response.error || 'Activation failed' });
-        }
-
-        setActivating(false);
-    };
-
     const getProviderColor = (p: string) => {
         if (p === 'nano') return '#00ff88';
         if (p === 'gemini') return '#4285f4';
@@ -183,43 +158,12 @@ const Options = () => {
                                 {licenseDisplay.text}
                             </span>
                         </div>
-
-                        {license && !license.paid && (
-                            <div style={styles.activationForm}>
-                                <p style={styles.activationHint}>
-                                    Have an activation code? Enter it below:
-                                </p>
-                                <div style={styles.activationRow}>
-                                    <input
-                                        type="text"
-                                        value={activationCode}
-                                        onChange={(e) => setActivationCode(e.target.value.toUpperCase())}
-                                        placeholder="PT-XXXXXXXX"
-                                        style={styles.activationInput}
-                                    />
-                                    <button
-                                        style={styles.activateBtn}
-                                        onClick={handleActivate}
-                                        disabled={activating || !activationCode.trim()}
-                                    >
-                                        {activating ? 'Activating...' : 'Activate'}
-                                    </button>
-                                </div>
-                                {activationResult && (
-                                    <div style={{
-                                        ...styles.activationResult,
-                                        background: activationResult.success ? '#0d2818' : '#2a1010',
-                                        borderColor: activationResult.success ? '#00ff88' : '#ff4444',
-                                    }}>
-                                        {activationResult.message}
-                                    </div>
-                                )}
-                            </div>
-                        )}
-
+                        <button style={styles.refreshBtn} onClick={loadLicense}>
+                            Refresh Status
+                        </button>
                         {license?.paid && (
                             <p style={styles.proMessage}>
-                                Thank you for your support! You have unlimited AI access.
+                                Thank you for your support!
                             </p>
                         )}
                     </div>
@@ -342,29 +286,6 @@ const Options = () => {
                         )}
                     </div>
                 </section>
-
-                <section style={styles.section}>
-                    <h2 style={styles.sectionTitle}>How It Works</h2>
-                    <div style={styles.diagram}>
-                        <div style={styles.flowStep}>
-                            <div style={styles.flowNum}>1</div>
-                            <div>Check Chrome Nano (local)</div>
-                        </div>
-                        <div style={styles.flowArrow}>|</div>
-                        <div style={styles.flowStep}>
-                            <div style={styles.flowNum}>2</div>
-                            <div>If unavailable, use Cloud API</div>
-                        </div>
-                        <div style={styles.flowArrow}>|</div>
-                        <div style={styles.flowStep}>
-                            <div style={styles.flowNum}>3</div>
-                            <div>Your API key calls the provider directly</div>
-                        </div>
-                    </div>
-                    <p style={styles.diagramNote}>
-                        No backend server needed - the extension calls APIs directly from your browser using your API key.
-                    </p>
-                </section>
             </main>
         </div>
     );
@@ -413,58 +334,24 @@ const styles: { [key: string]: React.CSSProperties } = {
         padding: 20,
         borderRadius: 12,
         border: '1px solid #333',
+        textAlign: 'center',
     },
     licenseStatus: {
-        textAlign: 'center',
-        marginBottom: 16,
+        marginBottom: 12,
     },
-    activationForm: {
-        borderTop: '1px solid #333',
-        paddingTop: 16,
-    },
-    activationHint: {
-        fontSize: 13,
-        color: '#888',
-        margin: '0 0 12px 0',
-    },
-    activationRow: {
-        display: 'flex',
-        gap: 10,
-    },
-    activationInput: {
-        flex: 1,
-        padding: '10px 14px',
-        background: '#0a0a0a',
-        border: '1px solid #444',
-        borderRadius: 6,
-        color: '#fff',
-        fontSize: 15,
-        fontFamily: 'monospace',
-        letterSpacing: 1,
-    },
-    activateBtn: {
-        padding: '10px 20px',
-        background: 'linear-gradient(135deg, #ffd700, #ff8c00)',
+    refreshBtn: {
+        padding: '8px 16px',
+        background: '#333',
         border: 'none',
-        borderRadius: 6,
-        color: '#000',
-        fontSize: 14,
-        fontWeight: 600,
+        borderRadius: 4,
+        color: '#00ff88',
+        fontSize: 12,
         cursor: 'pointer',
-    },
-    activationResult: {
-        marginTop: 12,
-        padding: 10,
-        borderRadius: 6,
-        border: '1px solid',
-        fontSize: 13,
-        textAlign: 'center',
     },
     proMessage: {
         fontSize: 13,
         color: '#00ff88',
-        textAlign: 'center',
-        margin: 0,
+        margin: '12px 0 0 0',
     },
     statusCard: {
         background: '#111',
@@ -595,48 +482,6 @@ const styles: { [key: string]: React.CSSProperties } = {
         borderRadius: 4,
         border: '1px solid',
         fontSize: 13,
-    },
-    diagram: {
-        background: '#111',
-        padding: 20,
-        borderRadius: 8,
-        border: '1px solid #222',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: 8,
-    },
-    flowStep: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: 12,
-        padding: '8px 16px',
-        background: '#1a1a1a',
-        borderRadius: 4,
-        fontSize: 13,
-    },
-    flowNum: {
-        width: 24,
-        height: 24,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: '#00ff88',
-        color: '#000',
-        borderRadius: '50%',
-        fontWeight: 600,
-        fontSize: 12,
-    },
-    flowArrow: {
-        color: '#444',
-        fontSize: 16,
-    },
-    diagramNote: {
-        fontSize: 12,
-        color: '#666',
-        textAlign: 'center',
-        marginTop: 12,
-        marginBottom: 0,
     },
 };
 

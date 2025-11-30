@@ -14,12 +14,6 @@ interface UseResponse {
     reason?: string;
 }
 
-interface ActivateResponse {
-    success: boolean;
-    message?: string;
-    error?: string;
-}
-
 class LicenseService {
     private licenseKey: string | null = null;
     private cachedStatus: LicenseStatus | null = null;
@@ -118,7 +112,7 @@ class LicenseService {
         return result;
     }
 
-    async getCheckoutUrl(email: string): Promise<string> {
+    async getCheckoutUrl(): Promise<string> {
         if (!this.licenseKey) {
             await this.initialize();
         }
@@ -128,8 +122,7 @@ class LicenseService {
             headers: {
                 'Content-Type': 'application/json',
                 'X-License-Key': this.licenseKey!
-            },
-            body: JSON.stringify({ email })
+            }
         });
 
         if (!response.ok) {
@@ -140,30 +133,9 @@ class LicenseService {
         return data.url;
     }
 
-    async activateCode(code: string): Promise<ActivateResponse> {
-        if (!this.licenseKey) {
-            await this.initialize();
-        }
-
-        const response = await fetch(`${API_BASE}/activate`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-License-Key': this.licenseKey!
-            },
-            body: JSON.stringify({ code })
-        });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-            return { success: false, error: data.error || 'Activation failed' };
-        }
-
+    clearCache(): void {
         this.cachedStatus = null;
         this.lastCheck = 0;
-
-        return { success: true, message: data.message };
     }
 
     getLicenseKey(): string | null {
@@ -176,4 +148,4 @@ class LicenseService {
 }
 
 export const licenseService = new LicenseService();
-export type { LicenseStatus, UseResponse, ActivateResponse };
+export type { LicenseStatus, UseResponse };
