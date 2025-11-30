@@ -330,7 +330,7 @@ const Popup = () => {
                             SUMMARY
                         </div>
                         <div style={styles.analysisCardContent}>
-                            <div style={styles.analysisItem}>{analysis.summary}</div>
+                            <div style={styles.analysisItem}>{formatMarkdown(analysis.summary)}</div>
                         </div>
                     </div>
                 )}
