@@ -201,12 +201,18 @@ Tabs (format: id|title|domain):
 ${tabList}
 
 Rules:
-- Group by PURPOSE not domain (e.g., Netflix and Stan = "Streaming", YouTube music and Spotify = "Music")
+- Group by PURPOSE and CONTEXT, not by domain
+- AI tools go together: ChatGPT, Claude, Grok, Gemini, Perplexity, Copilot = "AI"
+- Cloud consoles together: GCP, AWS, Azure, Vercel, Firebase = "Cloud"
+- Streaming services: Netflix, YouTube (non-music), Hulu, Disney+, anime sites = "Streaming"
+- Music: Spotify, YouTube Music, Apple Music = "Music"
+- Dev tools: GitHub, GitLab, localhost, docs, Stack Overflow = "Dev"
+- Social: Twitter/X, Facebook, Instagram, Reddit, LinkedIn = "Social"
+- Payment/Finance: Stripe, PayPal, bank sites, billing pages = "Finance"
 - Only create groups with 2+ tabs
-- Use short group names (1-2 words)
-- Common categories: Streaming, Social, Shopping, Work, Dev, News, Search, Email
+- Use short 1-word names: AI, Cloud, Dev, Social, Streaming, Music, Finance, News, Docs
 
-Return format (JSON array only):
+Return format (JSON array only, no explanation):
 [{"name":"GroupName","ids":[1,2,3]}]`
         );
 
