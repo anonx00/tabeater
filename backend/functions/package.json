@@ -1,0 +1,16 @@
+{
+  "name": "phantom-tabs-backend",
+  "version": "1.0.0",
+  "main": "index.js",
+  "engines": {
+    "node": "18"
+  },
+  "scripts": {
+    "deploy": "gcloud functions deploy api --runtime nodejs18 --trigger-http --allow-unauthenticated"
+  },
+  "dependencies": {
+    "@google-cloud/firestore": "^7.1.0",
+    "cors": "^2.8.5",
+    "stripe": "^14.0.0"
+  }
+}

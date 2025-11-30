@@ -1,5 +1,6 @@
 import { aiService } from '../services/ai';
 import { tabService, TabInfo } from '../services/tabs';
+import { licenseService } from '../services/license';
 
 interface Message {
     action: string;
@@ -13,11 +14,13 @@ interface MessageResponse {
 }
 
 chrome.runtime.onInstalled.addListener(async () => {
+    await licenseService.initialize();
     await aiService.initialize();
     await chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: false });
 });
 
 chrome.runtime.onStartup.addListener(async () => {
+    await licenseService.initialize();
     await aiService.initialize();
 });
 
@@ -84,6 +87,14 @@ async function handleMessage(message: Message): Promise<MessageResponse> {
         case 'askAI':
             const response = await aiService.prompt(message.payload.prompt);
             return { success: true, data: { response } };
+
+        case 'getLicenseStatus':
+            const status = await licenseService.getStatus(message.payload?.forceRefresh);
+            return { success: true, data: status };
+
+        case 'getCheckoutUrl':
+            const url = await licenseService.getCheckoutUrl();
+            return { success: true, data: { url } };
 
         default:
             return { success: false, error: 'Unknown action' };
