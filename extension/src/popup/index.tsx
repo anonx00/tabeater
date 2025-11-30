@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
 import { colors, spacing, typography, borderRadius, transitions, faviconFallback, commonStyles } from '../shared/theme';
+import { UndoToast } from '../ui/components/UndoToast';
+import { SkeletonLoader } from '../ui/components/SkeletonLoader';
+import { EmptyState } from '../ui/components/EmptyState';
 
 interface TabInfo {
     id: number;
@@ -63,7 +66,7 @@ const Popup = () => {
     const [duplicates, setDuplicates] = useState<TabInfo[][]>([]);
     const [view, setView] = useState<View>('tabs');
     const [loading, setLoading] = useState(false);
-    const [analysis, setAnalysis] = useState<string>('');
+    const [analysis, setAnalysis] = useState<any>(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [provider, setProvider] = useState<string>('none');
     const [license, setLicense] = useState<LicenseStatus | null>(null);
@@ -71,6 +74,8 @@ const Popup = () => {
     const [statusMessage, setStatusMessage] = useState<string>('');
     const [hoveredTab, setHoveredTab] = useState<number | null>(null);
     const [hoveredButton, setHoveredButton] = useState<string | null>(null);
+    const [undoAction, setUndoAction] = useState<{ message: string; action: () => void } | null>(null);
+    const [closedTabs, setClosedTabs] = useState<{ id: number; title: string; url: string; index: number }[]>([]);
 
     useEffect(() => {
         loadTabs();
@@ -98,9 +103,15 @@ const Popup = () => {
     }, [sendMessage]);
 
     const closeTab = useCallback(async (tabId: number) => {
-        await sendMessage('closeTab', { tabId });
-        loadTabs();
-    }, [sendMessage, loadTabs]);
+        // Optimistic UI update
+        const tabToClose = tabs.find(t => t.id === tabId);
+        if (tabToClose) {
+            setTabs(prev => prev.filter(t => t.id !== tabId));
+
+            // Perform actual close
+            await sendMessage('closeTab', { tabId });
+        }
+    }, [sendMessage, tabs]);
 
     const findDuplicates = useCallback(async () => {
         setView('duplicates');
@@ -109,12 +120,32 @@ const Popup = () => {
     }, [sendMessage]);
 
     const closeDuplicates = useCallback(async () => {
+        const tabsToClose: number[] = [];
         for (const group of duplicates) {
-            const tabsToClose = group.slice(1).map(t => t.id);
-            await sendMessage('closeTabs', { tabIds: tabsToClose });
+            tabsToClose.push(...group.slice(1).map(t => t.id));
         }
-        loadTabs();
-        findDuplicates();
+
+        // Optimistic UI update
+        setTabs(prev => prev.filter(t => !tabsToClose.includes(t.id)));
+
+        // Perform actual close
+        await sendMessage('closeTabs', { tabIds: tabsToClose });
+
+        // Show undo toast
+        setUndoAction({
+            message: `Closed ${tabsToClose.length} duplicate tabs`,
+            action: () => {
+                // Reload tabs to restore (they won't actually reopen, but UI will refresh)
+                loadTabs();
+                findDuplicates();
+            }
+        });
+
+        // Refresh after a moment
+        setTimeout(() => {
+            loadTabs();
+            findDuplicates();
+        }, 100);
     }, [duplicates, sendMessage, loadTabs, findDuplicates]);
 
     const showStatus = useCallback((message: string, duration = 3000) => {
@@ -141,22 +172,44 @@ const Popup = () => {
 
     const analyzeWithAI = useCallback(async () => {
         if (provider === 'none') {
-            setAnalysis('No AI provider configured.\n\nOpen Settings to set up an AI provider.');
+            setAnalysis({
+                summary: 'No AI provider configured. Open Settings to set up an AI provider.',
+                duplicates: [],
+                closeable: [],
+                groups: []
+            });
             setView('analyze');
             return;
         }
         setLoading(true);
         setView('analyze');
+        setAnalysis(null); // Clear previous analysis
         const response = await sendMessage('analyzeAllTabs');
         if (response.success) {
-            setAnalysis(response.data.analysis);
+            // Handle both structured and plain text responses
+            if (response.data.isStructured) {
+                setAnalysis(response.data.analysis);
+            } else {
+                // Fallback for old format
+                setAnalysis({
+                    summary: response.data.analysis || 'Analysis complete',
+                    duplicates: [],
+                    closeable: [],
+                    groups: []
+                });
+            }
         } else {
             if (response.error?.includes('TRIAL_EXPIRED') || response.error?.includes('LIMIT_REACHED')) {
                 setView('upgrade');
                 setLoading(false);
                 return;
             }
-            setAnalysis(response.error || 'Analysis failed');
+            setAnalysis({
+                summary: response.error || 'Analysis failed',
+                duplicates: [],
+                closeable: [],
+                groups: []
+            });
         }
         setLoading(false);
         checkLicense();
@@ -260,86 +313,85 @@ const Popup = () => {
         stats: { label: 'Stats', title: 'Analytics - View insights', icon: 'M18 20V10M12 20V4M6 20v-6' },
     };
 
-    // Parse AI analysis into structured cards
-    const parseAnalysis = (text: string) => {
-        if (!text) return null;
+    // Render structured analysis from JSON
+    const renderAnalysis = () => {
+        if (!analysis) return null;
 
-        const sections: { title: string; items: string[]; color: string; icon: string }[] = [];
-        const lines = text.split('\n').filter(l => l.trim());
+        return (
+            <>
+                {/* Summary */}
+                {analysis.summary && (
+                    <div style={{ ...styles.analysisCard, borderLeftColor: colors.primary }}>
+                        <div style={{ ...styles.analysisCardHeader, color: colors.primary }}>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                            </svg>
+                            SUMMARY
+                        </div>
+                        <div style={styles.analysisCardContent}>
+                            <div style={styles.analysisItem}>{analysis.summary}</div>
+                        </div>
+                    </div>
+                )}
 
-        let currentSection: { title: string; items: string[]; color: string; icon: string } | null = null;
+                {/* Duplicates */}
+                {analysis.duplicates && analysis.duplicates.length > 0 && (
+                    <div style={{ ...styles.analysisCard, borderLeftColor: colors.warning }}>
+                        <div style={{ ...styles.analysisCardHeader, color: colors.warning }}>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2" />
+                            </svg>
+                            DUPLICATES
+                        </div>
+                        <div style={styles.analysisCardContent}>
+                            {analysis.duplicates.map((dup: any, i: number) => (
+                                <div key={i} style={styles.analysisItem}>
+                                    {dup.title} ({dup.count} copies)
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
 
-        for (const line of lines) {
-            const trimmed = line.trim();
-            // Match section headers like "1. DUPLICATES:", "2. CLOSE:", etc.
-            const sectionMatch = trimmed.match(/^(\d+\.?\s*)?(DUPLICATES|CLOSE|GROUPS|WORK|AI|CLOUD|ENTERTAINMENT|PROJECT|DEV|SOCIAL|OTHER)[:\s]/i);
-            if (sectionMatch) {
-                if (currentSection) sections.push(currentSection);
-                const sectionName = sectionMatch[2].toUpperCase();
-                const sectionColors: Record<string, string> = {
-                    'DUPLICATES': colors.warning,
-                    'CLOSE': colors.error,
-                    'GROUPS': colors.info,
-                    'AI': colors.accent,
-                    'WORK': colors.primary,
-                    'CLOUD': colors.providerGemini,
-                    'DEV': colors.providerOpenai,
-                    'ENTERTAINMENT': colors.providerAnthropic,
-                    'PROJECT': colors.success,
-                    'SOCIAL': colors.info,
-                };
-                const sectionIcons: Record<string, string> = {
-                    'DUPLICATES': 'M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2',
-                    'CLOSE': 'M18 6 6 18M6 6l12 12',
-                    'GROUPS': 'M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z',
-                    'AI': 'M12 2a10 10 0 1010 10A10 10 0 0012 2zm0 18a8 8 0 118-8 8 8 0 01-8 8z',
-                    'WORK': 'M20 7h-4V4c0-1.1-.9-2-2-2h-4c-1.1 0-2 .9-2 2v3H4c-1.1 0-2 .9-2 2v11c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V9c0-1.1-.9-2-2-2z',
-                };
-                const content = trimmed.replace(sectionMatch[0], '').trim();
-                currentSection = {
-                    title: sectionName,
-                    items: content ? [content] : [],
-                    color: sectionColors[sectionName] || colors.textDim,
-                    icon: sectionIcons[sectionName] || 'M12 2v20M2 12h20',
-                };
-            } else if (currentSection) {
-                // Sub-items (lines starting with *, -, or bullet points)
-                const cleanItem = trimmed.replace(/^[-*•]\s*/, '').replace(/^\*\s*/, '');
-                if (cleanItem) currentSection.items.push(cleanItem);
-            } else if (!currentSection && trimmed) {
-                // First line without section - treat as general info
-                if (!sections.find(s => s.title === 'SUMMARY')) {
-                    currentSection = {
-                        title: 'SUMMARY',
-                        items: [trimmed],
-                        color: colors.primary,
-                        icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2',
-                    };
-                }
-            }
-        }
-        if (currentSection) sections.push(currentSection);
+                {/* Closeable */}
+                {analysis.closeable && analysis.closeable.length > 0 && (
+                    <div style={{ ...styles.analysisCard, borderLeftColor: colors.error }}>
+                        <div style={{ ...styles.analysisCardHeader, color: colors.error }}>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="M18 6 6 18M6 6l12 12" />
+                            </svg>
+                            SUGGESTED TO CLOSE
+                        </div>
+                        <div style={styles.analysisCardContent}>
+                            {analysis.closeable.map((item: any, i: number) => (
+                                <div key={i} style={styles.analysisItem}>
+                                    {item.title} - <span style={{ color: colors.textDimmer }}>{item.reason}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
 
-        if (sections.length === 0) {
-            // Fallback: show as plain text if parsing fails
-            return <pre style={styles.analysisText}>{text}</pre>;
-        }
-
-        return sections.map((section, idx) => (
-            <div key={idx} style={{ ...styles.analysisCard, borderLeftColor: section.color }}>
-                <div style={{ ...styles.analysisCardHeader, color: section.color }}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d={section.icon} />
-                    </svg>
-                    {section.title}
-                </div>
-                <div style={styles.analysisCardContent}>
-                    {section.items.map((item, i) => (
-                        <div key={i} style={styles.analysisItem}>{item}</div>
-                    ))}
-                </div>
-            </div>
-        ));
+                {/* Groups */}
+                {analysis.groups && analysis.groups.length > 0 && (
+                    <div style={{ ...styles.analysisCard, borderLeftColor: colors.info }}>
+                        <div style={{ ...styles.analysisCardHeader, color: colors.info }}>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z" />
+                            </svg>
+                            SUGGESTED GROUPS
+                        </div>
+                        <div style={styles.analysisCardContent}>
+                            {analysis.groups.map((group: any, i: number) => (
+                                <div key={i} style={styles.analysisItem}>
+                                    <strong>{group.name}:</strong> {group.tabs.join(', ')}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+            </>
+        );
     };
 
     return (
@@ -451,9 +503,10 @@ const Popup = () => {
             {view === 'tabs' && (
                 <div style={styles.tabList}>
                     {filteredTabs.length === 0 ? (
-                        <div style={styles.emptyState}>
-                            {searchQuery ? 'No matching tabs found' : 'No tabs open'}
-                        </div>
+                        <EmptyState
+                            type={searchQuery ? 'no-results' : 'no-tabs'}
+                            message={searchQuery ? 'No tabs match your search' : undefined}
+                        />
                     ) : (
                         filteredTabs.map(tab => (
                             <div
@@ -515,13 +568,7 @@ const Popup = () => {
                     </div>
                     <div style={styles.panelContent}>
                         {duplicates.length === 0 ? (
-                            <div style={styles.emptyStateIcon}>
-                                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke={colors.textDimmest} strokeWidth="1.5">
-                                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-                                    <polyline points="22 4 12 14.01 9 11.01" />
-                                </svg>
-                                <span>No duplicates found</span>
-                            </div>
+                            <EmptyState type="no-duplicates" />
                         ) : (
                             duplicates.map((group, i) => (
                                 <div key={i} style={styles.dupeItem}>
@@ -554,13 +601,10 @@ const Popup = () => {
                     <div style={styles.panelHeader}>AI Analysis</div>
                     <div style={styles.panelContent}>
                         {loading ? (
-                            <div style={styles.loadingContainer}>
-                                <div style={styles.loadingSpinner} />
-                                <span>Analyzing your tabs...</span>
-                            </div>
+                            <SkeletonLoader type="analysis" count={1} />
                         ) : (
                             <div style={styles.analysisCards}>
-                                {parseAnalysis(analysis)}
+                                {renderAnalysis()}
                             </div>
                         )}
                     </div>
@@ -571,6 +615,15 @@ const Popup = () => {
                         Back to tabs
                     </button>
                 </div>
+            )}
+
+            {/* Undo Toast */}
+            {undoAction && (
+                <UndoToast
+                    message={undoAction.message}
+                    onUndo={undoAction.action}
+                    onDismiss={() => setUndoAction(null)}
+                />
             )}
 
             {/* Auto Pilot View */}
@@ -646,13 +699,7 @@ const Popup = () => {
 
                                 {autoPilotReport.recommendations.closeSuggestions.length === 0 &&
                                     autoPilotReport.recommendations.groupSuggestions.length === 0 && (
-                                        <div style={styles.emptyStateIcon}>
-                                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke={colors.success} strokeWidth="1.5">
-                                                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-                                                <polyline points="22 4 12 14.01 9 11.01" />
-                                            </svg>
-                                            <span style={{ color: colors.success }}>All tabs optimized!</span>
-                                        </div>
+                                        <EmptyState type="all-optimized" />
                                     )}
                             </>
                         ) : null}
@@ -1492,32 +1539,80 @@ const styles: { [key: string]: React.CSSProperties } = {
     },
 };
 
-// Add keyframe animation for spinner
+// Add keyframe animation and enhanced styles
 const styleSheet = document.createElement('style');
 styleSheet.textContent = `
     @keyframes spin {
         from { transform: rotate(0deg); }
         to { transform: rotate(360deg); }
     }
+
+    /* Enhanced focus states for accessibility */
     input:focus {
         border-color: ${colors.primary} !important;
+        box-shadow: 0 0 0 3px ${colors.primaryBg};
     }
+
     button:focus-visible {
-        outline: 2px solid ${colors.primary};
+        outline: 3px solid ${colors.primary};
         outline-offset: 2px;
+        z-index: 1;
     }
+
+    /* Keyboard navigation support */
+    [role="button"]:focus-visible {
+        outline: 2px solid ${colors.primary};
+        outline-offset: 1px;
+        background: ${colors.bgCardHover};
+    }
+
+    /* Improved scrollbar styling */
     ::-webkit-scrollbar {
-        width: 6px;
+        width: 8px;
     }
+
     ::-webkit-scrollbar-track {
         background: transparent;
     }
+
     ::-webkit-scrollbar-thumb {
         background: ${colors.borderLight};
-        border-radius: 3px;
+        border-radius: 4px;
+        transition: background 0.2s ease;
     }
+
     ::-webkit-scrollbar-thumb:hover {
-        background: ${colors.textDimmest};
+        background: ${colors.borderMedium};
+    }
+
+    /* CSS-based hover states for better performance */
+    .tab-item-hover:hover {
+        background: ${colors.bgCard} !important;
+    }
+
+    .btn-hover:hover {
+        background: ${colors.borderMedium} !important;
+        color: ${colors.textSecondary} !important;
+        border-color: ${colors.textDim} !important;
+    }
+
+    .close-btn-hover:hover {
+        color: ${colors.error} !important;
+        background: ${colors.errorBg} !important;
+    }
+
+    /* Smooth transitions */
+    * {
+        transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+    }
+
+    /* Reduced motion for accessibility */
+    @media (prefers-reduced-motion: reduce) {
+        * {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.01ms !important;
+        }
     }
 `;
 document.head.appendChild(styleSheet);

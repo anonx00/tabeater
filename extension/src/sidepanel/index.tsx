@@ -36,8 +36,37 @@ const Sidepanel = () => {
 
     useEffect(() => {
         initializeAndLoad();
-        const interval = setInterval(loadData, 5000);
-        return () => clearInterval(interval);
+
+        // Event-driven updates instead of polling
+        const handleTabUpdated = () => {
+            loadData();
+        };
+
+        const handleTabCreated = () => {
+            loadData();
+        };
+
+        const handleTabRemoved = () => {
+            loadData();
+        };
+
+        const handleTabActivated = () => {
+            loadData();
+        };
+
+        // Listen to Chrome tab events
+        chrome.tabs.onUpdated.addListener(handleTabUpdated);
+        chrome.tabs.onCreated.addListener(handleTabCreated);
+        chrome.tabs.onRemoved.addListener(handleTabRemoved);
+        chrome.tabs.onActivated.addListener(handleTabActivated);
+
+        // Cleanup listeners on unmount
+        return () => {
+            chrome.tabs.onUpdated.removeListener(handleTabUpdated);
+            chrome.tabs.onCreated.removeListener(handleTabCreated);
+            chrome.tabs.onRemoved.removeListener(handleTabRemoved);
+            chrome.tabs.onActivated.removeListener(handleTabActivated);
+        };
     }, []);
 
     useEffect(() => {
@@ -80,8 +109,15 @@ const Sidepanel = () => {
     }, []);
 
     const closeTab = useCallback(async (tabId: number) => {
+        // Optimistic UI update
+        setTabs(prev => prev.filter(t => t.id !== tabId));
+        setGroups(prev => prev.map(g => ({
+            ...g,
+            tabs: g.tabs.filter(t => t.id !== tabId)
+        })).filter(g => g.tabs.length > 0));
+
+        // Perform actual close
         await sendMessage('closeTab', { tabId });
-        loadData();
     }, [sendMessage]);
 
     const toggleGroup = useCallback((groupId: string) => {
