@@ -1,126 +1,156 @@
 # Deployment Guide
 
-Simple step-by-step guide to deploy PHANTOM TABS.
+One-click deployment using Terraform.
 
-## How It Works
+## Prerequisites
 
-```
-User clicks "Pay Now" → Stripe Checkout → Payment completes
-                                              ↓
-         Webhook auto-activates license → User clicks "Refresh" → PRO!
-```
+1. **GCP Account** with billing enabled
+2. **Stripe Account** (free) - get keys from dashboard.stripe.com
 
-No email, no codes, no accounts. Just pay and go.
-
-## Step 1: Create GCP Project
-
-1. Go to [Google Cloud Console](https://console.cloud.google.com)
-2. Create new project named `phantom-tabs`
-3. Note your **Project ID**
-
-## Step 2: Enable APIs
-
-In GCP Console → "APIs & Services" → "Enable APIs":
-
-- Cloud Functions API
-- Cloud Firestore API
-- Cloud Build API
-
-## Step 3: Create Firestore Database
-
-1. Go to "Firestore" in console
-2. Click "Create Database"
-3. Select "Native mode"
-4. Choose region: `us-central1`
-
-## Step 4: Set Up Stripe
-
-1. Create account at [stripe.com](https://stripe.com)
-2. Go to Developers → API keys
-3. Copy your **Secret key** (`sk_test_...` or `sk_live_...`)
-
-## Step 5: Install gcloud CLI
+Install required tools:
 
 ```bash
 # macOS
-brew install google-cloud-sdk
+brew install google-cloud-sdk terraform
 
 # Linux
-curl https://sdk.cloud.google.com | bash
-
-# Then login
-gcloud init
-gcloud auth login
-gcloud config set project YOUR_PROJECT_ID
+# gcloud: https://cloud.google.com/sdk/docs/install
+# terraform: https://developer.hashicorp.com/terraform/downloads
 ```
 
-## Step 6: Deploy Backend
+## Quick Deploy (One Command)
 
 ```bash
-cd backend/functions
-npm install
+./deploy.sh YOUR_PROJECT_ID sk_test_xxxxx
+```
 
-# Deploy with your Stripe key
+That's it! The script will:
+- Enable required GCP APIs
+- Create Firestore database
+- Create service account with minimal permissions
+- Deploy Cloud Function
+- Update extension config
+
+## What Gets Created
+
+| Resource | Purpose | Cost |
+|----------|---------|------|
+| Cloud Function (Gen2) | API server | Free tier: 2M invocations/month |
+| Firestore | License storage | Free tier: 50K reads/day |
+| Service Account | Single SA for everything | Free |
+| Cloud Storage | Function source | ~$0.01/month |
+
+**Estimated cost: $0-5/month** for small user base.
+
+## After Deployment
+
+### 1. Configure Stripe Webhook
+
+The deploy script outputs your webhook URL. Go to Stripe Dashboard:
+
+1. Developers → Webhooks → Add endpoint
+2. URL: `https://YOUR_REGION-YOUR_PROJECT.cloudfunctions.net/api/webhook`
+3. Events: Select `checkout.session.completed`
+4. Copy the signing secret (`whsec_xxx`)
+
+### 2. Update Webhook Secret
+
+```bash
+cd terraform
+terraform apply \
+  -var="project_id=YOUR_PROJECT_ID" \
+  -var="stripe_secret_key=sk_test_xxx" \
+  -var="stripe_webhook_secret=whsec_xxx"
+```
+
+### 3. Disable Dev Mode
+
+Edit `extension/src/services/license.ts`:
+
+```typescript
+const DEV_MODE = false;  // Change from true to false
+```
+
+### 4. Build & Test
+
+```bash
+npm run build
+```
+
+Load `dist/` in Chrome as unpacked extension.
+
+### 5. Publish
+
+```bash
+cd dist && zip -r ../phantom-tabs.zip .
+```
+
+Upload to Chrome Web Store.
+
+## Manual Deployment (Without Terraform)
+
+If you prefer manual setup:
+
+```bash
+# 1. Set project
+gcloud config set project YOUR_PROJECT_ID
+
+# 2. Enable APIs
+gcloud services enable \
+  cloudfunctions.googleapis.com \
+  cloudbuild.googleapis.com \
+  firestore.googleapis.com \
+  run.googleapis.com
+
+# 3. Create Firestore
+gcloud firestore databases create --region=us-central1
+
+# 4. Deploy function
+cd backend/functions
 gcloud functions deploy api \
   --gen2 \
   --runtime=nodejs20 \
   --trigger-http \
   --allow-unauthenticated \
   --region=us-central1 \
-  --set-env-vars="STRIPE_SECRET_KEY=sk_live_xxxxx,STRIPE_WEBHOOK_SECRET=whsec_xxxxx"
+  --set-env-vars="STRIPE_SECRET_KEY=sk_xxx,STRIPE_WEBHOOK_SECRET=whsec_xxx"
 ```
 
-Your function URL: `https://us-central1-YOUR_PROJECT_ID.cloudfunctions.net/api`
+## Troubleshooting
 
-## Step 7: Configure Stripe Webhook
-
-1. In Stripe Dashboard → Developers → Webhooks
-2. Add endpoint: `https://us-central1-YOUR_PROJECT_ID.cloudfunctions.net/api/webhook`
-3. Select event: `checkout.session.completed`
-4. Copy the signing secret (`whsec_...`)
-5. Update your function with the webhook secret
-
-## Step 8: Update Extension
-
-Edit `extension/src/services/license.ts` line 1:
-
-```typescript
-const API_BASE = 'https://us-central1-YOUR_PROJECT_ID.cloudfunctions.net/api';
+**Deploy fails with permission error:**
+```bash
+gcloud auth application-default login
 ```
 
-## Step 9: Build & Test
+**Function not responding:**
+```bash
+gcloud functions logs read api --region=us-central1
+```
+
+**Webhook not working:**
+- Check Stripe webhook logs in dashboard
+- Verify webhook secret is set correctly
+- Test with Stripe CLI: `stripe trigger checkout.session.completed`
+
+## Security
+
+- Single service account with minimal permissions (Firestore + Logging only)
+- No secrets in code - all via environment variables
+- License bound to device ID - can't share keys
+- Stripe handles all payment data
+
+## Updating
+
+To update the function after code changes:
+
+```bash
+cd terraform
+terraform apply -var="project_id=xxx" -var="stripe_secret_key=xxx" -var="stripe_webhook_secret=xxx"
+```
+
+Or rebuild extension only:
 
 ```bash
 npm run build
 ```
-
-Load `dist/` folder in Chrome → Test payment flow.
-
-## Step 10: Publish
-
-```bash
-cd dist && zip -r ../phantom-tabs.zip .
-```
-
-Upload to [Chrome Web Store Developer Dashboard](https://chrome.google.com/webstore/devconsole).
-
-## Cost Estimate
-
-| Service | Free Tier |
-|---------|-----------|
-| Cloud Functions | 2M invocations/month |
-| Firestore | 50K reads/day, 20K writes/day |
-| Stripe | 2.9% + $0.30 per transaction |
-
-**~$0-5/month** for small user base.
-
-## Troubleshooting
-
-**Webhook not firing?**
-- Check Stripe webhook logs
-- Verify URL is correct
-- Check function logs: `gcloud functions logs read api`
-
-**Payment not activating?**
-- User should click "Refresh Status" after payment
-- Check Firestore for the license document
