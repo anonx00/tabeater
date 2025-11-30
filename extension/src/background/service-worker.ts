@@ -165,10 +165,4 @@ async function smartOrganize(): Promise<MessageResponse> {
     }
 }
 
-chrome.commands.onCommand.addListener(async (command) => {
-    if (command === 'smart-organize') {
-        await smartOrganize();
-    }
-});
-
 export {};
