@@ -257,8 +257,9 @@ async function handleVerifyPayment(req, res) {
 
     try {
         // Search for completed checkout sessions with this license key in metadata
+        // Search last 100 sessions to catch older payments if webhook failed
         const sessions = await stripe.checkout.sessions.list({
-            limit: 10,
+            limit: 100,
             expand: ['data.payment_intent']
         });
 

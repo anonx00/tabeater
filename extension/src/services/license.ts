@@ -124,9 +124,9 @@ class LicenseService {
         }
 
         try {
-            // If force refresh is requested and user is not paid, try to verify payment first
+            // If force refresh is requested and user is not paid (or status unknown), try to verify payment first
             // This handles cases where webhook failed but user completed payment
-            if (forceRefresh && this.cachedStatus && !this.cachedStatus.paid) {
+            if (forceRefresh && (!this.cachedStatus || !this.cachedStatus.paid)) {
                 await this.verifyPayment();
             }
 
