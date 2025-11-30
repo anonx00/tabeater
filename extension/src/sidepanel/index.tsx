@@ -1,7 +1,11 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
-import { colors, spacing, typography, borderRadius, transitions, faviconFallback } from '../shared/theme';
+import { colors, spacing, typography, borderRadius, transitions, faviconFallback, effects } from '../shared/theme';
 import { formatMarkdown } from '../shared/markdown';
+import { ScanlineOverlay } from '../ui/components/ScanlineOverlay';
+import { TypewriterText } from '../ui/components/TypewriterText';
+import { MicroLabel } from '../ui/components/MicroLabel';
+import { ScrambleText } from '../ui/components/ScrambleText';
 
 interface TabInfo {
     id: number;
@@ -206,7 +210,12 @@ const Sidepanel = () => {
             {/* Header */}
             <header style={styles.header}>
                 <div style={styles.headerTop}>
-                    <h1 style={styles.title}>TabEater</h1>
+                    <div>
+                        <h1 style={styles.title}>
+                            <ScrambleText text="TabEater" speed={40} scrambleIterations={2} />
+                        </h1>
+                        <MicroLabel label="ACTIVE" value={`${tabs.length} tabs`} />
+                    </div>
                     <div style={{ display: 'flex', gap: spacing.sm }}>
                         <button
                             style={styles.settingsBtn}
@@ -445,14 +454,30 @@ const Sidepanel = () => {
                                 : 'Select a quick action above or type your question...'}
                         </div>
                     )}
-                    {chatMessages.map((msg, i) => (
-                        <div
-                            key={i}
-                            style={msg.role === 'user' ? styles.userMessage : styles.assistantMessage}
-                        >
-                            {msg.role === 'assistant' ? formatMarkdown(msg.content) : msg.content}
-                        </div>
-                    ))}
+                    {chatMessages.map((msg, i) => {
+                        const isLastAssistantMessage = msg.role === 'assistant' &&
+                            i === chatMessages.length - 1 &&
+                            !loading;
+
+                        return (
+                            <div
+                                key={i}
+                                style={msg.role === 'user' ? styles.userMessage : styles.assistantMessage}
+                            >
+                                {msg.role === 'assistant' ? (
+                                    isLastAssistantMessage ? (
+                                        <TypewriterText text={msg.content} speed={20}>
+                                            {(text) => formatMarkdown(text)}
+                                        </TypewriterText>
+                                    ) : (
+                                        formatMarkdown(msg.content)
+                                    )
+                                ) : (
+                                    msg.content
+                                )}
+                            </div>
+                        );
+                    })}
                     {loading && (
                         <div style={styles.loadingMessage}>
                             <div style={styles.loadingDots}>
@@ -491,6 +516,9 @@ const Sidepanel = () => {
                     </button>
                 </div>
             </div>
+
+            {/* MGS Scanline Overlay */}
+            <ScanlineOverlay />
         </div>
     );
 };
@@ -508,7 +536,9 @@ const styles: { [key: string]: React.CSSProperties } = {
     header: {
         padding: spacing.lg,
         borderBottom: `1px solid ${colors.borderMedium}`,
-        background: colors.bgCard,
+        background: 'rgba(33, 33, 33, 0.85)',
+        backdropFilter: effects.glassLight,
+        WebkitBackdropFilter: effects.glassLight,
         flexShrink: 0,
     },
     headerTop: {
@@ -783,7 +813,9 @@ const styles: { [key: string]: React.CSSProperties } = {
         lineHeight: 1.5,
     },
     assistantMessage: {
-        background: colors.primaryBg,
+        background: 'rgba(95, 184, 120, 0.12)',
+        backdropFilter: effects.glassSubtle,
+        WebkitBackdropFilter: effects.glassSubtle,
         padding: `${spacing.sm}px ${spacing.md}px`,
         borderRadius: borderRadius.md,
         marginBottom: spacing.sm,

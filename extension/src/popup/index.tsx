@@ -1,9 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
-import { colors, spacing, typography, borderRadius, transitions, shadows, faviconFallback, commonStyles } from '../shared/theme';
+import { colors, spacing, typography, borderRadius, transitions, shadows, faviconFallback, commonStyles, effects } from '../shared/theme';
 import { UndoToast } from '../ui/components/UndoToast';
 import { SkeletonLoader } from '../ui/components/SkeletonLoader';
 import { EmptyState } from '../ui/components/EmptyState';
+import { ScanlineOverlay } from '../ui/components/ScanlineOverlay';
+import { MicroLabel } from '../ui/components/MicroLabel';
+import { MemoryGauge } from '../ui/components/MemoryGauge';
+import { ScrambleText } from '../ui/components/ScrambleText';
 import { formatMarkdown, formatInsights } from '../shared/markdown';
 
 interface TabInfo {
@@ -60,14 +64,13 @@ interface AutoPilotReport {
     aiInsights?: string;
 }
 
-type View = 'tabs' | 'analyze' | 'duplicates' | 'upgrade' | 'autopilot' | 'analytics';
+type View = 'tabs' | 'duplicates' | 'upgrade' | 'autopilot' | 'analytics';
 
 const Popup = () => {
     const [tabs, setTabs] = useState<TabInfo[]>([]);
     const [duplicates, setDuplicates] = useState<TabInfo[][]>([]);
     const [view, setView] = useState<View>('tabs');
     const [loading, setLoading] = useState(false);
-    const [analysis, setAnalysis] = useState<any>(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [provider, setProvider] = useState<string>('none');
     const [license, setLicense] = useState<LicenseStatus | null>(null);
@@ -171,50 +174,6 @@ const Popup = () => {
         setLoading(false);
     }, [provider, sendMessage, loadTabs, showStatus]);
 
-    const analyzeWithAI = useCallback(async () => {
-        if (provider === 'none') {
-            setAnalysis({
-                summary: 'No AI provider configured. Open Settings to set up an AI provider.',
-                duplicates: [],
-                closeable: [],
-                groups: []
-            });
-            setView('analyze');
-            return;
-        }
-        setLoading(true);
-        setView('analyze');
-        setAnalysis(null); // Clear previous analysis
-        const response = await sendMessage('analyzeAllTabs');
-        if (response.success) {
-            // Handle both structured and plain text responses
-            if (response.data.isStructured) {
-                setAnalysis(response.data.analysis);
-            } else {
-                // Fallback for old format
-                setAnalysis({
-                    summary: response.data.analysis || 'Analysis complete',
-                    duplicates: [],
-                    closeable: [],
-                    groups: []
-                });
-            }
-        } else {
-            if (response.error?.includes('TRIAL_EXPIRED') || response.error?.includes('LIMIT_REACHED')) {
-                setView('upgrade');
-                setLoading(false);
-                return;
-            }
-            setAnalysis({
-                summary: response.error || 'Analysis failed',
-                duplicates: [],
-                closeable: [],
-                groups: []
-            });
-        }
-        setLoading(false);
-        checkLicense();
-    }, [provider, sendMessage, checkLicense]);
 
     const handleUpgrade = useCallback(async () => {
         setLoading(true);
@@ -310,105 +269,7 @@ const Popup = () => {
     const buttonLabels: Record<string, { label: string; title: string; icon: string }> = {
         auto: { label: 'Pilot', title: 'Auto Pilot - AI-powered cleanup', icon: 'M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5' },
         group: { label: 'Group', title: 'Smart Group - Organize by purpose', icon: 'M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z' },
-        scan: { label: 'Scan', title: 'AI Scan - Analyze tabs', icon: 'M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z' },
         stats: { label: 'Stats', title: 'Analytics - View insights', icon: 'M18 20V10M12 20V4M6 20v-6' },
-    };
-
-    // Render structured analysis from JSON
-    const renderAnalysis = () => {
-        if (!analysis) return null;
-
-        return (
-            <>
-                {/* Summary */}
-                {analysis.summary && (
-                    <div style={{ ...styles.analysisCard, borderLeftColor: colors.primary }}>
-                        <div style={{ ...styles.analysisCardHeader, color: colors.primary }}>
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                            </svg>
-                            SUMMARY
-                        </div>
-                        <div style={styles.analysisCardContent}>
-                            <div style={styles.analysisItem}>{formatMarkdown(analysis.summary)}</div>
-                        </div>
-                    </div>
-                )}
-
-                {/* Duplicates */}
-                {analysis.duplicates && analysis.duplicates.length > 0 && (
-                    <div style={{ ...styles.analysisCard, borderLeftColor: colors.warning }}>
-                        <div style={{ ...styles.analysisCardHeader, color: colors.warning }}>
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2" />
-                            </svg>
-                            DUPLICATES
-                        </div>
-                        <div style={styles.analysisCardContent}>
-                            {analysis.duplicates.map((dup: any, i: number) => (
-                                <div key={i} style={styles.analysisItem}>
-                                    {dup.title} ({dup.count} copies)
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
-
-                {/* Closeable */}
-                {analysis.closeable && analysis.closeable.length > 0 && (
-                    <div style={{ ...styles.analysisCard, borderLeftColor: colors.error }}>
-                        <div style={{ ...styles.analysisCardHeader, color: colors.error }}>
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <path d="M18 6 6 18M6 6l12 12" />
-                            </svg>
-                            SUGGESTED TO CLOSE
-                        </div>
-                        <div style={styles.analysisCardContent}>
-                            {analysis.closeable.map((item: any, i: number) => (
-                                <div key={i} style={styles.analysisItem}>
-                                    {item.title} - <span style={{ color: colors.textDimmer }}>{item.reason}</span>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
-
-                {/* Groups */}
-                {analysis.groups && analysis.groups.length > 0 && (
-                    <div style={{ ...styles.analysisCard, borderLeftColor: colors.info }}>
-                        <div style={{ ...styles.analysisCardHeader, color: colors.info }}>
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z" />
-                            </svg>
-                            SUGGESTED GROUPS
-                        </div>
-                        <div style={styles.analysisCardContent}>
-                            {analysis.groups.map((group: any, i: number) => (
-                                <div key={i} style={styles.analysisItem}>
-                                    <strong>{group.name}:</strong> {group.tabs?.join(', ') || 'No tabs'}
-                                    {group.reason && <span style={{ color: colors.textDimmer, marginLeft: spacing.xs }}> • {group.reason}</span>}
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
-
-                {/* Insights */}
-                {analysis.insights && analysis.insights.length > 0 && (
-                    <div style={{ ...styles.analysisCard, borderLeftColor: colors.accent }}>
-                        <div style={{ ...styles.analysisCardHeader, color: colors.accent }}>
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <path d="M12 2v20M2 12h20M6 6l12 12M6 18L18 6" />
-                            </svg>
-                            AI INSIGHTS
-                        </div>
-                        <div style={styles.analysisCardContent}>
-                            {formatInsights(analysis.insights)}
-                        </div>
-                    </div>
-                )}
-            </>
-        );
     };
 
     return (
@@ -424,9 +285,17 @@ const Popup = () => {
                             </svg>
                         </div>
                         <div>
-                            <div style={styles.title}>TabEater</div>
+                            <div style={styles.title}>
+                                <ScrambleText text="TabEater" speed={40} scrambleIterations={2} />
+                            </div>
                             <div style={styles.subtitle}>
-                                {tabs.length} tab{tabs.length !== 1 ? 's' : ''} {provider !== 'none' && `· ${getProviderDisplay()}`}
+                                <MicroLabel label="TABS" value={tabs.length} />
+                                {provider !== 'none' && (
+                                    <span style={{ margin: `0 ${spacing.xs}px`, color: colors.textDimmer }}>·</span>
+                                )}
+                                {provider !== 'none' && (
+                                    <MicroLabel label="AI" value={getProviderDisplay()} />
+                                )}
                             </div>
                         </div>
                     </div>
@@ -438,6 +307,15 @@ const Popup = () => {
                         {statusMessage}
                     </div>
                 )}
+
+                {/* Memory Gauge */}
+                <div style={styles.memoryBar}>
+                    <MemoryGauge
+                        currentMB={tabs.length * 75} // Estimate: ~75MB per tab
+                        maxMB={2048} // 2GB reference
+                        compact={true}
+                    />
+                </div>
             </header>
 
             {/* Actions */}
@@ -454,7 +332,6 @@ const Popup = () => {
                         onClick={() => {
                             if (key === 'auto') runAutoPilot();
                             else if (key === 'group') smartOrganize();
-                            else if (key === 'scan') analyzeWithAI();
                             else if (key === 'stats') showAnalytics();
                         }}
                         onMouseEnter={() => setHoveredButton(key)}
@@ -603,28 +480,6 @@ const Popup = () => {
                                     </div>
                                 </div>
                             ))
-                        )}
-                    </div>
-                    <button style={styles.btnBack} onClick={() => setView('tabs')}>
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="m15 18-6-6 6-6" />
-                        </svg>
-                        Back to tabs
-                    </button>
-                </div>
-            )}
-
-            {/* Analysis View */}
-            {view === 'analyze' && (
-                <div style={styles.panel}>
-                    <div style={styles.panelHeader}>AI Analysis</div>
-                    <div style={styles.panelContent}>
-                        {loading ? (
-                            <SkeletonLoader type="analysis" count={1} />
-                        ) : (
-                            <div style={styles.analysisCards}>
-                                {renderAnalysis()}
-                            </div>
                         )}
                     </div>
                     <button style={styles.btnBack} onClick={() => setView('tabs')}>
@@ -906,6 +761,9 @@ const Popup = () => {
                     </button>
                 </div>
             )}
+
+            {/* MGS Scanline Overlay */}
+            <ScanlineOverlay />
         </div>
     );
 };
@@ -923,7 +781,9 @@ const styles: { [key: string]: React.CSSProperties } = {
         overflow: 'hidden',
     },
     header: {
-        background: colors.bgCard,
+        background: 'rgba(33, 33, 33, 0.85)',
+        backdropFilter: effects.glassMedium,
+        WebkitBackdropFilter: effects.glassMedium,
         borderBottom: `2px solid ${colors.primary}`,
         boxShadow: `0 2px 0 ${colors.primary}, ${shadows.glow}`,
         flexShrink: 0,
@@ -964,6 +824,9 @@ const styles: { [key: string]: React.CSSProperties } = {
         fontSize: typography.sizeSm,
         color: colors.textDimmer,
         marginTop: 2,
+        display: 'flex',
+        alignItems: 'center',
+        gap: spacing.xs,
     },
     tagPro: {
         background: colors.primary,
@@ -995,6 +858,11 @@ const styles: { [key: string]: React.CSSProperties } = {
     statusIcon: {
         color: colors.warning,
         fontWeight: typography.bold,
+    },
+    memoryBar: {
+        background: 'rgba(0, 0, 0, 0.3)',
+        padding: `${spacing.sm}px ${spacing.md}px`,
+        borderTop: `1px solid ${colors.borderMedium}`,
     },
     actions: {
         display: 'flex',

@@ -2,18 +2,18 @@
 // Centralized styling for consistent UI across all components
 
 export const colors = {
-    // Primary palette - Cyber security theme
-    primary: '#00ff88',
-    primaryLight: '#33ffaa',
-    primaryDark: '#00cc66',
-    primaryBg: 'rgba(0, 255, 136, 0.08)',
-    primaryGlow: '0 0 8px rgba(0, 255, 136, 0.4), 0 0 12px rgba(0, 255, 136, 0.2)',
+    // Primary palette - MGS phosphor green (desaturated)
+    primary: '#5fb878',
+    primaryLight: '#7fc790',
+    primaryDark: '#4a9d5f',
+    primaryBg: 'rgba(95, 184, 120, 0.08)',
+    primaryGlow: '0 0 8px rgba(95, 184, 120, 0.3), 0 0 12px rgba(95, 184, 120, 0.15)',
 
-    // Accent colors - Matrix green
-    accent: '#00ff41',
-    accentLight: '#66ff77',
-    accentBg: 'rgba(0, 255, 65, 0.08)',
-    accentGlow: '0 0 6px rgba(0, 255, 65, 0.3)',
+    // Accent colors - Warmer phosphor
+    accent: '#6bc96e',
+    accentLight: '#88d68a',
+    accentBg: 'rgba(107, 201, 110, 0.08)',
+    accentGlow: '0 0 6px rgba(107, 201, 110, 0.25)',
 
     // Background colors - softened for reduced eye strain
     bgDarkest: '#121212',
@@ -23,13 +23,13 @@ export const colors = {
     bgCardHover: '#2a2a2a',
     bgInput: '#1a1a1a',
 
-    // Border colors - cyber theme
+    // Border colors - MGS phosphor theme
     borderDark: '#1a1a1a',
     borderMedium: '#2a2a2a',
     borderLight: '#3a3a3a',
-    borderPrimary: '#00ff88',
-    borderAccent: '#00ff41',
-    borderCyber: 'rgba(0, 255, 136, 0.3)',
+    borderPrimary: '#5fb878',
+    borderAccent: '#6bc96e',
+    borderCyber: 'rgba(95, 184, 120, 0.3)',
 
     // Text colors
     textPrimary: '#ffffff',
@@ -117,15 +117,23 @@ export const shadows = {
     sm: '0 1px 2px rgba(0, 0, 0, 0.3)',
     md: '0 2px 4px rgba(0, 0, 0, 0.4)',
     lg: '0 4px 8px rgba(0, 0, 0, 0.5)',
-    glow: '0 0 10px rgba(0, 255, 136, 0.3), 0 0 20px rgba(0, 255, 136, 0.1)',
-    glowSm: '0 0 6px rgba(0, 255, 136, 0.2)',
-    glowAccent: '0 0 10px rgba(0, 255, 65, 0.3)',
+    glow: '0 0 10px rgba(95, 184, 120, 0.25), 0 0 20px rgba(95, 184, 120, 0.1)',
+    glowSm: '0 0 6px rgba(95, 184, 120, 0.2)',
+    glowAccent: '0 0 10px rgba(107, 201, 110, 0.25)',
 };
 
 export const transitions = {
     fast: '0.1s ease',
     normal: '0.2s ease',
     slow: '0.3s ease',
+};
+
+export const effects = {
+    // Frosted glass backdrop effects
+    glassLight: 'blur(8px) saturate(180%)',
+    glassMedium: 'blur(12px) saturate(180%)',
+    glassHeavy: 'blur(16px) saturate(180%)',
+    glassSubtle: 'blur(4px) saturate(150%)',
 };
 
 // Common button base styles
@@ -183,3 +191,66 @@ export const commonStyles = {
         justifyContent: 'space-between' as const,
     },
 };
+
+// CSS classes for corner brackets (to be injected into document)
+export const cornerBracketsCSS = `
+    .corner-brackets {
+        position: relative;
+    }
+
+    .corner-brackets::before,
+    .corner-brackets::after {
+        content: '';
+        position: absolute;
+        width: 10px;
+        height: 10px;
+        border-color: ${colors.primary};
+        border-style: solid;
+        border-width: 0;
+        pointer-events: none;
+    }
+
+    .corner-brackets::before {
+        top: 0;
+        left: 0;
+        border-top-width: 1.5px;
+        border-left-width: 1.5px;
+    }
+
+    .corner-brackets::after {
+        top: 0;
+        right: 0;
+        border-top-width: 1.5px;
+        border-right-width: 1.5px;
+    }
+
+    .corner-brackets-bottom::before {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        width: 10px;
+        height: 10px;
+        border-color: ${colors.primary};
+        border-style: solid;
+        border-width: 0;
+        border-bottom-width: 1.5px;
+        border-left-width: 1.5px;
+        pointer-events: none;
+    }
+
+    .corner-brackets-bottom::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        right: 0;
+        width: 10px;
+        height: 10px;
+        border-color: ${colors.primary};
+        border-style: solid;
+        border-width: 0;
+        border-bottom-width: 1.5px;
+        border-right-width: 1.5px;
+        pointer-events: none;
+    }
+`;

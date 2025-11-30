@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
 import { colors, spacing, typography, borderRadius, transitions } from '../shared/theme';
+import { ScanlineOverlay } from '../ui/components/ScanlineOverlay';
 
 type CloudProvider = 'gemini' | 'openai' | 'anthropic';
 
@@ -597,6 +598,9 @@ const Options = () => {
                 </section>
 
             </main>
+
+            {/* MGS Scanline Overlay */}
+            <ScanlineOverlay />
         </div>
     );
 };
