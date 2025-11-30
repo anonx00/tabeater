@@ -260,6 +260,88 @@ const Popup = () => {
         stats: { label: 'Stats', title: 'Analytics - View insights', icon: 'M18 20V10M12 20V4M6 20v-6' },
     };
 
+    // Parse AI analysis into structured cards
+    const parseAnalysis = (text: string) => {
+        if (!text) return null;
+
+        const sections: { title: string; items: string[]; color: string; icon: string }[] = [];
+        const lines = text.split('\n').filter(l => l.trim());
+
+        let currentSection: { title: string; items: string[]; color: string; icon: string } | null = null;
+
+        for (const line of lines) {
+            const trimmed = line.trim();
+            // Match section headers like "1. DUPLICATES:", "2. CLOSE:", etc.
+            const sectionMatch = trimmed.match(/^(\d+\.?\s*)?(DUPLICATES|CLOSE|GROUPS|WORK|AI|CLOUD|ENTERTAINMENT|PROJECT|DEV|SOCIAL|OTHER)[:\s]/i);
+            if (sectionMatch) {
+                if (currentSection) sections.push(currentSection);
+                const sectionName = sectionMatch[2].toUpperCase();
+                const sectionColors: Record<string, string> = {
+                    'DUPLICATES': colors.warning,
+                    'CLOSE': colors.error,
+                    'GROUPS': colors.info,
+                    'AI': colors.accent,
+                    'WORK': colors.primary,
+                    'CLOUD': colors.providerGemini,
+                    'DEV': colors.providerOpenai,
+                    'ENTERTAINMENT': colors.providerAnthropic,
+                    'PROJECT': colors.success,
+                    'SOCIAL': colors.info,
+                };
+                const sectionIcons: Record<string, string> = {
+                    'DUPLICATES': 'M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2',
+                    'CLOSE': 'M18 6 6 18M6 6l12 12',
+                    'GROUPS': 'M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z',
+                    'AI': 'M12 2a10 10 0 1010 10A10 10 0 0012 2zm0 18a8 8 0 118-8 8 8 0 01-8 8z',
+                    'WORK': 'M20 7h-4V4c0-1.1-.9-2-2-2h-4c-1.1 0-2 .9-2 2v3H4c-1.1 0-2 .9-2 2v11c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V9c0-1.1-.9-2-2-2z',
+                };
+                const content = trimmed.replace(sectionMatch[0], '').trim();
+                currentSection = {
+                    title: sectionName,
+                    items: content ? [content] : [],
+                    color: sectionColors[sectionName] || colors.textDim,
+                    icon: sectionIcons[sectionName] || 'M12 2v20M2 12h20',
+                };
+            } else if (currentSection) {
+                // Sub-items (lines starting with *, -, or bullet points)
+                const cleanItem = trimmed.replace(/^[-*•]\s*/, '').replace(/^\*\s*/, '');
+                if (cleanItem) currentSection.items.push(cleanItem);
+            } else if (!currentSection && trimmed) {
+                // First line without section - treat as general info
+                if (!sections.find(s => s.title === 'SUMMARY')) {
+                    currentSection = {
+                        title: 'SUMMARY',
+                        items: [trimmed],
+                        color: colors.primary,
+                        icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2',
+                    };
+                }
+            }
+        }
+        if (currentSection) sections.push(currentSection);
+
+        if (sections.length === 0) {
+            // Fallback: show as plain text if parsing fails
+            return <pre style={styles.analysisText}>{text}</pre>;
+        }
+
+        return sections.map((section, idx) => (
+            <div key={idx} style={{ ...styles.analysisCard, borderLeftColor: section.color }}>
+                <div style={{ ...styles.analysisCardHeader, color: section.color }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d={section.icon} />
+                    </svg>
+                    {section.title}
+                </div>
+                <div style={styles.analysisCardContent}>
+                    {section.items.map((item, i) => (
+                        <div key={i} style={styles.analysisItem}>{item}</div>
+                    ))}
+                </div>
+            </div>
+        ));
+    };
+
     return (
         <div style={styles.container}>
             {/* Header */}
@@ -477,7 +559,9 @@ const Popup = () => {
                                 <span>Analyzing your tabs...</span>
                             </div>
                         ) : (
-                            <pre style={styles.analysisText}>{analysis}</pre>
+                            <div style={styles.analysisCards}>
+                                {parseAnalysis(analysis)}
+                            </div>
                         )}
                     </div>
                     <button style={styles.btnBack} onClick={() => setView('tabs')}>
@@ -672,14 +756,22 @@ const Popup = () => {
                                 </div>
 
                                 {/* Stats Grid */}
-                                <div style={styles.statsRow}>
-                                    <div style={styles.stat}>
-                                        <div style={styles.statNum}>{autoPilotReport.analytics.avgTabAge}</div>
-                                        <div style={styles.statLabel}>Avg Age (days)</div>
+                                <div style={styles.statsGrid}>
+                                    <div style={styles.miniStat}>
+                                        <div style={styles.miniStatValue}>{tabs.length}</div>
+                                        <div style={styles.miniStatLabel}>Tabs</div>
                                     </div>
-                                    <div style={styles.stat}>
-                                        <div style={styles.statNum}>{autoPilotReport.analytics.oldestTabDays}</div>
-                                        <div style={styles.statLabel}>Oldest (days)</div>
+                                    <div style={styles.miniStat}>
+                                        <div style={styles.miniStatValue}>{autoPilotReport.analytics.avgTabAge}</div>
+                                        <div style={styles.miniStatLabel}>Avg Age</div>
+                                    </div>
+                                    <div style={styles.miniStat}>
+                                        <div style={styles.miniStatValue}>{autoPilotReport.analytics.oldestTabDays}</div>
+                                        <div style={styles.miniStatLabel}>Oldest</div>
+                                    </div>
+                                    <div style={styles.miniStat}>
+                                        <div style={styles.miniStatValue}>{autoPilotReport?.duplicateCount || 0}</div>
+                                        <div style={styles.miniStatLabel}>Dupes</div>
                                     </div>
                                 </div>
                             </>
@@ -1099,6 +1191,38 @@ const styles: { [key: string]: React.CSSProperties } = {
         borderRadius: borderRadius.sm,
         border: `1px solid ${colors.borderDark}`,
     },
+    analysisCards: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: spacing.sm,
+    },
+    analysisCard: {
+        background: colors.bgCard,
+        borderRadius: borderRadius.sm,
+        borderLeft: `3px solid ${colors.primary}`,
+        overflow: 'hidden',
+    },
+    analysisCardHeader: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: spacing.sm,
+        padding: `${spacing.sm}px ${spacing.md}px`,
+        fontSize: typography.sizeSm,
+        fontWeight: typography.bold,
+        letterSpacing: typography.letterNormal,
+        textTransform: 'uppercase',
+        background: 'rgba(0,0,0,0.2)',
+    },
+    analysisCardContent: {
+        padding: `${spacing.sm}px ${spacing.md}px`,
+    },
+    analysisItem: {
+        fontSize: typography.sizeMd,
+        color: colors.textMuted,
+        padding: `${spacing.xs}px 0`,
+        lineHeight: 1.4,
+        borderBottom: `1px solid ${colors.borderDark}`,
+    },
     statsRow: {
         display: 'flex',
         gap: spacing.sm,
@@ -1343,6 +1467,28 @@ const styles: { [key: string]: React.CSSProperties } = {
         color: colors.textDim,
         minWidth: 28,
         textAlign: 'right',
+    },
+    statsGrid: {
+        display: 'grid',
+        gridTemplateColumns: 'repeat(4, 1fr)',
+        gap: spacing.sm,
+        marginTop: spacing.md,
+    },
+    miniStat: {
+        background: colors.bgDarker,
+        padding: spacing.sm,
+        borderRadius: borderRadius.sm,
+        textAlign: 'center',
+    },
+    miniStatValue: {
+        fontSize: typography.sizeXl,
+        fontWeight: typography.bold,
+        color: colors.primary,
+    },
+    miniStatLabel: {
+        fontSize: typography.sizeXs,
+        color: colors.textDimmest,
+        marginTop: 2,
     },
 };
 
