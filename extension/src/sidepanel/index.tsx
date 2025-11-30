@@ -340,7 +340,7 @@ const Sidepanel = () => {
                                                     <span style={styles.tabTitle}>{tab.title || 'Untitled'}</span>
                                                     <button
                                                         style={{
-                                                            ...styles.closeBtn,
+                                                            ...styles.tabCloseBtn,
                                                             opacity: hoveredTab === tab.id ? 1 : 0,
                                                         }}
                                                         onClick={(e) => { e.stopPropagation(); closeTab(tab.id); }}
@@ -392,7 +392,7 @@ const Sidepanel = () => {
                                     </div>
                                     <button
                                         style={{
-                                            ...styles.closeBtn,
+                                            ...styles.tabCloseBtn,
                                             opacity: hoveredTab === tab.id ? 1 : 0,
                                         }}
                                         onClick={(e) => { e.stopPropagation(); closeTab(tab.id); }}
@@ -697,7 +697,7 @@ const styles: { [key: string]: React.CSSProperties } = {
         textOverflow: 'ellipsis',
         marginTop: 2,
     },
-    closeBtn: {
+    tabCloseBtn: {
         width: 22,
         height: 22,
         background: 'transparent',
