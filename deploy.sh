@@ -204,6 +204,17 @@ fi
 echo -e "${YELLOW}[2/8] Setting project...${NC}"
 gcloud config set project $PROJECT_ID 2>/dev/null
 
+echo -e "${YELLOW}[2.5/8] Enabling required GCP APIs...${NC}"
+echo "(This may take 1-2 minutes on first run...)"
+gcloud services enable cloudresourcemanager.googleapis.com --quiet 2>/dev/null || true
+gcloud services enable iam.googleapis.com --quiet 2>/dev/null || true
+gcloud services enable cloudfunctions.googleapis.com --quiet 2>/dev/null || true
+gcloud services enable cloudbuild.googleapis.com --quiet 2>/dev/null || true
+gcloud services enable run.googleapis.com --quiet 2>/dev/null || true
+gcloud services enable firestore.googleapis.com --quiet 2>/dev/null || true
+gcloud services enable artifactregistry.googleapis.com --quiet 2>/dev/null || true
+echo -e "${GREEN}APIs enabled${NC}"
+
 BILLING=$(gcloud billing projects describe $PROJECT_ID --format="value(billingEnabled)" 2>/dev/null || echo "false")
 if [ "$BILLING" != "True" ]; then
     echo ""
@@ -251,12 +262,16 @@ cd ..
 
 echo -e "${YELLOW}[7/8] Configuring extension for production...${NC}"
 
-if [[ "$OSTYPE" == "darwin"* ]]; then
-    sed -i '' "s|https://us-central1-YOUR_PROJECT_ID.cloudfunctions.net/api|$FUNCTION_URL|g" extension/src/services/license.ts
-    sed -i '' 's/const DEV_MODE = true;/const DEV_MODE = false;/g' extension/src/services/license.ts
+if [ -n "$FUNCTION_URL" ]; then
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        sed -i '' "s|https://us-central1-YOUR_PROJECT_ID.cloudfunctions.net/api|${FUNCTION_URL}|g" extension/src/services/license.ts
+        sed -i '' 's/const DEV_MODE = true;/const DEV_MODE = false;/g' extension/src/services/license.ts
+    else
+        sed -i "s|https://us-central1-YOUR_PROJECT_ID.cloudfunctions.net/api|${FUNCTION_URL}|g" extension/src/services/license.ts
+        sed -i 's/const DEV_MODE = true;/const DEV_MODE = false;/g' extension/src/services/license.ts
+    fi
 else
-    sed -i "s|https://us-central1-YOUR_PROJECT_ID.cloudfunctions.net/api|$FUNCTION_URL|g" extension/src/services/license.ts
-    sed -i 's/const DEV_MODE = true;/const DEV_MODE = false;/g' extension/src/services/license.ts
+    echo -e "${RED}Warning: Could not get function URL from Terraform${NC}"
 fi
 
 echo -e "${YELLOW}[8/8] Building extension...${NC}"
