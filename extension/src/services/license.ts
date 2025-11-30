@@ -1,6 +1,6 @@
-const API_BASE = 'https://us-central1-YOUR_PROJECT_ID.cloudfunctions.net/api';
+const API_BASE = 'https://api-5dab6ha67q-uc.a.run.app';
 
-const DEV_MODE = true;
+const DEV_MODE = false;
 
 interface LicenseStatus {
     status: 'trial' | 'pro' | 'expired' | 'none';

@@ -20,6 +20,7 @@ resource "google_project_service" "required_apis" {
     "firestore.googleapis.com",
     "run.googleapis.com",
     "artifactregistry.googleapis.com",
+    "secretmanager.googleapis.com",
   ])
 
   service            = each.value
@@ -42,6 +43,43 @@ resource "google_project_iam_member" "logging_writer" {
   project = var.project_id
   role    = "roles/logging.logWriter"
   member  = "serviceAccount:${google_service_account.phantom_tabs.email}"
+}
+
+resource "google_project_iam_member" "secret_accessor" {
+  project = var.project_id
+  role    = "roles/secretmanager.secretAccessor"
+  member  = "serviceAccount:${google_service_account.phantom_tabs.email}"
+}
+
+# Create secrets in Secret Manager
+resource "google_secret_manager_secret" "stripe_secret_key" {
+  secret_id = "stripe-secret-key"
+
+  replication {
+    auto {}
+  }
+
+  depends_on = [google_project_service.required_apis]
+}
+
+resource "google_secret_manager_secret_version" "stripe_secret_key" {
+  secret      = google_secret_manager_secret.stripe_secret_key.id
+  secret_data = var.stripe_secret_key
+}
+
+resource "google_secret_manager_secret" "stripe_webhook_secret" {
+  secret_id = "stripe-webhook-secret"
+
+  replication {
+    auto {}
+  }
+
+  depends_on = [google_project_service.required_apis]
+}
+
+resource "google_secret_manager_secret_version" "stripe_webhook_secret" {
+  secret      = google_secret_manager_secret.stripe_webhook_secret.id
+  secret_data = var.stripe_webhook_secret
 }
 
 resource "google_firestore_database" "default" {
@@ -103,9 +141,18 @@ resource "google_cloudfunctions2_function" "api" {
     timeout_seconds       = 60
     service_account_email = google_service_account.phantom_tabs.email
 
-    environment_variables = {
-      STRIPE_SECRET_KEY      = var.stripe_secret_key
-      STRIPE_WEBHOOK_SECRET  = var.stripe_webhook_secret
+    secret_environment_variables {
+      key        = "STRIPE_SECRET_KEY"
+      project_id = var.project_id
+      secret     = google_secret_manager_secret.stripe_secret_key.secret_id
+      version    = "latest"
+    }
+
+    secret_environment_variables {
+      key        = "STRIPE_WEBHOOK_SECRET"
+      project_id = var.project_id
+      secret     = google_secret_manager_secret.stripe_webhook_secret.secret_id
+      version    = "latest"
     }
   }
 
@@ -136,4 +183,21 @@ output "service_account_email" {
 output "webhook_url" {
   value       = "${google_cloudfunctions2_function.api.service_config[0].uri}/webhook"
   description = "The Stripe webhook URL"
+}
+
+output "secrets_info" {
+  value = <<-EOT
+
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  SECRETS STORED SECURELY IN GCP SECRET MANAGER
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  To view secrets (requires proper IAM permissions):
+
+  gcloud secrets versions access latest --secret="stripe-secret-key" --project="${var.project_id}"
+  gcloud secrets versions access latest --secret="stripe-webhook-secret" --project="${var.project_id}"
+
+  Secrets are encrypted at rest and only accessible by the service account.
+  EOT
+  description = "Information about secrets management"
 }
