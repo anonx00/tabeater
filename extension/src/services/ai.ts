@@ -3,12 +3,34 @@ type AISession = {
     destroy?: () => void;
 };
 
-type AIProvider = 'nano' | 'cloud' | 'none';
+type AIProvider = 'nano' | 'gemini' | 'openai' | 'anthropic' | 'none';
 
 interface AIConfig {
-    cloudApiKey?: string;
-    cloudEndpoint?: string;
+    cloudProvider?: 'gemini' | 'openai' | 'anthropic';
+    apiKey?: string;
+    model?: string;
 }
+
+const PROVIDER_CONFIGS = {
+    gemini: {
+        endpoint: 'https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent',
+        defaultModel: 'gemini-1.5-flash',
+        authHeader: (key: string) => ({ 'x-goog-api-key': key }),
+    },
+    openai: {
+        endpoint: 'https://api.openai.com/v1/chat/completions',
+        defaultModel: 'gpt-4o-mini',
+        authHeader: (key: string) => ({ 'Authorization': `Bearer ${key}` }),
+    },
+    anthropic: {
+        endpoint: 'https://api.anthropic.com/v1/messages',
+        defaultModel: 'claude-3-haiku-20240307',
+        authHeader: (key: string) => ({
+            'x-api-key': key,
+            'anthropic-version': '2023-06-01'
+        }),
+    }
+};
 
 class AIService {
     private session: AISession | null = null;
@@ -26,9 +48,9 @@ class AIService {
             return 'nano';
         }
 
-        if (this.config.cloudApiKey) {
-            this.provider = 'cloud';
-            return 'cloud';
+        if (this.config.apiKey && this.config.cloudProvider) {
+            this.provider = this.config.cloudProvider;
+            return this.config.cloudProvider;
         }
 
         this.provider = 'none';
@@ -64,7 +86,7 @@ class AIService {
             return await this.session.prompt(text);
         }
 
-        if (this.provider === 'cloud' && this.config.cloudApiKey) {
+        if (this.provider !== 'none' && this.config.apiKey) {
             return await this.cloudPrompt(text);
         }
 
@@ -72,16 +94,60 @@ class AIService {
     }
 
     private async cloudPrompt(text: string): Promise<string> {
-        const endpoint = this.config.cloudEndpoint || 'https://api.nano.ai/v1/chat';
+        const providerConfig = PROVIDER_CONFIGS[this.config.cloudProvider!];
+        const model = this.config.model || providerConfig.defaultModel;
+
+        if (this.config.cloudProvider === 'gemini') {
+            return this.callGemini(text, model);
+        } else if (this.config.cloudProvider === 'openai') {
+            return this.callOpenAI(text, model);
+        } else if (this.config.cloudProvider === 'anthropic') {
+            return this.callAnthropic(text, model);
+        }
+
+        throw new Error('Unknown provider');
+    }
+
+    private async callGemini(text: string, model: string): Promise<string> {
+        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
 
         const response = await fetch(endpoint, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${this.config.cloudApiKey}`
+                'x-goog-api-key': this.config.apiKey!
             },
             body: JSON.stringify({
-                model: 'nano',
+                contents: [{
+                    parts: [{
+                        text: `You are PHANTOM TABS, a tactical tab intelligence assistant. Provide concise, actionable insights.\n\n${text}`
+                    }]
+                }],
+                generationConfig: {
+                    maxOutputTokens: 500,
+                    temperature: 0.7
+                }
+            })
+        });
+
+        if (!response.ok) {
+            const error = await response.text();
+            throw new Error(`Gemini API error: ${response.status} - ${error}`);
+        }
+
+        const data = await response.json();
+        return data.candidates?.[0]?.content?.parts?.[0]?.text || 'No response';
+    }
+
+    private async callOpenAI(text: string, model: string): Promise<string> {
+        const response = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${this.config.apiKey}`
+            },
+            body: JSON.stringify({
+                model: model,
                 messages: [
                     {
                         role: 'system',
@@ -94,11 +160,39 @@ class AIService {
         });
 
         if (!response.ok) {
-            throw new Error(`Cloud API error: ${response.status}`);
+            const error = await response.text();
+            throw new Error(`OpenAI API error: ${response.status} - ${error}`);
         }
 
         const data = await response.json();
         return data.choices?.[0]?.message?.content || 'No response';
+    }
+
+    private async callAnthropic(text: string, model: string): Promise<string> {
+        const response = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-api-key': this.config.apiKey!,
+                'anthropic-version': '2023-06-01'
+            },
+            body: JSON.stringify({
+                model: model,
+                max_tokens: 500,
+                system: 'You are PHANTOM TABS, a tactical tab intelligence assistant. Provide concise, actionable insights.',
+                messages: [
+                    { role: 'user', content: text }
+                ]
+            })
+        });
+
+        if (!response.ok) {
+            const error = await response.text();
+            throw new Error(`Anthropic API error: ${response.status} - ${error}`);
+        }
+
+        const data = await response.json();
+        return data.content?.[0]?.text || 'No response';
     }
 
     async setConfig(config: AIConfig): Promise<void> {
@@ -109,6 +203,10 @@ class AIService {
 
     getProvider(): AIProvider {
         return this.provider;
+    }
+
+    getConfig(): AIConfig {
+        return this.config;
     }
 
     destroy(): void {
