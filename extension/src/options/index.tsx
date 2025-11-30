@@ -17,6 +17,14 @@ interface NanoStatus {
     message: string;
 }
 
+interface AutoPilotSettings {
+    staleDaysThreshold: number;
+    autoCloseStale: boolean;
+    autoGroupByCategory: boolean;
+    excludePinned: boolean;
+    excludeActive: boolean;
+}
+
 const PROVIDER_INFO = {
     gemini: {
         name: 'Google Gemini',
@@ -52,11 +60,20 @@ const Options = () => {
     const [license, setLicense] = useState<LicenseStatus | null>(null);
     const [nanoStatus, setNanoStatus] = useState<NanoStatus | null>(null);
     const [checkingNano, setCheckingNano] = useState(false);
+    const [autoPilotSettings, setAutoPilotSettings] = useState<AutoPilotSettings>({
+        staleDaysThreshold: 7,
+        autoCloseStale: false,
+        autoGroupByCategory: false,
+        excludePinned: true,
+        excludeActive: true,
+    });
+    const [autoPilotSaved, setAutoPilotSaved] = useState(false);
 
     useEffect(() => {
         loadConfig();
         loadLicense();
         checkNanoStatus();
+        loadAutoPilotSettings();
     }, []);
 
     const loadConfig = async () => {
@@ -105,6 +122,26 @@ const Options = () => {
             console.error('Failed to check Nano status:', err);
         }
         setCheckingNano(false);
+    };
+
+    const loadAutoPilotSettings = async () => {
+        const response = await chrome.runtime.sendMessage({ action: 'getAutoPilotSettings' });
+        if (response.success) {
+            setAutoPilotSettings(response.data);
+        }
+    };
+
+    const saveAutoPilotSettings = async () => {
+        await chrome.runtime.sendMessage({
+            action: 'setAutoPilotSettings',
+            payload: autoPilotSettings
+        });
+        setAutoPilotSaved(true);
+        setTimeout(() => setAutoPilotSaved(false), 2000);
+    };
+
+    const updateAutoPilotSetting = <K extends keyof AutoPilotSettings>(key: K, value: AutoPilotSettings[K]) => {
+        setAutoPilotSettings(prev => ({ ...prev, [key]: value }));
     };
 
     const saveConfig = async () => {
@@ -385,6 +422,97 @@ const Options = () => {
                 </section>
 
                 <section style={styles.section}>
+                    <h2 style={styles.sectionTitle}>
+                        Auto Pilot Settings
+                        <span style={{ marginLeft: 8, fontSize: 11, color: '#ffd700' }}>PRO</span>
+                    </h2>
+                    <div style={styles.infoCard}>
+                        <p style={{ marginTop: 0, marginBottom: 16, fontSize: 12, color: '#888' }}>
+                            Auto Pilot analyzes your tabs, identifies stale and duplicate tabs, categorizes them,
+                            and provides AI-powered recommendations for cleanup and organization.
+                        </p>
+
+                        <div style={styles.settingRow}>
+                            <label style={styles.settingLabel}>
+                                <span>Stale tab threshold (days)</span>
+                                <span style={{ fontSize: 11, color: '#666' }}>
+                                    Tabs not accessed for this many days are considered stale
+                                </span>
+                            </label>
+                            <select
+                                style={{ ...styles.select, width: 80 }}
+                                value={autoPilotSettings.staleDaysThreshold}
+                                onChange={(e) => updateAutoPilotSetting('staleDaysThreshold', parseInt(e.target.value))}
+                            >
+                                <option value={1}>1</option>
+                                <option value={3}>3</option>
+                                <option value={7}>7</option>
+                                <option value={14}>14</option>
+                                <option value={30}>30</option>
+                            </select>
+                        </div>
+
+                        <div style={styles.settingRow}>
+                            <label style={styles.checkboxLabel}>
+                                <input
+                                    type="checkbox"
+                                    checked={autoPilotSettings.excludePinned}
+                                    onChange={(e) => updateAutoPilotSetting('excludePinned', e.target.checked)}
+                                    style={styles.checkbox}
+                                />
+                                <span>Exclude pinned tabs from suggestions</span>
+                            </label>
+                        </div>
+
+                        <div style={styles.settingRow}>
+                            <label style={styles.checkboxLabel}>
+                                <input
+                                    type="checkbox"
+                                    checked={autoPilotSettings.excludeActive}
+                                    onChange={(e) => updateAutoPilotSetting('excludeActive', e.target.checked)}
+                                    style={styles.checkbox}
+                                />
+                                <span>Exclude currently active tabs</span>
+                            </label>
+                        </div>
+
+                        <div style={{ borderTop: '1px solid #333', paddingTop: 16, marginTop: 16 }}>
+                            <p style={{ fontSize: 11, color: '#666', marginTop: 0, marginBottom: 12 }}>
+                                Auto-actions (experimental - use with caution)
+                            </p>
+
+                            <div style={styles.settingRow}>
+                                <label style={styles.checkboxLabel}>
+                                    <input
+                                        type="checkbox"
+                                        checked={autoPilotSettings.autoCloseStale}
+                                        onChange={(e) => updateAutoPilotSetting('autoCloseStale', e.target.checked)}
+                                        style={styles.checkbox}
+                                    />
+                                    <span>Auto-close stale and duplicate tabs</span>
+                                </label>
+                            </div>
+
+                            <div style={styles.settingRow}>
+                                <label style={styles.checkboxLabel}>
+                                    <input
+                                        type="checkbox"
+                                        checked={autoPilotSettings.autoGroupByCategory}
+                                        onChange={(e) => updateAutoPilotSetting('autoGroupByCategory', e.target.checked)}
+                                        style={styles.checkbox}
+                                    />
+                                    <span>Auto-group tabs by category</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <button style={{ ...styles.btnPrimary, marginTop: 16 }} onClick={saveAutoPilotSettings}>
+                            {autoPilotSaved ? 'Saved!' : 'Save Auto Pilot Settings'}
+                        </button>
+                    </div>
+                </section>
+
+                <section style={styles.section}>
                     <h2 style={styles.sectionTitle}>Privacy & Data</h2>
                     <div style={styles.infoCard}>
                         <div style={{ marginBottom: 16 }}>
@@ -618,6 +746,30 @@ const styles: { [key: string]: React.CSSProperties } = {
         borderRadius: 4,
         border: '1px solid',
         fontSize: 13,
+    },
+    settingRow: {
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 12,
+    },
+    settingLabel: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 2,
+    },
+    checkboxLabel: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: 10,
+        cursor: 'pointer',
+        fontSize: 13,
+    },
+    checkbox: {
+        width: 18,
+        height: 18,
+        cursor: 'pointer',
+        accentColor: '#00ff88',
     },
 };
 
