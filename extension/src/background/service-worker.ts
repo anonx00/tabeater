@@ -78,6 +78,9 @@ async function handleMessage(message: Message): Promise<MessageResponse> {
         case 'smartOrganize':
             return await smartOrganize();
 
+        case 'smartOrganizePreview':
+            return await smartOrganizePreview();
+
         case 'getAIProvider':
             return { success: true, data: { provider: aiService.getProvider() } };
 
@@ -169,23 +172,37 @@ async function analyzeAllTabs(): Promise<MessageResponse> {
         }).join('\n');
 
         const analysis = await aiService.prompt(
-            `Analyze these browser tabs and return ONLY a JSON object (no explanation).
+            `Analyze these browser tabs and return ONLY a JSON object (no explanation, no markdown).
 
 Tabs (format: id|title|domain):
 ${tabSummary}
 
-Return format:
+Return this exact JSON structure:
 {
-  "duplicates": [{"title": "...", "count": 2, "ids": [1,2]}],
-  "closeable": [{"id": 1, "title": "...", "reason": "..."}],
-  "groups": [{"name": "...", "tabs": ["title1", "title2"]}],
-  "summary": "Brief 1-sentence overview"
+  "summary": "One-sentence overview (e.g., 'Mix of work, entertainment, and research tabs')",
+  "duplicates": [
+    {"title": "Page title", "count": 3, "ids": [1,2,3], "action": "Keep newest, close 2 others"}
+  ],
+  "closeable": [
+    {"id": 5, "title": "Page title", "reason": "Old search result", "priority": "low"}
+  ],
+  "groups": [
+    {"name": "Work", "tabs": ["Google Docs", "Gmail"], "reason": "Productivity apps"}
+  ],
+  "insights": [
+    "You have 5 social media tabs open - consider closing some",
+    "3 old documentation pages can be bookmarked and closed"
+  ]
 }
 
 Rules:
-- Keep all arrays even if empty
+- Keep all arrays even if empty []
 - Use concise reasons (max 5 words)
-- Group names should be 1-2 words`
+- Group names: 1-2 words only
+- Priority levels: high, medium, low
+- Limit closeable suggestions to top 5 most obvious
+- Limit groups to 4 maximum
+- insights: 2-4 actionable suggestions`
         );
 
         // Clean and parse JSON response
@@ -199,18 +216,38 @@ Rules:
                 .trim();
 
             parsedAnalysis = JSON.parse(cleanJson);
+
+            // Validate structure and provide defaults
+            parsedAnalysis = {
+                summary: parsedAnalysis.summary || 'Analysis complete',
+                duplicates: Array.isArray(parsedAnalysis.duplicates) ? parsedAnalysis.duplicates : [],
+                closeable: Array.isArray(parsedAnalysis.closeable) ? parsedAnalysis.closeable.slice(0, 5) : [],
+                groups: Array.isArray(parsedAnalysis.groups) ? parsedAnalysis.groups.slice(0, 4) : [],
+                insights: Array.isArray(parsedAnalysis.insights) ? parsedAnalysis.insights.slice(0, 4) : []
+            };
         } catch (parseErr) {
             // Fallback: try to extract JSON from response
             const jsonMatch = analysis.match(/\{[\s\S]*\}/);
             if (jsonMatch) {
-                parsedAnalysis = JSON.parse(jsonMatch[0]);
+                try {
+                    parsedAnalysis = JSON.parse(jsonMatch[0]);
+                } catch {
+                    parsedAnalysis = {
+                        summary: 'Unable to parse analysis',
+                        duplicates: [],
+                        closeable: [],
+                        groups: [],
+                        insights: [analysis.slice(0, 100)]
+                    };
+                }
             } else {
-                // Ultimate fallback: return plain text
+                // Ultimate fallback: return plain text as insight
                 parsedAnalysis = {
+                    summary: 'Analysis complete',
                     duplicates: [],
                     closeable: [],
                     groups: [],
-                    summary: analysis.slice(0, 200)
+                    insights: [analysis.slice(0, 200)]
                 };
             }
         }
@@ -228,41 +265,116 @@ Rules:
     }
 }
 
-async function smartOrganize(): Promise<MessageResponse> {
+async function smartOrganizePreview(): Promise<MessageResponse> {
     try {
         const tabs = await tabService.getAllTabs();
 
-        // Skip if too few tabs
         if (tabs.length < 2) {
-            return { success: true, data: { organized: [], message: 'Not enough tabs to organize' } };
+            return { success: true, data: { groups: [], message: 'Not enough tabs to organize' } };
         }
 
         const tabList = tabs.map(t => `${t.id}|${t.title}|${new URL(t.url).hostname}`).join('\n');
 
-        // Use AI to categorize tabs
         const aiResponse = await aiService.prompt(
-            `Categorize these browser tabs into logical groups. Return ONLY a JSON array, nothing else.
+            `Categorize these browser tabs into logical groups. Return ONLY a JSON array.
 
 Tabs (format: id|title|domain):
 ${tabList}
 
 Rules:
 - Group by PURPOSE and CONTEXT, not by domain
-- AI tools go together: ChatGPT, Claude, Grok, Gemini, Perplexity, Copilot = "AI"
-- Cloud consoles together: GCP, AWS, Azure, Vercel, Firebase = "Cloud"
-- Streaming services: Netflix, YouTube (non-music), Hulu, Disney+, anime sites = "Streaming"
+- AI tools: ChatGPT, Claude, Gemini, Perplexity = "AI"
+- Cloud: GCP, AWS, Azure, Vercel, Firebase = "Cloud"
+- Streaming: Netflix, YouTube, Hulu, Disney+ = "Streaming"
 - Music: Spotify, YouTube Music, Apple Music = "Music"
-- Dev tools: GitHub, GitLab, localhost, docs, Stack Overflow = "Dev"
-- Social: Twitter/X, Facebook, Instagram, Reddit, LinkedIn = "Social"
-- Payment/Finance: Stripe, PayPal, bank sites, billing pages = "Finance"
+- Dev: GitHub, GitLab, localhost, docs, Stack Overflow = "Dev"
+- Social: Twitter/X, Facebook, Instagram, Reddit = "Social"
+- Finance: Stripe, PayPal, banks, billing = "Finance"
 - Only create groups with 2+ tabs
-- Use short 1-word names: AI, Cloud, Dev, Social, Streaming, Music, Finance, News, Docs
+- Max 6 groups
+- Short 1-word names
 
-Return format (JSON array only, no explanation):
+Return JSON array:
+[{"name":"GroupName","ids":[1,2,3],"tabTitles":["Tab 1","Tab 2"]}]`
+        );
+
+        let groups: { name: string; ids: number[]; tabTitles?: string[] }[] = [];
+        try {
+            const jsonMatch = aiResponse.match(/\[[\s\S]*\]/);
+            if (jsonMatch) {
+                groups = JSON.parse(jsonMatch[0]);
+            }
+        } catch {
+            return { success: false, error: 'Failed to parse AI response' };
+        }
+
+        // Enrich groups with tab details
+        const enrichedGroups = groups
+            .filter(g => g.ids && g.ids.length >= 2)
+            .map(group => {
+                const validIds = group.ids.filter(id => tabs.some(t => t.id === id));
+                const groupTabs = validIds.map(id => {
+                    const tab = tabs.find(t => t.id === id);
+                    return {
+                        id,
+                        title: tab?.title || 'Unknown',
+                        url: tab?.url || '',
+                        favIconUrl: tab?.favIconUrl
+                    };
+                });
+                return {
+                    name: group.name,
+                    tabCount: validIds.length,
+                    tabs: groupTabs
+                };
+            })
+            .filter(g => g.tabCount >= 2)
+            .slice(0, 6);
+
+        return {
+            success: true,
+            data: {
+                groups: enrichedGroups,
+                totalTabs: tabs.length,
+                groupedTabs: enrichedGroups.reduce((sum, g) => sum + g.tabCount, 0)
+            }
+        };
+    } catch (err: any) {
+        return { success: false, error: err.message };
+    }
+}
+
+async function smartOrganize(): Promise<MessageResponse> {
+    try {
+        const tabs = await tabService.getAllTabs();
+
+        if (tabs.length < 2) {
+            return { success: true, data: { organized: [], message: 'Not enough tabs to organize' } };
+        }
+
+        const tabList = tabs.map(t => `${t.id}|${t.title}|${new URL(t.url).hostname}`).join('\n');
+
+        const aiResponse = await aiService.prompt(
+            `Categorize these browser tabs into logical groups. Return ONLY a JSON array.
+
+Tabs (format: id|title|domain):
+${tabList}
+
+Rules:
+- Group by PURPOSE and CONTEXT, not by domain
+- AI tools: ChatGPT, Claude, Gemini = "AI"
+- Cloud: GCP, AWS, Azure, Vercel = "Cloud"
+- Streaming: Netflix, YouTube, Hulu = "Streaming"
+- Music: Spotify, YouTube Music = "Music"
+- Dev: GitHub, GitLab, localhost, docs = "Dev"
+- Social: Twitter, Facebook, Instagram = "Social"
+- Only create groups with 2+ tabs
+- Short 1-word names
+
+Return JSON array:
 [{"name":"GroupName","ids":[1,2,3]}]`
         );
 
-        // Parse AI response
         let groups: { name: string; ids: number[] }[] = [];
         try {
             const jsonMatch = aiResponse.match(/\[[\s\S]*\]/);
@@ -270,22 +382,18 @@ Return format (JSON array only, no explanation):
                 groups = JSON.parse(jsonMatch[0]);
             }
         } catch {
-            // Fallback to domain grouping if AI parsing fails
             const domainGroups = tabService.groupByDomain(tabs);
             for (const group of domainGroups) {
                 if (group.tabs.length >= 2) {
-                    const tabIds = group.tabs.map(t => t.id);
-                    await tabService.groupTabs(tabIds, group.name);
+                    await tabService.groupTabs(group.tabs.map(t => t.id), group.name);
                 }
             }
             return { success: true, data: { organized: [], message: 'Organized by domain' } };
         }
 
-        // Create tab groups
         const organized: { groupName: string; tabIds: number[] }[] = [];
         for (const group of groups) {
             if (group.ids && group.ids.length >= 2 && group.name) {
-                // Validate tab IDs exist
                 const validIds = group.ids.filter(id => tabs.some(t => t.id === id));
                 if (validIds.length >= 2) {
                     await tabService.groupTabs(validIds, group.name);

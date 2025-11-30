@@ -206,17 +206,29 @@ const Sidepanel = () => {
             <header style={styles.header}>
                 <div style={styles.headerTop}>
                     <h1 style={styles.title}>TabEater</h1>
-                    <button
-                        style={styles.settingsBtn}
-                        onClick={() => chrome.runtime.openOptionsPage()}
-                        title="Settings"
-                        aria-label="Open Settings"
-                    >
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <circle cx="12" cy="12" r="3" />
-                            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
-                        </svg>
-                    </button>
+                    <div style={{ display: 'flex', gap: spacing.sm }}>
+                        <button
+                            style={styles.settingsBtn}
+                            onClick={() => chrome.runtime.openOptionsPage()}
+                            title="Settings"
+                            aria-label="Open Settings"
+                        >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <circle cx="12" cy="12" r="3" />
+                                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                            </svg>
+                        </button>
+                        <button
+                            style={styles.closeBtn}
+                            onClick={() => window.close()}
+                            title="Close Sidebar"
+                            aria-label="Close Sidebar"
+                        >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="M18 6 6 18M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
                 </div>
                 <div style={styles.stats}>
                     <span style={styles.statItem}>
@@ -512,6 +524,18 @@ const styles: { [key: string]: React.CSSProperties } = {
         letterSpacing: typography.letterNormal,
     },
     settingsBtn: {
+        background: 'transparent',
+        border: 'none',
+        color: colors.textDim,
+        cursor: 'pointer',
+        padding: spacing.sm,
+        borderRadius: borderRadius.sm,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        transition: `all ${transitions.fast}`,
+    },
+    closeBtn: {
         background: 'transparent',
         border: 'none',
         color: colors.textDim,
@@ -839,9 +863,12 @@ styleSheet.textContent = `
         outline: 2px solid ${colors.primary};
         outline-offset: 2px;
     }
-    .settingsBtn:hover {
+    .settingsBtn:hover, .closeBtn:hover {
         color: ${colors.textSecondary};
         background: ${colors.bgCardHover};
+    }
+    .closeBtn:hover {
+        color: ${colors.error};
     }
     ::-webkit-scrollbar {
         width: 6px;
