@@ -4,6 +4,7 @@ import { colors, spacing, typography, borderRadius, transitions, faviconFallback
 import { UndoToast } from '../ui/components/UndoToast';
 import { SkeletonLoader } from '../ui/components/SkeletonLoader';
 import { EmptyState } from '../ui/components/EmptyState';
+import { formatMarkdown, formatInsights } from '../shared/markdown';
 
 interface TabInfo {
     id: number;
@@ -399,15 +400,10 @@ const Popup = () => {
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                 <path d="M12 2v20M2 12h20M6 6l12 12M6 18L18 6" />
                             </svg>
-                            INSIGHTS
+                            AI INSIGHTS
                         </div>
                         <div style={styles.analysisCardContent}>
-                            {analysis.insights.map((insight: string, i: number) => (
-                                <div key={i} style={{ ...styles.analysisItem, display: 'flex', gap: spacing.sm }}>
-                                    <span style={{ color: colors.accent }}>•</span>
-                                    <span>{insight}</span>
-                                </div>
-                            ))}
+                            {formatInsights(analysis.insights)}
                         </div>
                     </div>
                 )}
@@ -683,8 +679,15 @@ const Popup = () => {
 
                                 {autoPilotReport.aiInsights && (
                                     <div style={styles.insightBox}>
-                                        <div style={styles.insightLabel}>AI Insights</div>
-                                        <div style={styles.insightText}>{autoPilotReport.aiInsights}</div>
+                                        <div style={styles.insightLabel}>
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                <path d="M12 2v20M2 12h20M6 6l12 12M6 18L18 6" />
+                                            </svg>
+                                            AI INSIGHTS
+                                        </div>
+                                        <div style={styles.insightText}>
+                                            {formatMarkdown(autoPilotReport.aiInsights)}
+                                        </div>
                                     </div>
                                 )}
 
@@ -781,13 +784,15 @@ const Popup = () => {
 
                                 {/* Insights */}
                                 <div style={styles.insightBox}>
-                                    <div style={styles.insightLabel}>Insights</div>
-                                    {autoPilotReport.analytics.insights.map((insight, i) => (
-                                        <div key={i} style={styles.insightItem}>
-                                            <span style={styles.insightBullet}>·</span>
-                                            {insight}
-                                        </div>
-                                    ))}
+                                    <div style={styles.insightLabel}>
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                            <path d="M12 2v20M2 12h20M6 6l12 12M6 18L18 6" />
+                                        </svg>
+                                        KEY INSIGHTS
+                                    </div>
+                                    <div style={styles.insightText}>
+                                        {formatInsights(autoPilotReport.analytics.insights)}
+                                    </div>
                                 </div>
 
                                 {/* Category Breakdown */}
@@ -1324,6 +1329,9 @@ const styles: { [key: string]: React.CSSProperties } = {
         borderRadius: borderRadius.sm,
     },
     insightLabel: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: spacing.xs,
         fontSize: typography.sizeXs,
         color: colors.primary,
         letterSpacing: typography.letterNormal,
@@ -1332,10 +1340,9 @@ const styles: { [key: string]: React.CSSProperties } = {
         fontWeight: typography.semibold,
     },
     insightText: {
-        fontSize: typography.sizeMd,
-        lineHeight: 1.5,
-        color: '#88cc88',
-        whiteSpace: 'pre-wrap',
+        fontSize: typography.sizeLg,
+        lineHeight: 1.6,
+        color: colors.textSecondary,
     },
     section: {
         marginBottom: spacing.md,
