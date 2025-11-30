@@ -184,37 +184,30 @@ async function analyzeAllTabs(): Promise<MessageResponse> {
         }).join('\n');
 
         const analysis = await aiService.prompt(
-            `Analyze these browser tabs and return ONLY a JSON object (no explanation, no markdown).
+            `You are a tab analysis assistant. Analyze these tabs and return ONLY valid JSON - no markdown, no explanation, no extra text.
 
 Tabs (format: id|title|domain):
 ${tabSummary}
 
-Return this exact JSON structure:
+CRITICAL: Your entire response must be a single valid JSON object starting with { and ending with }. Do not include \`\`\`json or any other formatting.
+
+Required JSON structure:
 {
-  "summary": "One-sentence overview (e.g., 'Mix of work, entertainment, and research tabs')",
-  "duplicates": [
-    {"title": "Page title", "count": 3, "ids": [1,2,3], "action": "Keep newest, close 2 others"}
-  ],
-  "closeable": [
-    {"id": 5, "title": "Page title", "reason": "Old search result", "priority": "low"}
-  ],
-  "groups": [
-    {"name": "Work", "tabs": ["Google Docs", "Gmail"], "reason": "Productivity apps"}
-  ],
-  "insights": [
-    "You have 5 social media tabs open - consider closing some",
-    "3 old documentation pages can be bookmarked and closed"
-  ]
+  "summary": "One-sentence overview",
+  "duplicates": [{"title": "string", "count": number, "ids": [numbers], "action": "string"}],
+  "closeable": [{"id": number, "title": "string", "reason": "string", "priority": "string"}],
+  "groups": [{"name": "string", "tabs": ["string"], "reason": "string"}],
+  "insights": ["string"]
 }
 
 Rules:
+- Return ONLY the JSON object, nothing else
 - Keep all arrays even if empty []
-- Use concise reasons (max 5 words)
+- Concise reasons (max 5 words)
 - Group names: 1-2 words only
-- Priority levels: high, medium, low
-- Limit closeable suggestions to top 5 most obvious
-- Limit groups to 4 maximum
-- insights: 2-4 actionable suggestions`
+- Priority: high/medium/low
+- Max 5 closeable, 4 groups, 4 insights
+- Start response with { and end with }`
         );
 
         // Clean and parse JSON response
@@ -223,16 +216,21 @@ Rules:
             // Remove markdown code blocks and extract JSON
             let cleanJson = analysis.trim();
 
-            // Remove markdown code fences
-            cleanJson = cleanJson.replace(/^```(?:json)?\s*\n/gm, '');
-            cleanJson = cleanJson.replace(/\n```\s*$/gm, '');
+            // Remove markdown code fences (multiple patterns)
+            cleanJson = cleanJson.replace(/^```(?:json|JSON)?\s*/gm, '');
+            cleanJson = cleanJson.replace(/```\s*$/gm, '');
+            cleanJson = cleanJson.replace(/^`+|`+$/g, '');
 
-            // Extract first complete JSON object
-            const jsonMatch = cleanJson.match(/\{[\s\S]*\}/);
-            if (jsonMatch) {
-                cleanJson = jsonMatch[0];
+            // Remove any leading/trailing text before/after the JSON object
+            // Match the first { to the last matching }
+            const firstBrace = cleanJson.indexOf('{');
+            const lastBrace = cleanJson.lastIndexOf('}');
+
+            if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+                cleanJson = cleanJson.substring(firstBrace, lastBrace + 1);
             }
 
+            // Try to parse
             parsedAnalysis = JSON.parse(cleanJson);
 
             // Validate structure and provide defaults
@@ -244,7 +242,9 @@ Rules:
                 insights: Array.isArray(parsedAnalysis.insights) ? parsedAnalysis.insights.slice(0, 4) : []
             };
         } catch (parseErr) {
-            console.error('JSON parse error:', parseErr, 'Raw response:', analysis);
+            console.error('JSON parse error:', parseErr);
+            console.error('Raw AI response:', analysis);
+            console.error('Attempted to parse:', analysis.substring(0, 500));
 
             // Fallback: return error message with helpful info
             parsedAnalysis = {
@@ -252,7 +252,10 @@ Rules:
                 duplicates: [],
                 closeable: [],
                 groups: [],
-                insights: ['The AI response could not be parsed. Please try again or check your AI configuration.']
+                insights: [
+                    'The AI response could not be parsed as valid JSON.',
+                    'Try clicking Scan again, or check your AI configuration in Settings.'
+                ]
             };
         }
 
