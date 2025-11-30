@@ -16,7 +16,7 @@ interface AIConfig {
 const PROVIDER_CONFIGS = {
     gemini: {
         endpoint: 'https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent',
-        defaultModel: 'gemini-1.5-flash',
+        defaultModel: 'gemini-2.0-flash',
         authHeader: (key: string) => ({ 'x-goog-api-key': key }),
     },
     openai: {
@@ -26,7 +26,7 @@ const PROVIDER_CONFIGS = {
     },
     anthropic: {
         endpoint: 'https://api.anthropic.com/v1/messages',
-        defaultModel: 'claude-3-haiku-20240307',
+        defaultModel: 'claude-3-5-haiku-latest',
         authHeader: (key: string) => ({
             'x-api-key': key,
             'anthropic-version': '2023-06-01'

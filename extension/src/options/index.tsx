@@ -14,8 +14,8 @@ interface LicenseStatus {
 const PROVIDER_INFO = {
     gemini: {
         name: 'Google Gemini',
-        defaultModel: 'gemini-1.5-flash',
-        models: ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-1.0-pro'],
+        defaultModel: 'gemini-2.0-flash',
+        models: ['gemini-2.0-flash', 'gemini-1.5-flash-latest', 'gemini-1.5-pro-latest'],
         getKeyUrl: 'https://aistudio.google.com/app/apikey',
         description: 'Google AI Studio - Free tier available'
     },
@@ -28,8 +28,8 @@ const PROVIDER_INFO = {
     },
     anthropic: {
         name: 'Anthropic Claude',
-        defaultModel: 'claude-3-haiku-20240307',
-        models: ['claude-3-haiku-20240307', 'claude-3-sonnet-20240229', 'claude-3-opus-20240229'],
+        defaultModel: 'claude-3-5-haiku-latest',
+        models: ['claude-3-5-haiku-latest', 'claude-3-5-sonnet-latest', 'claude-3-opus-latest'],
         getKeyUrl: 'https://console.anthropic.com/settings/keys',
         description: 'Anthropic Console - Pay as you go'
     }
@@ -189,14 +189,31 @@ const Options = () => {
                 <section style={styles.section}>
                     <h2 style={styles.sectionTitle}>Local AI (Priority 1)</h2>
                     <div style={styles.infoCard}>
-                        <p>Chrome's built-in Gemini Nano runs locally - fastest and most private.</p>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                            <span>Gemini Nano Status:</span>
+                            <span style={{
+                                color: activeProvider === 'nano' ? '#00ff88' : '#ff8800',
+                                fontWeight: 600
+                            }}>
+                                {activeProvider === 'nano' ? 'Active' : 'Not Available'}
+                            </span>
+                        </div>
+                        <p>Chrome's built-in AI runs locally - fastest and most private.</p>
+                        <p style={{ fontWeight: 600, marginTop: 12 }}>To enable Gemini Nano:</p>
                         <ol style={styles.list}>
-                            <li>Go to <code>chrome://flags</code></li>
-                            <li>Enable "Prompt API for Gemini Nano"</li>
-                            <li>Enable "Optimization Guide On Device Model"</li>
-                            <li>Restart Chrome</li>
+                            <li>Open <code>chrome://flags/#optimization-guide-on-device-model</code></li>
+                            <li>Set to <strong>"Enabled BypassPerfRequirement"</strong></li>
+                            <li>Open <code>chrome://flags/#prompt-api-for-gemini-nano</code></li>
+                            <li>Set to <strong>"Enabled"</strong></li>
+                            <li>Click "Relaunch" to restart Chrome</li>
                         </ol>
-                        <p style={styles.note}>When enabled, local AI takes priority over cloud.</p>
+                        <p style={styles.note}>When enabled, Nano takes priority over cloud APIs (no API key needed).</p>
+                        <button
+                            style={{ ...styles.refreshBtn, marginTop: 12 }}
+                            onClick={() => { checkProvider(); }}
+                        >
+                            Check Nano Status
+                        </button>
                     </div>
                 </section>
 
