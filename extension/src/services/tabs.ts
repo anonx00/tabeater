@@ -64,6 +64,17 @@ class TabService {
     }
 
     async groupTabs(tabIds: number[], title: string): Promise<number> {
+        // Check if a group with this title already exists
+        const existingGroups = await chrome.tabGroups.query({ title });
+
+        if (existingGroups.length > 0) {
+            // Add tabs to existing group instead of creating duplicate
+            const groupId = existingGroups[0].id;
+            await chrome.tabs.group({ tabIds, groupId });
+            return groupId;
+        }
+
+        // Create new group if none exists
         const groupId = await chrome.tabs.group({ tabIds });
         await chrome.tabGroups.update(groupId, { title });
         return groupId;

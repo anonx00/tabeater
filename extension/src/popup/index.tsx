@@ -111,6 +111,13 @@ const Popup = () => {
         checkProvider();
         checkLicense();
         updateMemoryUsage();
+
+        // Update memory every 3 seconds for real-time tracking
+        const memoryInterval = setInterval(() => {
+            updateMemoryUsage();
+        }, 3000);
+
+        return () => clearInterval(memoryInterval);
     }, []);
 
     useEffect(() => {
@@ -527,8 +534,9 @@ const Popup = () => {
                                 onClick={closeDuplicates}
                                 onMouseEnter={() => setHoveredButton('closeAll')}
                                 onMouseLeave={() => setHoveredButton(null)}
+                                title="Keeps first tab, closes duplicates"
                             >
-                                Close All Dupes
+                                Close Duplicates (Keep 1)
                             </button>
                         )}
                     </div>
@@ -546,8 +554,20 @@ const Popup = () => {
                                     />
                                     <div style={styles.dupeInfo}>
                                         <div style={styles.dupeTitle}>{group[0]?.title}</div>
-                                        <div style={styles.dupeCount}>{group.length} copies</div>
+                                        <div style={styles.dupeCount}>
+                                            {group.length} copies • Will keep 1, close {group.length - 1}
+                                        </div>
                                     </div>
+                                    <span style={{
+                                        padding: '2px 6px',
+                                        background: colors.successBg,
+                                        color: colors.success,
+                                        fontSize: typography.sizeXs,
+                                        borderRadius: borderRadius.sm,
+                                        fontWeight: typography.semibold,
+                                    }}>
+                                        KEEP 1
+                                    </span>
                                 </div>
                             ))
                         )}
