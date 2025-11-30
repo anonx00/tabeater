@@ -25,8 +25,20 @@ chrome.runtime.onStartup.addListener(async () => {
     await aiService.initialize();
 });
 
+// Ensure services are initialized when service worker wakes from suspension
+let servicesInitialized = false;
+
+async function ensureServicesInitialized() {
+    if (!servicesInitialized) {
+        await licenseService.initialize();
+        await aiService.initialize();
+        servicesInitialized = true;
+    }
+}
+
 chrome.runtime.onMessage.addListener((message: Message, _sender, sendResponse) => {
-    handleMessage(message)
+    ensureServicesInitialized()
+        .then(() => handleMessage(message))
         .then(sendResponse)
         .catch(err => sendResponse({ success: false, error: err.message }));
     return true;
