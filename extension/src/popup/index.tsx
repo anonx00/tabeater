@@ -931,7 +931,7 @@ const Popup = () => {
                             </svg>
                         </div>
                         <div style={styles.upgradeTitle}>Upgrade to Pro</div>
-                        <div style={styles.upgradePrice}>$9.99</div>
+                        <div style={styles.upgradePrice}>A$6.00</div>
                         <div style={styles.upgradeOnce}>one-time payment</div>
                         <ul style={styles.upgradeList}>
                             <li><span style={styles.checkmark}>&#10003;</span> Auto Pilot Mode</li>

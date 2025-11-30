@@ -24,18 +24,61 @@ class LicenseService {
     private readonly CACHE_TTL = 60000;
 
     async initialize(): Promise<void> {
-        const stored = await chrome.storage.local.get(['licenseKey', 'deviceId']);
+        // Use chrome.storage.sync to persist across reinstalls
+        const stored = await chrome.storage.sync.get(['licenseKey', 'deviceId']);
         this.licenseKey = stored.licenseKey || null;
         this.deviceId = stored.deviceId || null;
 
         if (!this.deviceId) {
-            this.deviceId = 'device_' + Math.random().toString(36).substring(2, 15) +
-                           Math.random().toString(36).substring(2, 15);
-            await chrome.storage.local.set({ deviceId: this.deviceId });
+            // Create a persistent device ID based on browser fingerprint
+            this.deviceId = await this.generateDeviceId();
+            await chrome.storage.sync.set({ deviceId: this.deviceId });
         }
 
         if (!this.licenseKey) {
             await this.register();
+        }
+    }
+
+    /**
+     * Generate a persistent device ID based on browser characteristics
+     * This prevents trial bypass by reinstalling the extension
+     */
+    private async generateDeviceId(): Promise<string> {
+        try {
+            // Get machine ID from chrome (persistent across extension installs)
+            const info = await chrome.storage.local.get(['machineId']);
+
+            if (info.machineId) {
+                return info.machineId;
+            }
+
+            // Generate a fingerprint based on browser/system characteristics
+            const fingerprint = [
+                navigator.userAgent,
+                navigator.language,
+                new Date().getTimezoneOffset().toString(),
+                screen.width + 'x' + screen.height,
+                screen.colorDepth.toString()
+            ].join('|');
+
+            // Hash the fingerprint to create a unique device ID
+            const encoder = new TextEncoder();
+            const data = encoder.encode(fingerprint);
+            const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
+            const machineId = 'device_' + hashHex.substring(0, 24);
+
+            // Store in local storage as backup (persists even after sync storage is cleared)
+            await chrome.storage.local.set({ machineId });
+
+            return machineId;
+        } catch (e) {
+            // Fallback to random ID if fingerprinting fails
+            return 'device_' + Math.random().toString(36).substring(2, 15) +
+                   Math.random().toString(36).substring(2, 15);
         }
     }
 
@@ -57,7 +100,8 @@ class LicenseService {
 
         const data = await response.json();
         this.licenseKey = data.licenseKey;
-        await chrome.storage.local.set({ licenseKey: data.licenseKey });
+        // Store in sync storage to persist across reinstalls
+        await chrome.storage.sync.set({ licenseKey: data.licenseKey });
     }
 
     async getStatus(forceRefresh = false): Promise<LicenseStatus> {
