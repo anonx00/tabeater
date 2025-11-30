@@ -5,6 +5,7 @@
     "description": "Tactical Tab Intelligence System",
     "permissions": [
         "tabs",
+        "tabGroups",
         "storage",
         "sidePanel",
         "scripting",
