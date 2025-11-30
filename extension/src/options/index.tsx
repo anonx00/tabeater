@@ -3,6 +3,14 @@ import { createRoot } from 'react-dom/client';
 
 type CloudProvider = 'gemini' | 'openai' | 'anthropic';
 
+interface LicenseStatus {
+    status: 'trial' | 'pro' | 'expired' | 'none';
+    paid: boolean;
+    usageRemaining: number;
+    trialEndDate?: string;
+    canUse: boolean;
+}
+
 const PROVIDER_INFO = {
     gemini: {
         name: 'Google Gemini',
@@ -35,9 +43,11 @@ const Options = () => {
     const [saved, setSaved] = useState(false);
     const [testing, setTesting] = useState(false);
     const [testResult, setTestResult] = useState<string | null>(null);
+    const [license, setLicense] = useState<LicenseStatus | null>(null);
 
     useEffect(() => {
         loadConfig();
+        loadLicense();
     }, []);
 
     const loadConfig = async () => {
@@ -48,6 +58,13 @@ const Options = () => {
             setModel(stored.aiConfig.model || '');
         }
         checkProvider();
+    };
+
+    const loadLicense = async () => {
+        const response = await chrome.runtime.sendMessage({ action: 'getLicenseStatus', payload: { forceRefresh: true } });
+        if (response.success) {
+            setLicense(response.data);
+        }
     };
 
     const checkProvider = async () => {
@@ -110,14 +127,48 @@ const Options = () => {
         return 'Not Configured';
     };
 
+    const getLicenseDisplay = () => {
+        if (!license) return { text: 'Loading...', color: '#666' };
+        if (license.paid) return { text: 'PRO - Unlimited Access', color: '#00ff88' };
+        if (license.status === 'trial') {
+            const daysLeft = license.trialEndDate
+                ? Math.ceil((new Date(license.trialEndDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+                : 0;
+            return { text: `Free Trial - ${daysLeft} days left (${license.usageRemaining}/day remaining)`, color: '#ffaa00' };
+        }
+        if (license.status === 'expired') return { text: 'Trial Expired', color: '#ff4444' };
+        return { text: 'Not Registered', color: '#ff4444' };
+    };
+
+    const licenseDisplay = getLicenseDisplay();
+
     return (
         <div style={styles.container}>
             <header style={styles.header}>
                 <h1 style={styles.title}>PHANTOM TABS</h1>
-                <div style={styles.subtitle}>AI Configuration</div>
+                <div style={styles.subtitle}>Settings</div>
             </header>
 
             <main style={styles.main}>
+                <section style={styles.section}>
+                    <h2 style={styles.sectionTitle}>License Status</h2>
+                    <div style={styles.licenseCard}>
+                        <div style={styles.licenseStatus}>
+                            <span style={{ color: licenseDisplay.color, fontWeight: 600, fontSize: 16 }}>
+                                {licenseDisplay.text}
+                            </span>
+                        </div>
+                        <button style={styles.refreshBtn} onClick={loadLicense}>
+                            Refresh Status
+                        </button>
+                        {license?.paid && (
+                            <p style={styles.proMessage}>
+                                Thank you for your support!
+                            </p>
+                        )}
+                    </div>
+                </section>
+
                 <section style={styles.section}>
                     <h2 style={styles.sectionTitle}>Current AI Provider</h2>
                     <div style={styles.statusCard}>
@@ -235,29 +286,6 @@ const Options = () => {
                         )}
                     </div>
                 </section>
-
-                <section style={styles.section}>
-                    <h2 style={styles.sectionTitle}>How It Works</h2>
-                    <div style={styles.diagram}>
-                        <div style={styles.flowStep}>
-                            <div style={styles.flowNum}>1</div>
-                            <div>Check Chrome Nano (local)</div>
-                        </div>
-                        <div style={styles.flowArrow}>|</div>
-                        <div style={styles.flowStep}>
-                            <div style={styles.flowNum}>2</div>
-                            <div>If unavailable, use Cloud API</div>
-                        </div>
-                        <div style={styles.flowArrow}>|</div>
-                        <div style={styles.flowStep}>
-                            <div style={styles.flowNum}>3</div>
-                            <div>Your API key calls the provider directly</div>
-                        </div>
-                    </div>
-                    <p style={styles.diagramNote}>
-                        No backend server needed - the extension calls APIs directly from your browser using your API key.
-                    </p>
-                </section>
             </main>
         </div>
     );
@@ -300,6 +328,30 @@ const styles: { [key: string]: React.CSSProperties } = {
         fontWeight: 600,
         marginBottom: 12,
         color: '#fff',
+    },
+    licenseCard: {
+        background: 'linear-gradient(135deg, #1a1a2e, #16213e)',
+        padding: 20,
+        borderRadius: 12,
+        border: '1px solid #333',
+        textAlign: 'center',
+    },
+    licenseStatus: {
+        marginBottom: 12,
+    },
+    refreshBtn: {
+        padding: '8px 16px',
+        background: '#333',
+        border: 'none',
+        borderRadius: 4,
+        color: '#00ff88',
+        fontSize: 12,
+        cursor: 'pointer',
+    },
+    proMessage: {
+        fontSize: 13,
+        color: '#00ff88',
+        margin: '12px 0 0 0',
     },
     statusCard: {
         background: '#111',
@@ -430,48 +482,6 @@ const styles: { [key: string]: React.CSSProperties } = {
         borderRadius: 4,
         border: '1px solid',
         fontSize: 13,
-    },
-    diagram: {
-        background: '#111',
-        padding: 20,
-        borderRadius: 8,
-        border: '1px solid #222',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: 8,
-    },
-    flowStep: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: 12,
-        padding: '8px 16px',
-        background: '#1a1a1a',
-        borderRadius: 4,
-        fontSize: 13,
-    },
-    flowNum: {
-        width: 24,
-        height: 24,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: '#00ff88',
-        color: '#000',
-        borderRadius: '50%',
-        fontWeight: 600,
-        fontSize: 12,
-    },
-    flowArrow: {
-        color: '#444',
-        fontSize: 16,
-    },
-    diagramNote: {
-        fontSize: 12,
-        color: '#666',
-        textAlign: 'center',
-        marginTop: 12,
-        marginBottom: 0,
     },
 };
 

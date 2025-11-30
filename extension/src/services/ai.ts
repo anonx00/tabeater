@@ -1,3 +1,5 @@
+import { licenseService } from './license';
+
 type AISession = {
     prompt: (text: string) => Promise<string>;
     destroy?: () => void;
@@ -82,6 +84,18 @@ class AIService {
     }
 
     async prompt(text: string): Promise<string> {
+        const useResult = await licenseService.checkAndUse();
+
+        if (!useResult.allowed) {
+            if (useResult.reason === 'trial_expired') {
+                throw new Error('TRIAL_EXPIRED:Your free trial has ended. Upgrade to Pro for unlimited access.');
+            }
+            if (useResult.reason === 'limit_reached') {
+                throw new Error('LIMIT_REACHED:Daily limit reached. Upgrade to Pro for unlimited access.');
+            }
+            throw new Error('LICENSE_ERROR:Unable to verify license.');
+        }
+
         if (this.provider === 'nano' && this.session) {
             return await this.session.prompt(text);
         }

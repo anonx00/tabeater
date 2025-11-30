@@ -9,7 +9,15 @@ interface TabInfo {
     active: boolean;
 }
 
-type View = 'tabs' | 'analyze' | 'duplicates';
+interface LicenseStatus {
+    status: 'trial' | 'pro' | 'expired' | 'none';
+    paid: boolean;
+    usageRemaining: number;
+    trialEndDate?: string;
+    canUse: boolean;
+}
+
+type View = 'tabs' | 'analyze' | 'duplicates' | 'upgrade';
 
 const Popup = () => {
     const [tabs, setTabs] = useState<TabInfo[]>([]);
@@ -19,10 +27,12 @@ const Popup = () => {
     const [analysis, setAnalysis] = useState<string>('');
     const [searchQuery, setSearchQuery] = useState('');
     const [provider, setProvider] = useState<string>('none');
+    const [license, setLicense] = useState<LicenseStatus | null>(null);
 
     useEffect(() => {
         loadTabs();
         checkProvider();
+        checkLicense();
     }, []);
 
     const sendMessage = async (action: string, payload?: any) => {
@@ -41,6 +51,13 @@ const Popup = () => {
         const response = await sendMessage('getAIProvider');
         if (response.success) {
             setProvider(response.data.provider);
+        }
+    };
+
+    const checkLicense = async () => {
+        const response = await sendMessage('getLicenseStatus', { forceRefresh: true });
+        if (response.success) {
+            setLicense(response.data);
         }
     };
 
@@ -84,7 +101,22 @@ const Popup = () => {
         if (response.success) {
             setAnalysis(response.data.analysis);
         } else {
+            if (response.error?.startsWith('TRIAL_EXPIRED:') || response.error?.startsWith('LIMIT_REACHED:')) {
+                setView('upgrade');
+                setLoading(false);
+                return;
+            }
             setAnalysis(response.error || 'Analysis failed');
+        }
+        setLoading(false);
+        checkLicense();
+    };
+
+    const handleUpgrade = async () => {
+        setLoading(true);
+        const response = await sendMessage('getCheckoutUrl');
+        if (response.success) {
+            chrome.tabs.create({ url: response.data.url });
         }
         setLoading(false);
     };
@@ -104,12 +136,27 @@ const Popup = () => {
         }
     };
 
+    const getLicenseDisplay = () => {
+        if (!license) return '';
+        if (license.paid) return 'PRO';
+        if (license.status === 'trial') return `Trial: ${license.usageRemaining}/day`;
+        if (license.status === 'expired') return 'Trial Expired';
+        return '';
+    };
+
     return (
         <div style={styles.container}>
             <header style={styles.header}>
-                <h1 style={styles.title}>PHANTOM TABS</h1>
+                <div style={styles.headerRow}>
+                    <h1 style={styles.title}>PHANTOM TABS</h1>
+                    {license && !license.paid && (
+                        <button style={styles.upgradeBtn} onClick={() => setView('upgrade')}>
+                            Upgrade
+                        </button>
+                    )}
+                </div>
                 <div style={styles.stats}>
-                    {tabs.length} tabs | AI: {provider}
+                    {tabs.length} tabs | AI: {provider} | {getLicenseDisplay()}
                 </div>
             </header>
 
@@ -198,6 +245,42 @@ const Popup = () => {
                     </button>
                 </div>
             )}
+
+            {view === 'upgrade' && (
+                <div style={styles.section}>
+                    <div style={styles.upgradeCard}>
+                        <div style={styles.upgradeTitle}>Upgrade to Pro</div>
+                        <div style={styles.upgradePrice}>$9.99</div>
+                        <div style={styles.upgradeSubtitle}>One-time payment</div>
+                        <ul style={styles.upgradeFeatures}>
+                            <li>Unlimited AI queries</li>
+                            <li>All current features</li>
+                            <li>Future updates included</li>
+                        </ul>
+
+                        <button
+                            style={styles.upgradeBtnLarge}
+                            onClick={handleUpgrade}
+                            disabled={loading}
+                        >
+                            {loading ? 'Loading...' : 'Pay Now'}
+                        </button>
+
+                        <div style={styles.paymentNote}>
+                            Secure payment via Stripe
+                        </div>
+                        <div style={styles.refreshNote}>
+                            After payment, click here to refresh your status
+                        </div>
+                        <button style={styles.refreshBtn} onClick={checkLicense}>
+                            Refresh Status
+                        </button>
+                    </div>
+                    <button style={styles.btnBack} onClick={() => setView('tabs')}>
+                        Back to Tabs
+                    </button>
+                </div>
+            )}
         </div>
     );
 };
@@ -219,12 +302,27 @@ const styles: { [key: string]: React.CSSProperties } = {
         borderBottom: '1px solid #222',
         background: '#111',
     },
+    headerRow: {
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
     title: {
         margin: 0,
         fontSize: 16,
         fontWeight: 600,
         color: '#00ff88',
         letterSpacing: 1,
+    },
+    upgradeBtn: {
+        padding: '4px 10px',
+        background: 'linear-gradient(135deg, #ffd700, #ff8c00)',
+        border: 'none',
+        borderRadius: 4,
+        color: '#000',
+        fontSize: 11,
+        fontWeight: 600,
+        cursor: 'pointer',
     },
     stats: {
         fontSize: 11,
@@ -368,6 +466,67 @@ const styles: { [key: string]: React.CSSProperties } = {
         border: '1px solid #333',
         borderRadius: 4,
         color: '#ccc',
+        cursor: 'pointer',
+    },
+    upgradeCard: {
+        background: 'linear-gradient(135deg, #1a1a2e, #16213e)',
+        border: '1px solid #ffd700',
+        borderRadius: 12,
+        padding: 24,
+        textAlign: 'center',
+    },
+    upgradeTitle: {
+        fontSize: 20,
+        fontWeight: 700,
+        color: '#ffd700',
+        marginBottom: 8,
+    },
+    upgradePrice: {
+        fontSize: 36,
+        fontWeight: 700,
+        color: '#fff',
+    },
+    upgradeSubtitle: {
+        fontSize: 12,
+        color: '#888',
+        marginBottom: 16,
+    },
+    upgradeFeatures: {
+        textAlign: 'left',
+        listStyle: 'none',
+        padding: 0,
+        margin: '0 0 20px 0',
+        fontSize: 13,
+    },
+    upgradeBtnLarge: {
+        width: '100%',
+        padding: '12px 24px',
+        background: 'linear-gradient(135deg, #ffd700, #ff8c00)',
+        border: 'none',
+        borderRadius: 6,
+        color: '#000',
+        fontSize: 16,
+        fontWeight: 700,
+        cursor: 'pointer',
+    },
+    paymentNote: {
+        fontSize: 11,
+        color: '#666',
+        marginTop: 8,
+    },
+    refreshNote: {
+        fontSize: 11,
+        color: '#888',
+        marginTop: 16,
+    },
+    refreshBtn: {
+        marginTop: 8,
+        padding: '6px 12px',
+        background: '#333',
+        border: 'none',
+        borderRadius: 4,
+        color: '#00ff88',
+        fontSize: 12,
         cursor: 'pointer',
     },
 };
