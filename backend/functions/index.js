@@ -32,10 +32,14 @@ functions.http('api', async (req, res) => {
                 return await handleCheckout(req, res);
             case 'webhook':
                 return await handleWebhook(req, res);
+            case 'verify-payment':
+                return await handleVerifyPayment(req, res);
             case 'success':
                 return handleSuccess(req, res);
             case 'cancel':
                 return handleCancel(req, res);
+            case 'health':
+                return res.json({ status: 'ok', timestamp: new Date().toISOString() });
             default:
                 return res.status(404).json({ error: 'Not found' });
         }
@@ -220,39 +224,164 @@ async function handleCheckout(req, res) {
     return res.json({ url: session.url });
 }
 
+/**
+ * Verify payment by checking Stripe for completed checkout sessions
+ * This serves as a fallback when webhooks fail
+ * Called by the extension when user clicks "Refresh Status" after payment
+ */
+async function handleVerifyPayment(req, res) {
+    const licenseKey = req.headers['x-license-key'];
+    const deviceId = req.headers['x-device-id'];
+
+    if (!licenseKey) {
+        return res.status(400).json({ error: 'License key required' });
+    }
+
+    const doc = await db.collection('devices').doc(licenseKey).get();
+
+    if (!doc.exists) {
+        return res.status(404).json({ error: 'License not found' });
+    }
+
+    const data = doc.data();
+
+    // If already paid, no need to verify
+    if (data.paid) {
+        return res.json({ verified: true, status: 'already_pro' });
+    }
+
+    // Validate device ownership
+    if (data.deviceId !== deviceId) {
+        return res.status(403).json({ error: 'Device mismatch' });
+    }
+
+    try {
+        // Search for completed checkout sessions with this license key in metadata
+        const sessions = await stripe.checkout.sessions.list({
+            limit: 10,
+            expand: ['data.payment_intent']
+        });
+
+        // Find a completed session for this license
+        const matchingSession = sessions.data.find(session =>
+            session.metadata?.licenseKey === licenseKey &&
+            session.payment_status === 'paid' &&
+            session.status === 'complete'
+        );
+
+        if (matchingSession) {
+            // Payment found! Activate the license
+            await db.collection('devices').doc(licenseKey).update({
+                paid: true,
+                paidAt: new Date().toISOString(),
+                stripeSessionId: matchingSession.id,
+                stripePaymentIntent: matchingSession.payment_intent?.id || matchingSession.payment_intent,
+                customerEmail: matchingSession.customer_details?.email || null,
+                activatedVia: 'verify-payment' // Track that this was activated via fallback
+            });
+
+            console.log(`License ${licenseKey} activated via verify-payment fallback`);
+            return res.json({ verified: true, status: 'activated', sessionId: matchingSession.id });
+        }
+
+        // No matching payment found
+        return res.json({ verified: false, status: 'no_payment_found' });
+    } catch (err) {
+        console.error('Error verifying payment:', err);
+        return res.status(500).json({ error: 'Failed to verify payment' });
+    }
+}
+
 async function handleWebhook(req, res) {
     const sig = req.headers['stripe-signature'];
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+    // Log incoming webhook for debugging
+    console.log('Webhook received:', {
+        hasSignature: !!sig,
+        hasWebhookSecret: !!webhookSecret,
+        hasRawBody: !!req.rawBody,
+        contentType: req.headers['content-type']
+    });
+
+    // Ensure webhook secret is configured
+    if (!webhookSecret) {
+        console.error('STRIPE_WEBHOOK_SECRET is not configured');
+        return res.status(500).send('Webhook secret not configured');
+    }
 
     let event;
     try {
+        // Use rawBody if available, otherwise use body for signature verification
+        const payload = req.rawBody || req.body;
+
+        // If body is already parsed as object, we need to stringify it
+        // This handles cases where Cloud Functions parses JSON before we get it
+        const payloadString = typeof payload === 'string' ? payload : JSON.stringify(payload);
+
         event = stripe.webhooks.constructEvent(
-            req.rawBody,
+            req.rawBody || payloadString,
             sig,
-            process.env.STRIPE_WEBHOOK_SECRET
+            webhookSecret
         );
     } catch (err) {
-        console.error('Webhook signature verification failed:', err.message);
+        console.error('Webhook signature verification failed:', {
+            error: err.message,
+            hasRawBody: !!req.rawBody,
+            bodyType: typeof req.body
+        });
         return res.status(400).send(`Webhook Error: ${err.message}`);
     }
 
+    console.log('Webhook event verified:', event.type);
+
     if (event.type === 'checkout.session.completed') {
         const session = event.data.object;
-        const { licenseKey, deviceId } = session.metadata;
+        const { licenseKey, deviceId } = session.metadata || {};
 
-        if (licenseKey) {
+        console.log('Processing checkout completion:', {
+            sessionId: session.id,
+            licenseKey,
+            deviceId,
+            paymentStatus: session.payment_status
+        });
+
+        if (!licenseKey) {
+            console.error('No licenseKey in session metadata');
+            return res.json({ received: true, warning: 'No licenseKey in metadata' });
+        }
+
+        try {
             const doc = await db.collection('devices').doc(licenseKey).get();
 
-            if (doc.exists && doc.data().deviceId === deviceId) {
-                await db.collection('devices').doc(licenseKey).update({
-                    paid: true,
-                    paidAt: new Date().toISOString(),
-                    stripeSessionId: session.id
-                });
-
-                console.log(`License ${licenseKey} upgraded to Pro`);
-            } else {
-                console.error(`Device mismatch for license ${licenseKey}`);
+            if (!doc.exists) {
+                console.error(`License ${licenseKey} not found in database`);
+                return res.json({ received: true, warning: 'License not found' });
             }
+
+            const data = doc.data();
+
+            if (data.deviceId !== deviceId) {
+                console.error(`Device mismatch for license ${licenseKey}:`, {
+                    expected: data.deviceId,
+                    received: deviceId
+                });
+                // Still upgrade if payment was successful - user paid!
+                console.log('Upgrading despite device mismatch since payment was successful');
+            }
+
+            await db.collection('devices').doc(licenseKey).update({
+                paid: true,
+                paidAt: new Date().toISOString(),
+                stripeSessionId: session.id,
+                stripePaymentIntent: session.payment_intent,
+                customerEmail: session.customer_details?.email || null
+            });
+
+            console.log(`License ${licenseKey} successfully upgraded to Pro`);
+        } catch (dbError) {
+            console.error('Database error while upgrading license:', dbError);
+            return res.status(500).json({ error: 'Database error' });
         }
     }
 

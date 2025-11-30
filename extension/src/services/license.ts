@@ -124,6 +124,12 @@ class LicenseService {
         }
 
         try {
+            // If force refresh is requested and user is not paid, try to verify payment first
+            // This handles cases where webhook failed but user completed payment
+            if (forceRefresh && this.cachedStatus && !this.cachedStatus.paid) {
+                await this.verifyPayment();
+            }
+
             const response = await fetch(`${API_BASE}/status`, {
                 headers: {
                     'X-License-Key': this.licenseKey!,
@@ -146,6 +152,45 @@ class LicenseService {
                 usageRemaining: 0,
                 canUse: false
             };
+        }
+    }
+
+    /**
+     * Verify payment with Stripe directly - fallback for when webhooks fail
+     * This checks if user completed payment and activates their license
+     */
+    async verifyPayment(): Promise<{ verified: boolean; status: string }> {
+        if (DEV_MODE) {
+            return { verified: true, status: 'dev_mode' };
+        }
+
+        if (!this.licenseKey) {
+            await this.initialize();
+        }
+
+        try {
+            const response = await fetch(`${API_BASE}/verify-payment`, {
+                method: 'POST',
+                headers: {
+                    'X-License-Key': this.licenseKey!,
+                    'X-Device-Id': this.deviceId!
+                }
+            });
+
+            if (!response.ok) {
+                return { verified: false, status: 'error' };
+            }
+
+            const result = await response.json();
+
+            // If payment was found and activated, clear cache to force status refresh
+            if (result.verified && result.status === 'activated') {
+                this.clearCache();
+            }
+
+            return result;
+        } catch {
+            return { verified: false, status: 'network_error' };
         }
     }
 
