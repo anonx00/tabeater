@@ -166,6 +166,9 @@ const Options = () => {
                                 Thank you for your support!
                             </p>
                         )}
+                        <p style={{ fontSize: 11, color: '#666', marginTop: 12, marginBottom: 0 }}>
+                            License is bound to this device. One purchase = one device.
+                        </p>
                     </div>
                 </section>
 
@@ -301,6 +304,45 @@ const Options = () => {
                                 {testResult === 'success' ? 'Connection successful!' : testResult}
                             </div>
                         )}
+                    </div>
+                </section>
+
+                <section style={styles.section}>
+                    <h2 style={styles.sectionTitle}>Privacy & Data</h2>
+                    <div style={styles.infoCard}>
+                        <div style={{ marginBottom: 16 }}>
+                            <p style={{ fontWeight: 600, marginBottom: 8 }}>What we collect:</p>
+                            <ul style={{ ...styles.list, marginTop: 0 }}>
+                                <li>Device ID (anonymous, for license binding)</li>
+                                <li>License status (trial/pro)</li>
+                                <li>Daily usage count (for free tier limits)</li>
+                            </ul>
+                        </div>
+                        <div style={{ marginBottom: 16 }}>
+                            <p style={{ fontWeight: 600, marginBottom: 8 }}>What we DON'T collect:</p>
+                            <ul style={{ ...styles.list, marginTop: 0 }}>
+                                <li>Your browsing history</li>
+                                <li>Tab contents or URLs</li>
+                                <li>Personal information</li>
+                                <li>AI conversation data</li>
+                            </ul>
+                        </div>
+                        <div style={{ borderTop: '1px solid #333', paddingTop: 12 }}>
+                            <p style={{ fontSize: 12, color: '#888', margin: 0 }}>
+                                AI analysis happens locally (Gemini Nano) or via your configured API key.
+                                Tab data never leaves your browser unless you use a cloud AI provider.
+                            </p>
+                        </div>
+                    </div>
+                </section>
+
+                <section style={styles.section}>
+                    <h2 style={styles.sectionTitle}>About</h2>
+                    <div style={styles.infoCard}>
+                        <p style={{ margin: 0 }}>PHANTOM TABS v1.0.0</p>
+                        <p style={{ fontSize: 12, color: '#666', marginTop: 8, marginBottom: 0 }}>
+                            Tactical Tab Intelligence System
+                        </p>
                     </div>
                 </section>
             </main>
