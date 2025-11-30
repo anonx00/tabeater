@@ -93,7 +93,7 @@ class AIService {
                 this.nanoStatus = {
                     available: false,
                     status: 'not_available',
-                    message: 'Chrome AI API not found. Make sure you have Chrome 127+ with flags enabled.'
+                    message: 'Gemini Nano requires Chrome 127+ with flags enabled. This is optional - cloud AI works fine.'
                 };
                 return this.nanoStatus;
             }
@@ -162,7 +162,7 @@ class AIService {
         try {
             const ai = this.getAIApi();
             if (!ai?.languageModel) {
-                this.nanoStatus = { available: false, status: 'not_available', message: 'API not found' };
+                this.nanoStatus = { available: false, status: 'not_available', message: 'Nano unavailable - using cloud AI' };
                 return false;
             }
 

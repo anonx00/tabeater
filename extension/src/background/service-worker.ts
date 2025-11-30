@@ -163,12 +163,17 @@ async function analyzeAllTabs(): Promise<MessageResponse> {
         const tabSummary = tabs.map(t => `- ${t.title} (${new URL(t.url).hostname})`).join('\n');
 
         const analysis = await aiService.prompt(
-            `Analyze these browser tabs and provide insights:
-            - Identify any duplicates or similar pages
-            - Suggest which tabs might be closed
-            - Recommend how to organize them
+            `Analyze these browser tabs. Be concise and actionable. Use plain text only, no markdown.
 
-            Tabs:\n${tabSummary}`
+Tabs:
+${tabSummary}
+
+Provide:
+1. DUPLICATES: List any duplicate or very similar tabs
+2. CLOSE: Suggest tabs that could be closed (search results, temporary pages)
+3. GROUPS: Suggest logical groupings (e.g., "Streaming: Netflix, Stan" or "Work: Docs, Sheets")
+
+Keep response short and scannable.`
         );
 
         return { success: true, data: { analysis, tabCount: tabs.length } };
@@ -180,15 +185,60 @@ async function analyzeAllTabs(): Promise<MessageResponse> {
 async function smartOrganize(): Promise<MessageResponse> {
     try {
         const tabs = await tabService.getAllTabs();
-        const groups = tabService.groupByDomain(tabs);
 
+        // Skip if too few tabs
+        if (tabs.length < 2) {
+            return { success: true, data: { organized: [], message: 'Not enough tabs to organize' } };
+        }
+
+        const tabList = tabs.map(t => `${t.id}|${t.title}|${new URL(t.url).hostname}`).join('\n');
+
+        // Use AI to categorize tabs
+        const aiResponse = await aiService.prompt(
+            `Categorize these browser tabs into logical groups. Return ONLY a JSON array, nothing else.
+
+Tabs (format: id|title|domain):
+${tabList}
+
+Rules:
+- Group by PURPOSE not domain (e.g., Netflix and Stan = "Streaming", YouTube music and Spotify = "Music")
+- Only create groups with 2+ tabs
+- Use short group names (1-2 words)
+- Common categories: Streaming, Social, Shopping, Work, Dev, News, Search, Email
+
+Return format (JSON array only):
+[{"name":"GroupName","ids":[1,2,3]}]`
+        );
+
+        // Parse AI response
+        let groups: { name: string; ids: number[] }[] = [];
+        try {
+            const jsonMatch = aiResponse.match(/\[[\s\S]*\]/);
+            if (jsonMatch) {
+                groups = JSON.parse(jsonMatch[0]);
+            }
+        } catch {
+            // Fallback to domain grouping if AI parsing fails
+            const domainGroups = tabService.groupByDomain(tabs);
+            for (const group of domainGroups) {
+                if (group.tabs.length >= 2) {
+                    const tabIds = group.tabs.map(t => t.id);
+                    await tabService.groupTabs(tabIds, group.name);
+                }
+            }
+            return { success: true, data: { organized: [], message: 'Organized by domain' } };
+        }
+
+        // Create tab groups
         const organized: { groupName: string; tabIds: number[] }[] = [];
-
         for (const group of groups) {
-            if (group.tabs.length >= 2) {
-                const tabIds = group.tabs.map(t => t.id);
-                await tabService.groupTabs(tabIds, group.name);
-                organized.push({ groupName: group.name, tabIds });
+            if (group.ids && group.ids.length >= 2 && group.name) {
+                // Validate tab IDs exist
+                const validIds = group.ids.filter(id => tabs.some(t => t.id === id));
+                if (validIds.length >= 2) {
+                    await tabService.groupTabs(validIds, group.name);
+                    organized.push({ groupName: group.name, tabIds: validIds });
+                }
             }
         }
 
@@ -196,7 +246,7 @@ async function smartOrganize(): Promise<MessageResponse> {
             success: true,
             data: {
                 organized,
-                message: `Organized ${organized.length} groups`
+                message: organized.length > 0 ? `Created ${organized.length} groups` : 'No groups to create'
             }
         };
     } catch (err: any) {

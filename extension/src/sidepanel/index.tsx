@@ -26,7 +26,7 @@ const Sidepanel = () => {
     const [provider, setProvider] = useState('none');
 
     useEffect(() => {
-        loadData();
+        initializeAndLoad();
         const interval = setInterval(loadData, 5000);
         return () => clearInterval(interval);
     }, []);
@@ -34,6 +34,12 @@ const Sidepanel = () => {
     const sendMessage = async (action: string, payload?: any) => {
         const response = await chrome.runtime.sendMessage({ action, payload });
         return response;
+    };
+
+    const initializeAndLoad = async () => {
+        // Reinitialize AI to ensure it's ready
+        await sendMessage('reinitializeAI');
+        await loadData();
     };
 
     const loadData = async () => {
