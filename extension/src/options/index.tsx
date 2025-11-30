@@ -14,8 +14,8 @@ interface LicenseStatus {
 const PROVIDER_INFO = {
     gemini: {
         name: 'Google Gemini',
-        defaultModel: 'gemini-1.5-flash',
-        models: ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-1.0-pro'],
+        defaultModel: 'gemini-2.0-flash',
+        models: ['gemini-2.0-flash', 'gemini-1.5-flash-latest', 'gemini-1.5-pro-latest'],
         getKeyUrl: 'https://aistudio.google.com/app/apikey',
         description: 'Google AI Studio - Free tier available'
     },
@@ -28,8 +28,8 @@ const PROVIDER_INFO = {
     },
     anthropic: {
         name: 'Anthropic Claude',
-        defaultModel: 'claude-3-haiku-20240307',
-        models: ['claude-3-haiku-20240307', 'claude-3-sonnet-20240229', 'claude-3-opus-20240229'],
+        defaultModel: 'claude-3-5-haiku-latest',
+        models: ['claude-3-5-haiku-latest', 'claude-3-5-sonnet-latest', 'claude-3-opus-latest'],
         getKeyUrl: 'https://console.anthropic.com/settings/keys',
         description: 'Anthropic Console - Pay as you go'
     }
