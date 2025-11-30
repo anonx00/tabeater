@@ -11,6 +11,20 @@ interface LicenseStatus {
     canUse: boolean;
 }
 
+interface NanoStatus {
+    available: boolean;
+    status: 'ready' | 'downloading' | 'not_available' | 'error';
+    message: string;
+}
+
+interface AutoPilotSettings {
+    staleDaysThreshold: number;
+    autoCloseStale: boolean;
+    autoGroupByCategory: boolean;
+    excludePinned: boolean;
+    excludeActive: boolean;
+}
+
 const PROVIDER_INFO = {
     gemini: {
         name: 'Google Gemini',
@@ -44,10 +58,22 @@ const Options = () => {
     const [testing, setTesting] = useState(false);
     const [testResult, setTestResult] = useState<string | null>(null);
     const [license, setLicense] = useState<LicenseStatus | null>(null);
+    const [nanoStatus, setNanoStatus] = useState<NanoStatus | null>(null);
+    const [checkingNano, setCheckingNano] = useState(false);
+    const [autoPilotSettings, setAutoPilotSettings] = useState<AutoPilotSettings>({
+        staleDaysThreshold: 7,
+        autoCloseStale: false,
+        autoGroupByCategory: false,
+        excludePinned: true,
+        excludeActive: true,
+    });
+    const [autoPilotSaved, setAutoPilotSaved] = useState(false);
 
     useEffect(() => {
         loadConfig();
         loadLicense();
+        checkNanoStatus();
+        loadAutoPilotSettings();
     }, []);
 
     const loadConfig = async () => {
@@ -72,6 +98,50 @@ const Options = () => {
         if (response.success) {
             setActiveProvider(response.data.provider);
         }
+    };
+
+    const checkNanoStatus = async () => {
+        setCheckingNano(true);
+        try {
+            // First check detailed Nano status
+            const statusResponse = await chrome.runtime.sendMessage({ action: 'checkNanoStatus' });
+            if (statusResponse.success) {
+                setNanoStatus(statusResponse.data);
+            }
+
+            // Then try to reinitialize AI (this might enable Nano if it's now ready)
+            const reinitResponse = await chrome.runtime.sendMessage({ action: 'reinitializeAI' });
+            if (reinitResponse.success) {
+                setActiveProvider(reinitResponse.data.provider);
+                // Update nano status from reinit response
+                if (reinitResponse.data.nanoStatus) {
+                    setNanoStatus(reinitResponse.data.nanoStatus);
+                }
+            }
+        } catch (err) {
+            console.error('Failed to check Nano status:', err);
+        }
+        setCheckingNano(false);
+    };
+
+    const loadAutoPilotSettings = async () => {
+        const response = await chrome.runtime.sendMessage({ action: 'getAutoPilotSettings' });
+        if (response.success) {
+            setAutoPilotSettings(response.data);
+        }
+    };
+
+    const saveAutoPilotSettings = async () => {
+        await chrome.runtime.sendMessage({
+            action: 'setAutoPilotSettings',
+            payload: autoPilotSettings
+        });
+        setAutoPilotSaved(true);
+        setTimeout(() => setAutoPilotSaved(false), 2000);
+    };
+
+    const updateAutoPilotSetting = <K extends keyof AutoPilotSettings>(key: K, value: AutoPilotSettings[K]) => {
+        setAutoPilotSettings(prev => ({ ...prev, [key]: value }));
     };
 
     const saveConfig = async () => {
@@ -127,6 +197,22 @@ const Options = () => {
         return 'Not Configured';
     };
 
+    const getNanoStatusColor = () => {
+        if (!nanoStatus) return '#666';
+        if (nanoStatus.status === 'ready' || activeProvider === 'nano') return '#00ff88';
+        if (nanoStatus.status === 'downloading') return '#ffcc00';
+        return '#ff8800';
+    };
+
+    const getNanoStatusLabel = () => {
+        if (activeProvider === 'nano') return 'Active';
+        if (!nanoStatus) return 'Checking...';
+        if (nanoStatus.status === 'ready') return 'Ready';
+        if (nanoStatus.status === 'downloading') return 'Downloading...';
+        if (nanoStatus.status === 'error') return 'Error';
+        return 'Not Available';
+    };
+
     const getLicenseDisplay = () => {
         if (!license) return { text: 'Loading...', color: '#666' };
         if (license.paid) return { text: 'PRO - Unlimited Access', color: '#00ff88' };
@@ -166,6 +252,9 @@ const Options = () => {
                                 Thank you for your support!
                             </p>
                         )}
+                        <p style={{ fontSize: 11, color: '#666', marginTop: 12, marginBottom: 0 }}>
+                            License is bound to this device. One purchase = one device.
+                        </p>
                     </div>
                 </section>
 
@@ -192,12 +281,38 @@ const Options = () => {
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
                             <span>Gemini Nano Status:</span>
                             <span style={{
-                                color: activeProvider === 'nano' ? '#00ff88' : '#ff8800',
+                                color: getNanoStatusColor(),
                                 fontWeight: 600
                             }}>
-                                {activeProvider === 'nano' ? 'Active' : 'Not Available'}
+                                {getNanoStatusLabel()}
                             </span>
                         </div>
+                        {nanoStatus && nanoStatus.status !== 'ready' && (
+                            <div style={{
+                                padding: '10px 12px',
+                                background: nanoStatus.status === 'downloading' ? '#2a2810' : '#1a1010',
+                                border: `1px solid ${nanoStatus.status === 'downloading' ? '#665500' : '#441111'}`,
+                                borderRadius: 6,
+                                fontSize: 12,
+                                marginBottom: 12,
+                                color: nanoStatus.status === 'downloading' ? '#ffcc00' : '#ff8888'
+                            }}>
+                                {nanoStatus.message}
+                            </div>
+                        )}
+                        {nanoStatus?.status === 'ready' && (
+                            <div style={{
+                                padding: '10px 12px',
+                                background: '#102810',
+                                border: '1px solid #006600',
+                                borderRadius: 6,
+                                fontSize: 12,
+                                marginBottom: 12,
+                                color: '#00ff88'
+                            }}>
+                                {nanoStatus.message}
+                            </div>
+                        )}
                         <p>Chrome's built-in AI runs locally - fastest and most private.</p>
                         <p style={{ fontWeight: 600, marginTop: 12 }}>To enable Gemini Nano:</p>
                         <ol style={styles.list}>
@@ -206,13 +321,15 @@ const Options = () => {
                             <li>Open <code>chrome://flags/#prompt-api-for-gemini-nano</code></li>
                             <li>Set to <strong>"Enabled"</strong></li>
                             <li>Click "Relaunch" to restart Chrome</li>
+                            <li>Wait 2-5 minutes for model to download (check <code>chrome://components</code> for "Optimization Guide On Device Model")</li>
                         </ol>
                         <p style={styles.note}>When enabled, Nano takes priority over cloud APIs (no API key needed).</p>
                         <button
                             style={{ ...styles.refreshBtn, marginTop: 12 }}
-                            onClick={() => { checkProvider(); }}
+                            onClick={checkNanoStatus}
+                            disabled={checkingNano}
                         >
-                            Check Nano Status
+                            {checkingNano ? 'Checking...' : 'Check Nano Status'}
                         </button>
                     </div>
                 </section>
@@ -301,6 +418,136 @@ const Options = () => {
                                 {testResult === 'success' ? 'Connection successful!' : testResult}
                             </div>
                         )}
+                    </div>
+                </section>
+
+                <section style={styles.section}>
+                    <h2 style={styles.sectionTitle}>
+                        Auto Pilot Settings
+                        <span style={{ marginLeft: 8, fontSize: 11, color: '#ffd700' }}>PRO</span>
+                    </h2>
+                    <div style={styles.infoCard}>
+                        <p style={{ marginTop: 0, marginBottom: 16, fontSize: 12, color: '#888' }}>
+                            Auto Pilot analyzes your tabs, identifies stale and duplicate tabs, categorizes them,
+                            and provides AI-powered recommendations for cleanup and organization.
+                        </p>
+
+                        <div style={styles.settingRow}>
+                            <label style={styles.settingLabel}>
+                                <span>Stale tab threshold (days)</span>
+                                <span style={{ fontSize: 11, color: '#666' }}>
+                                    Tabs not accessed for this many days are considered stale
+                                </span>
+                            </label>
+                            <select
+                                style={{ ...styles.select, width: 80 }}
+                                value={autoPilotSettings.staleDaysThreshold}
+                                onChange={(e) => updateAutoPilotSetting('staleDaysThreshold', parseInt(e.target.value))}
+                            >
+                                <option value={1}>1</option>
+                                <option value={3}>3</option>
+                                <option value={7}>7</option>
+                                <option value={14}>14</option>
+                                <option value={30}>30</option>
+                            </select>
+                        </div>
+
+                        <div style={styles.settingRow}>
+                            <label style={styles.checkboxLabel}>
+                                <input
+                                    type="checkbox"
+                                    checked={autoPilotSettings.excludePinned}
+                                    onChange={(e) => updateAutoPilotSetting('excludePinned', e.target.checked)}
+                                    style={styles.checkbox}
+                                />
+                                <span>Exclude pinned tabs from suggestions</span>
+                            </label>
+                        </div>
+
+                        <div style={styles.settingRow}>
+                            <label style={styles.checkboxLabel}>
+                                <input
+                                    type="checkbox"
+                                    checked={autoPilotSettings.excludeActive}
+                                    onChange={(e) => updateAutoPilotSetting('excludeActive', e.target.checked)}
+                                    style={styles.checkbox}
+                                />
+                                <span>Exclude currently active tabs</span>
+                            </label>
+                        </div>
+
+                        <div style={{ borderTop: '1px solid #333', paddingTop: 16, marginTop: 16 }}>
+                            <p style={{ fontSize: 11, color: '#666', marginTop: 0, marginBottom: 12 }}>
+                                Auto-actions (experimental - use with caution)
+                            </p>
+
+                            <div style={styles.settingRow}>
+                                <label style={styles.checkboxLabel}>
+                                    <input
+                                        type="checkbox"
+                                        checked={autoPilotSettings.autoCloseStale}
+                                        onChange={(e) => updateAutoPilotSetting('autoCloseStale', e.target.checked)}
+                                        style={styles.checkbox}
+                                    />
+                                    <span>Auto-close stale and duplicate tabs</span>
+                                </label>
+                            </div>
+
+                            <div style={styles.settingRow}>
+                                <label style={styles.checkboxLabel}>
+                                    <input
+                                        type="checkbox"
+                                        checked={autoPilotSettings.autoGroupByCategory}
+                                        onChange={(e) => updateAutoPilotSetting('autoGroupByCategory', e.target.checked)}
+                                        style={styles.checkbox}
+                                    />
+                                    <span>Auto-group tabs by category</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <button style={{ ...styles.btnPrimary, marginTop: 16 }} onClick={saveAutoPilotSettings}>
+                            {autoPilotSaved ? 'Saved!' : 'Save Auto Pilot Settings'}
+                        </button>
+                    </div>
+                </section>
+
+                <section style={styles.section}>
+                    <h2 style={styles.sectionTitle}>Privacy & Data</h2>
+                    <div style={styles.infoCard}>
+                        <div style={{ marginBottom: 16 }}>
+                            <p style={{ fontWeight: 600, marginBottom: 8 }}>What we collect:</p>
+                            <ul style={{ ...styles.list, marginTop: 0 }}>
+                                <li>Device ID (anonymous, for license binding)</li>
+                                <li>License status (trial/pro)</li>
+                                <li>Daily usage count (for free tier limits)</li>
+                            </ul>
+                        </div>
+                        <div style={{ marginBottom: 16 }}>
+                            <p style={{ fontWeight: 600, marginBottom: 8 }}>What we DON'T collect:</p>
+                            <ul style={{ ...styles.list, marginTop: 0 }}>
+                                <li>Your browsing history</li>
+                                <li>Tab contents or URLs</li>
+                                <li>Personal information</li>
+                                <li>AI conversation data</li>
+                            </ul>
+                        </div>
+                        <div style={{ borderTop: '1px solid #333', paddingTop: 12 }}>
+                            <p style={{ fontSize: 12, color: '#888', margin: 0 }}>
+                                AI analysis happens locally (Gemini Nano) or via your configured API key.
+                                Tab data never leaves your browser unless you use a cloud AI provider.
+                            </p>
+                        </div>
+                    </div>
+                </section>
+
+                <section style={styles.section}>
+                    <h2 style={styles.sectionTitle}>About</h2>
+                    <div style={styles.infoCard}>
+                        <p style={{ margin: 0 }}>PHANTOM TABS v1.0.0</p>
+                        <p style={{ fontSize: 12, color: '#666', marginTop: 8, marginBottom: 0 }}>
+                            Tactical Tab Intelligence System
+                        </p>
                     </div>
                 </section>
             </main>
@@ -499,6 +746,30 @@ const styles: { [key: string]: React.CSSProperties } = {
         borderRadius: 4,
         border: '1px solid',
         fontSize: 13,
+    },
+    settingRow: {
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 12,
+    },
+    settingLabel: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 2,
+    },
+    checkboxLabel: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: 10,
+        cursor: 'pointer',
+        fontSize: 13,
+    },
+    checkbox: {
+        width: 18,
+        height: 18,
+        cursor: 'pointer',
+        accentColor: '#00ff88',
     },
 };
 

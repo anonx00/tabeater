@@ -1,6 +1,7 @@
 import { aiService } from '../services/ai';
 import { tabService, TabInfo } from '../services/tabs';
 import { licenseService } from '../services/license';
+import { autoPilotService } from '../services/autopilot';
 
 interface Message {
     action: string;
@@ -80,6 +81,15 @@ async function handleMessage(message: Message): Promise<MessageResponse> {
         case 'getAIProvider':
             return { success: true, data: { provider: aiService.getProvider() } };
 
+        case 'checkNanoStatus':
+            const nanoStatus = await aiService.checkNanoAvailability();
+            return { success: true, data: nanoStatus };
+
+        case 'reinitializeAI':
+            const newProvider = await aiService.initialize();
+            const currentNanoStatus = aiService.getNanoStatus();
+            return { success: true, data: { provider: newProvider, nanoStatus: currentNanoStatus } };
+
         case 'setAIConfig':
             await aiService.setConfig(message.payload);
             return { success: true, data: { provider: aiService.getProvider() } };
@@ -95,6 +105,35 @@ async function handleMessage(message: Message): Promise<MessageResponse> {
         case 'getCheckoutUrl':
             const checkoutUrl = await licenseService.getCheckoutUrl();
             return { success: true, data: { url: checkoutUrl } };
+
+        // Auto Pilot actions
+        case 'autoPilotAnalyze':
+            const analyzeReport = await autoPilotService.analyze();
+            return { success: true, data: analyzeReport };
+
+        case 'autoPilotAnalyzeWithAI':
+            const aiReport = await autoPilotService.analyzeWithAI();
+            return { success: true, data: aiReport };
+
+        case 'autoPilotExecute':
+            const executeResult = await autoPilotService.executeAutoPilot();
+            return { success: true, data: executeResult };
+
+        case 'autoPilotCleanup':
+            const cleanupResult = await autoPilotService.executeCleanup(message.payload.tabIds);
+            return { success: true, data: cleanupResult };
+
+        case 'autoPilotGroup':
+            const groupResult = await autoPilotService.executeGrouping(message.payload.groups);
+            return { success: true, data: groupResult };
+
+        case 'getAutoPilotSettings':
+            const settings = await autoPilotService.loadSettings();
+            return { success: true, data: settings };
+
+        case 'setAutoPilotSettings':
+            await autoPilotService.saveSettings(message.payload);
+            return { success: true };
 
         default:
             return { success: false, error: 'Unknown action' };
