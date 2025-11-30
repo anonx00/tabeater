@@ -13,13 +13,13 @@ export const colors = {
     accentLight: '#22d3ee',
     accentBg: 'rgba(6, 182, 212, 0.1)',
 
-    // Background colors
-    bgDarkest: '#000000',
-    bgDarker: '#0a0a0a',
-    bgDark: '#0d0d0d',
-    bgCard: '#111111',
-    bgCardHover: '#1a1a1a',
-    bgInput: '#0a0a0a',
+    // Background colors - softened for reduced eye strain
+    bgDarkest: '#121212',
+    bgDarker: '#1a1a1a',
+    bgDark: '#1d1d1d',
+    bgCard: '#212121',
+    bgCardHover: '#2a2a2a',
+    bgInput: '#1a1a1a',
 
     // Border colors
     borderDark: '#1a1a1a',
@@ -73,19 +73,20 @@ export const spacing = {
 };
 
 export const typography = {
-    fontFamily: "'Segoe UI', system-ui, -apple-system, sans-serif",
-    fontMono: "'SF Mono', 'Consolas', 'Monaco', monospace",
+    // Unified font stack for better readability
+    fontFamily: "system-ui, -apple-system, 'Segoe UI', sans-serif",
+    fontMono: "'JetBrains Mono', 'SF Mono', 'Consolas', 'Monaco', monospace",
 
-    // Font sizes
-    sizeXs: 9,
-    sizeSm: 10,
-    sizeMd: 11,
-    sizeBase: 12,
-    sizeLg: 13,
-    sizeXl: 14,
-    sizeXxl: 16,
-    sizeDisplay: 18,
-    sizeHero: 24,
+    // Font sizes - increased for better readability
+    sizeXs: 11,
+    sizeSm: 12,
+    sizeMd: 13,
+    sizeBase: 14,
+    sizeLg: 15,
+    sizeXl: 16,
+    sizeXxl: 18,
+    sizeDisplay: 20,
+    sizeHero: 28,
 
     // Font weights
     normal: 400,

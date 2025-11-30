@@ -160,23 +160,69 @@ async function summarizeTab(tabId: number): Promise<MessageResponse> {
 async function analyzeAllTabs(): Promise<MessageResponse> {
     try {
         const tabs = await tabService.getAllTabs();
-        const tabSummary = tabs.map(t => `- ${t.title} (${new URL(t.url).hostname})`).join('\n');
+
+        // Token budgeting: limit to 100 tabs max, truncate long URLs
+        const limitedTabs = tabs.slice(0, 100);
+        const tabSummary = limitedTabs.map(t => {
+            const hostname = new URL(t.url).hostname;
+            return `${t.id}|${t.title.slice(0, 60)}|${hostname}`;
+        }).join('\n');
 
         const analysis = await aiService.prompt(
-            `Analyze these browser tabs. Be concise and actionable. Use plain text only, no markdown.
+            `Analyze these browser tabs and return ONLY a JSON object (no explanation).
 
-Tabs:
+Tabs (format: id|title|domain):
 ${tabSummary}
 
-Provide:
-1. DUPLICATES: List any duplicate or very similar tabs
-2. CLOSE: Suggest tabs that could be closed (search results, temporary pages)
-3. GROUPS: Suggest logical groupings (e.g., "Streaming: Netflix, Stan" or "Work: Docs, Sheets")
+Return format:
+{
+  "duplicates": [{"title": "...", "count": 2, "ids": [1,2]}],
+  "closeable": [{"id": 1, "title": "...", "reason": "..."}],
+  "groups": [{"name": "...", "tabs": ["title1", "title2"]}],
+  "summary": "Brief 1-sentence overview"
+}
 
-Keep response short and scannable.`
+Rules:
+- Keep all arrays even if empty
+- Use concise reasons (max 5 words)
+- Group names should be 1-2 words`
         );
 
-        return { success: true, data: { analysis, tabCount: tabs.length } };
+        // Clean and parse JSON response
+        let parsedAnalysis;
+        try {
+            // Remove any markdown code blocks or extra text
+            const cleanJson = analysis
+                .replace(/```json\n?/g, '')
+                .replace(/```\n?/g, '')
+                .replace(/^[^{]*({[\s\S]*})[^}]*$/g, '$1')
+                .trim();
+
+            parsedAnalysis = JSON.parse(cleanJson);
+        } catch (parseErr) {
+            // Fallback: try to extract JSON from response
+            const jsonMatch = analysis.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+                parsedAnalysis = JSON.parse(jsonMatch[0]);
+            } else {
+                // Ultimate fallback: return plain text
+                parsedAnalysis = {
+                    duplicates: [],
+                    closeable: [],
+                    groups: [],
+                    summary: analysis.slice(0, 200)
+                };
+            }
+        }
+
+        return {
+            success: true,
+            data: {
+                analysis: parsedAnalysis,
+                tabCount: tabs.length,
+                isStructured: true
+            }
+        };
     } catch (err: any) {
         return { success: false, error: err.message };
     }
