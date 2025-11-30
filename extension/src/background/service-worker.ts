@@ -122,24 +122,49 @@ async function handleMessage(message: Message): Promise<MessageResponse> {
             const checkoutUrl = await licenseService.getCheckoutUrl();
             return { success: true, data: { url: checkoutUrl } };
 
-        // Auto Pilot actions
+        // Auto Pilot actions (PRO features)
         case 'autoPilotAnalyze':
+            // Check if user has PRO license
+            const analyzeStatus = await licenseService.getStatus();
+            if (!analyzeStatus.paid) {
+                return { success: false, error: 'TRIAL_EXPIRED: Auto Pilot requires Pro license' };
+            }
             const analyzeReport = await autoPilotService.analyze();
             return { success: true, data: analyzeReport };
 
         case 'autoPilotAnalyzeWithAI':
+            // Check if user has PRO license
+            const aiStatus = await licenseService.getStatus();
+            if (!aiStatus.paid) {
+                return { success: false, error: 'TRIAL_EXPIRED: Auto Pilot requires Pro license' };
+            }
             const aiReport = await autoPilotService.analyzeWithAI();
             return { success: true, data: aiReport };
 
         case 'autoPilotExecute':
+            // Check if user has PRO license
+            const executeStatus = await licenseService.getStatus();
+            if (!executeStatus.paid) {
+                return { success: false, error: 'TRIAL_EXPIRED: Auto Pilot requires Pro license' };
+            }
             const executeResult = await autoPilotService.executeAutoPilot();
             return { success: true, data: executeResult };
 
         case 'autoPilotCleanup':
+            // Check if user has PRO license
+            const cleanupStatus = await licenseService.getStatus();
+            if (!cleanupStatus.paid) {
+                return { success: false, error: 'TRIAL_EXPIRED: Auto Pilot requires Pro license' };
+            }
             const cleanupResult = await autoPilotService.executeCleanup(message.payload.tabIds);
             return { success: true, data: cleanupResult };
 
         case 'autoPilotGroup':
+            // Check if user has PRO license
+            const groupStatus = await licenseService.getStatus();
+            if (!groupStatus.paid) {
+                return { success: false, error: 'TRIAL_EXPIRED: Auto Pilot requires Pro license' };
+            }
             const groupResult = await autoPilotService.executeGrouping(message.payload.groups);
             return { success: true, data: groupResult };
 
@@ -363,6 +388,15 @@ Return JSON array:
 
 async function smartOrganize(): Promise<MessageResponse> {
     try {
+        // Check license before executing (enforces free tier limit)
+        const useCheck = await licenseService.checkAndUse();
+        if (!useCheck.allowed) {
+            const reason = useCheck.reason === 'trial_expired'
+                ? 'TRIAL_EXPIRED: Upgrade to Pro for unlimited access'
+                : 'LIMIT_REACHED: Daily limit reached. Upgrade to Pro for unlimited access';
+            return { success: false, error: reason };
+        }
+
         const tabs = await tabService.getAllTabs();
 
         if (tabs.length < 2) {
