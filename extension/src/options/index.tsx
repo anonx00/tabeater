@@ -11,6 +11,12 @@ interface LicenseStatus {
     canUse: boolean;
 }
 
+interface NanoStatus {
+    available: boolean;
+    status: 'ready' | 'downloading' | 'not_available' | 'error';
+    message: string;
+}
+
 const PROVIDER_INFO = {
     gemini: {
         name: 'Google Gemini',
@@ -44,10 +50,13 @@ const Options = () => {
     const [testing, setTesting] = useState(false);
     const [testResult, setTestResult] = useState<string | null>(null);
     const [license, setLicense] = useState<LicenseStatus | null>(null);
+    const [nanoStatus, setNanoStatus] = useState<NanoStatus | null>(null);
+    const [checkingNano, setCheckingNano] = useState(false);
 
     useEffect(() => {
         loadConfig();
         loadLicense();
+        checkNanoStatus();
     }, []);
 
     const loadConfig = async () => {
@@ -72,6 +81,30 @@ const Options = () => {
         if (response.success) {
             setActiveProvider(response.data.provider);
         }
+    };
+
+    const checkNanoStatus = async () => {
+        setCheckingNano(true);
+        try {
+            // First check detailed Nano status
+            const statusResponse = await chrome.runtime.sendMessage({ action: 'checkNanoStatus' });
+            if (statusResponse.success) {
+                setNanoStatus(statusResponse.data);
+            }
+
+            // Then try to reinitialize AI (this might enable Nano if it's now ready)
+            const reinitResponse = await chrome.runtime.sendMessage({ action: 'reinitializeAI' });
+            if (reinitResponse.success) {
+                setActiveProvider(reinitResponse.data.provider);
+                // Update nano status from reinit response
+                if (reinitResponse.data.nanoStatus) {
+                    setNanoStatus(reinitResponse.data.nanoStatus);
+                }
+            }
+        } catch (err) {
+            console.error('Failed to check Nano status:', err);
+        }
+        setCheckingNano(false);
     };
 
     const saveConfig = async () => {
@@ -125,6 +158,22 @@ const Options = () => {
         if (p === 'openai') return 'OpenAI';
         if (p === 'anthropic') return 'Anthropic Claude';
         return 'Not Configured';
+    };
+
+    const getNanoStatusColor = () => {
+        if (!nanoStatus) return '#666';
+        if (nanoStatus.status === 'ready' || activeProvider === 'nano') return '#00ff88';
+        if (nanoStatus.status === 'downloading') return '#ffcc00';
+        return '#ff8800';
+    };
+
+    const getNanoStatusLabel = () => {
+        if (activeProvider === 'nano') return 'Active';
+        if (!nanoStatus) return 'Checking...';
+        if (nanoStatus.status === 'ready') return 'Ready';
+        if (nanoStatus.status === 'downloading') return 'Downloading...';
+        if (nanoStatus.status === 'error') return 'Error';
+        return 'Not Available';
     };
 
     const getLicenseDisplay = () => {
@@ -195,12 +244,38 @@ const Options = () => {
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
                             <span>Gemini Nano Status:</span>
                             <span style={{
-                                color: activeProvider === 'nano' ? '#00ff88' : '#ff8800',
+                                color: getNanoStatusColor(),
                                 fontWeight: 600
                             }}>
-                                {activeProvider === 'nano' ? 'Active' : 'Not Available'}
+                                {getNanoStatusLabel()}
                             </span>
                         </div>
+                        {nanoStatus && nanoStatus.status !== 'ready' && (
+                            <div style={{
+                                padding: '10px 12px',
+                                background: nanoStatus.status === 'downloading' ? '#2a2810' : '#1a1010',
+                                border: `1px solid ${nanoStatus.status === 'downloading' ? '#665500' : '#441111'}`,
+                                borderRadius: 6,
+                                fontSize: 12,
+                                marginBottom: 12,
+                                color: nanoStatus.status === 'downloading' ? '#ffcc00' : '#ff8888'
+                            }}>
+                                {nanoStatus.message}
+                            </div>
+                        )}
+                        {nanoStatus?.status === 'ready' && (
+                            <div style={{
+                                padding: '10px 12px',
+                                background: '#102810',
+                                border: '1px solid #006600',
+                                borderRadius: 6,
+                                fontSize: 12,
+                                marginBottom: 12,
+                                color: '#00ff88'
+                            }}>
+                                {nanoStatus.message}
+                            </div>
+                        )}
                         <p>Chrome's built-in AI runs locally - fastest and most private.</p>
                         <p style={{ fontWeight: 600, marginTop: 12 }}>To enable Gemini Nano:</p>
                         <ol style={styles.list}>
@@ -209,13 +284,15 @@ const Options = () => {
                             <li>Open <code>chrome://flags/#prompt-api-for-gemini-nano</code></li>
                             <li>Set to <strong>"Enabled"</strong></li>
                             <li>Click "Relaunch" to restart Chrome</li>
+                            <li>Wait 2-5 minutes for model to download (check <code>chrome://components</code> for "Optimization Guide On Device Model")</li>
                         </ol>
                         <p style={styles.note}>When enabled, Nano takes priority over cloud APIs (no API key needed).</p>
                         <button
                             style={{ ...styles.refreshBtn, marginTop: 12 }}
-                            onClick={() => { checkProvider(); }}
+                            onClick={checkNanoStatus}
+                            disabled={checkingNano}
                         >
-                            Check Nano Status
+                            {checkingNano ? 'Checking...' : 'Check Nano Status'}
                         </button>
                     </div>
                 </section>

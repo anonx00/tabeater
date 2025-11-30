@@ -80,6 +80,15 @@ async function handleMessage(message: Message): Promise<MessageResponse> {
         case 'getAIProvider':
             return { success: true, data: { provider: aiService.getProvider() } };
 
+        case 'checkNanoStatus':
+            const nanoStatus = await aiService.checkNanoAvailability();
+            return { success: true, data: nanoStatus };
+
+        case 'reinitializeAI':
+            const newProvider = await aiService.initialize();
+            const currentNanoStatus = aiService.getNanoStatus();
+            return { success: true, data: { provider: newProvider, nanoStatus: currentNanoStatus } };
+
         case 'setAIConfig':
             await aiService.setConfig(message.payload);
             return { success: true, data: { provider: aiService.getProvider() } };

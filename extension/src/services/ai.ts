@@ -34,10 +34,17 @@ const PROVIDER_CONFIGS = {
     }
 };
 
+interface NanoStatus {
+    available: boolean;
+    status: 'ready' | 'downloading' | 'not_available' | 'error';
+    message: string;
+}
+
 class AIService {
     private session: AISession | null = null;
     private provider: AIProvider = 'none';
     private config: AIConfig = {};
+    private nanoStatus: NanoStatus = { available: false, status: 'not_available', message: 'Not checked' };
 
     async initialize(): Promise<AIProvider> {
         const stored = await chrome.storage.local.get(['aiConfig']);
@@ -59,16 +66,107 @@ class AIService {
         return 'none';
     }
 
-    private async initializeNano(): Promise<boolean> {
+    private getAIApi(): any {
+        // Try multiple access patterns for Chrome built-in AI
+        // Different Chrome versions expose the API differently
+        return (globalThis as any).ai
+            || (self as any).ai
+            || (chrome as any).ai
+            || (window as any)?.ai;
+    }
+
+    async checkNanoAvailability(): Promise<NanoStatus> {
         try {
-            const ai = (globalThis as any).ai || (chrome as any).ai;
-            if (!ai?.languageModel) return false;
+            const ai = this.getAIApi();
+
+            if (!ai) {
+                this.nanoStatus = {
+                    available: false,
+                    status: 'not_available',
+                    message: 'Chrome AI API not found. Make sure you have Chrome 127+ with flags enabled.'
+                };
+                return this.nanoStatus;
+            }
+
+            if (!ai.languageModel) {
+                this.nanoStatus = {
+                    available: false,
+                    status: 'not_available',
+                    message: 'Language Model API not available. Enable chrome://flags/#prompt-api-for-gemini-nano'
+                };
+                return this.nanoStatus;
+            }
 
             const capabilities = await ai.languageModel.capabilities();
-            if (capabilities.available === 'no') return false;
+
+            if (capabilities.available === 'no') {
+                this.nanoStatus = {
+                    available: false,
+                    status: 'not_available',
+                    message: 'Gemini Nano not available on this device. Check chrome://flags settings.'
+                };
+                return this.nanoStatus;
+            }
 
             if (capabilities.available === 'after-download') {
-                await ai.languageModel.create();
+                this.nanoStatus = {
+                    available: false,
+                    status: 'downloading',
+                    message: 'Gemini Nano is downloading. This may take a few minutes. Try again soon.'
+                };
+                // Trigger the download
+                try {
+                    await ai.languageModel.create();
+                } catch {
+                    // Download may be in progress
+                }
+                return this.nanoStatus;
+            }
+
+            if (capabilities.available === 'readily') {
+                this.nanoStatus = {
+                    available: true,
+                    status: 'ready',
+                    message: 'Gemini Nano is ready to use!'
+                };
+                return this.nanoStatus;
+            }
+
+            this.nanoStatus = {
+                available: false,
+                status: 'not_available',
+                message: `Unknown status: ${capabilities.available}`
+            };
+            return this.nanoStatus;
+        } catch (err: any) {
+            this.nanoStatus = {
+                available: false,
+                status: 'error',
+                message: `Error checking Nano: ${err.message}`
+            };
+            return this.nanoStatus;
+        }
+    }
+
+    private async initializeNano(): Promise<boolean> {
+        try {
+            const ai = this.getAIApi();
+            if (!ai?.languageModel) {
+                this.nanoStatus = { available: false, status: 'not_available', message: 'API not found' };
+                return false;
+            }
+
+            const capabilities = await ai.languageModel.capabilities();
+            if (capabilities.available === 'no') {
+                this.nanoStatus = { available: false, status: 'not_available', message: 'Not available' };
+                return false;
+            }
+
+            if (capabilities.available === 'after-download') {
+                this.nanoStatus = { available: false, status: 'downloading', message: 'Model downloading...' };
+                // Try to trigger download but don't wait
+                ai.languageModel.create().catch(() => {});
+                return false;
             }
 
             this.session = await ai.languageModel.create({
@@ -77,10 +175,16 @@ class AIService {
                 Keep responses brief and focused.`
             });
 
+            this.nanoStatus = { available: true, status: 'ready', message: 'Ready' };
             return true;
-        } catch {
+        } catch (err: any) {
+            this.nanoStatus = { available: false, status: 'error', message: err.message };
             return false;
         }
+    }
+
+    getNanoStatus(): NanoStatus {
+        return this.nanoStatus;
     }
 
     async prompt(text: string): Promise<string> {
@@ -232,4 +336,4 @@ class AIService {
 }
 
 export const aiService = new AIService();
-export type { AIConfig, AIProvider };
+export type { AIConfig, AIProvider, NanoStatus };
