@@ -11,26 +11,38 @@ module.exports = {
     },
     output: {
         path: path.resolve(__dirname, 'dist'),
-        resolve: {
-            extensions: ['.tsx', '.ts', '.js'],
-            alias: {
-                '@': path.resolve(__dirname, 'extension/src'),
-            },
+        filename: '[name].js',
+        clean: true,
+    },
+    resolve: {
+        extensions: ['.tsx', '.ts', '.js'],
+        alias: {
+            '@': path.resolve(__dirname, 'extension/src'),
         },
-        plugins: [
-            new CopyPlugin({
-                patterns: [
-                    {
-                        from: 'extension/manifest.json',
-                        to: 'manifest.json'
-                    },
-                    {
-                        from: 'extension/public',
-                        to: '.',
-                        noErrorOnMissing: true
-                    },
-                ],
-            }),
+    },
+    module: {
+        rules: [
+            {
+                test: /\.tsx?$/,
+                use: 'ts-loader',
+                exclude: /node_modules/,
+            },
         ],
-        devtool: 'cheap-module-source-map',
-    };
+    },
+    plugins: [
+        new CopyPlugin({
+            patterns: [
+                {
+                    from: 'extension/manifest.json',
+                    to: 'manifest.json'
+                },
+                {
+                    from: 'extension/public',
+                    to: '.',
+                    noErrorOnMissing: true
+                },
+            ],
+        }),
+    ],
+    devtool: 'cheap-module-source-map',
+};
