@@ -21,14 +21,32 @@ check_command() {
     if ! command -v $1 &> /dev/null; then
         echo -e "${RED}Error: $1 is not installed${NC}"
         echo "$2"
-        exit 1
+        return 1
     fi
+    return 0
 }
 
-check_command "gcloud" "Install from: https://cloud.google.com/sdk/docs/install"
-check_command "terraform" "Install from: https://developer.hashicorp.com/terraform/downloads"
-check_command "node" "Install from: https://nodejs.org/"
-check_command "npm" "Install from: https://nodejs.org/"
+IN_CLOUD_SHELL=false
+if [ -n "$CLOUD_SHELL" ] || [ -n "$GOOGLE_CLOUD_PROJECT" ]; then
+    IN_CLOUD_SHELL=true
+fi
+
+if [ "$IN_CLOUD_SHELL" = true ]; then
+    echo -e "${GREEN}Detected: Google Cloud Shell${NC}"
+    echo ""
+fi
+
+if ! check_command "node" "Install from: https://nodejs.org/"; then
+    if [ "$IN_CLOUD_SHELL" = true ]; then
+        echo -e "${YELLOW}Installing Node.js...${NC}"
+        curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash - > /dev/null 2>&1
+        sudo apt-get install -y nodejs > /dev/null 2>&1
+    else
+        exit 1
+    fi
+fi
+
+check_command "npm" "Install from: https://nodejs.org/" || exit 1
 
 echo -e "${BLUE}Select deployment mode:${NC}"
 echo ""
@@ -61,9 +79,12 @@ if [ "$DEPLOY_MODE" == "dev" ]; then
     echo ""
 
     echo -e "${YELLOW}[1/3] Setting DEV_MODE = true...${NC}"
-    sed -i.bak 's/const DEV_MODE = false;/const DEV_MODE = true;/g' extension/src/services/license.ts 2>/dev/null || \
-    sed -i.bak 's/const DEV_MODE = true;/const DEV_MODE = true;/g' extension/src/services/license.ts
-    rm -f extension/src/services/license.ts.bak
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        sed -i '' 's/const DEV_MODE = false;/const DEV_MODE = true;/g' extension/src/services/license.ts 2>/dev/null || true
+        sed -i '' 's/const DEV_MODE = true;/const DEV_MODE = true;/g' extension/src/services/license.ts 2>/dev/null || true
+    else
+        sed -i 's/const DEV_MODE = false;/const DEV_MODE = true;/g' extension/src/services/license.ts 2>/dev/null || true
+    fi
 
     echo -e "${YELLOW}[2/3] Installing dependencies...${NC}"
     npm install --silent
@@ -90,6 +111,13 @@ if [ "$DEPLOY_MODE" == "dev" ]; then
     echo "  - No backend calls"
     echo "  - PRO status always active"
     echo ""
+
+    if [ "$IN_CLOUD_SHELL" = true ]; then
+        echo -e "${YELLOW}To download the extension:${NC}"
+        echo "  cd dist && zip -r ../phantom-tabs-dev.zip . && cd .."
+        echo "  Then click 'Download' on phantom-tabs-dev.zip in Cloud Shell"
+    fi
+    echo ""
     exit 0
 fi
 
@@ -99,7 +127,46 @@ echo -e "${GREEN}  PROD MODE Setup${NC}"
 echo -e "${GREEN}========================================${NC}"
 echo ""
 
-read -p "Enter your GCP Project ID: " PROJECT_ID
+check_command "gcloud" "Install from: https://cloud.google.com/sdk/docs/install" || exit 1
+
+if ! command -v terraform &> /dev/null; then
+    if [ "$IN_CLOUD_SHELL" = true ]; then
+        echo -e "${YELLOW}Installing Terraform...${NC}"
+        sudo apt-get update > /dev/null 2>&1
+        sudo apt-get install -y gnupg software-properties-common > /dev/null 2>&1
+        wget -O- https://apt.releases.hashicorp.com/gpg | gpg --dearmor | sudo tee /usr/share/keyrings/hashicorp-archive-keyring.gpg > /dev/null
+        echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list > /dev/null
+        sudo apt-get update > /dev/null 2>&1
+        sudo apt-get install -y terraform > /dev/null 2>&1
+        echo -e "${GREEN}Terraform installed${NC}"
+    else
+        echo -e "${RED}Error: terraform is not installed${NC}"
+        echo "Install from: https://developer.hashicorp.com/terraform/downloads"
+        exit 1
+    fi
+fi
+
+if [ "$IN_CLOUD_SHELL" = true ] && [ -n "$GOOGLE_CLOUD_PROJECT" ]; then
+    PROJECT_ID="$GOOGLE_CLOUD_PROJECT"
+    echo -e "Detected Project ID: ${GREEN}$PROJECT_ID${NC}"
+    read -p "Use this project? [Y/n]: " USE_DETECTED
+    if [[ "$USE_DETECTED" =~ ^[Nn]$ ]]; then
+        read -p "Enter your GCP Project ID: " PROJECT_ID
+    fi
+elif [ "$IN_CLOUD_SHELL" = true ]; then
+    PROJECT_ID=$(gcloud config get-value project 2>/dev/null)
+    if [ -n "$PROJECT_ID" ]; then
+        echo -e "Detected Project ID: ${GREEN}$PROJECT_ID${NC}"
+        read -p "Use this project? [Y/n]: " USE_DETECTED
+        if [[ "$USE_DETECTED" =~ ^[Nn]$ ]]; then
+            read -p "Enter your GCP Project ID: " PROJECT_ID
+        fi
+    else
+        read -p "Enter your GCP Project ID: " PROJECT_ID
+    fi
+else
+    read -p "Enter your GCP Project ID: " PROJECT_ID
+fi
 
 if [ -z "$PROJECT_ID" ]; then
     echo -e "${RED}Error: Project ID is required${NC}"
@@ -130,10 +197,12 @@ read -p "Enter Stripe Webhook Secret (whsec_xxx) [leave empty to configure later
 
 echo ""
 echo -e "${YELLOW}[1/8] Authenticating with GCP...${NC}"
-gcloud auth application-default login 2>/dev/null || true
+if [ "$IN_CLOUD_SHELL" = false ]; then
+    gcloud auth application-default login 2>/dev/null || true
+fi
 
 echo -e "${YELLOW}[2/8] Setting project...${NC}"
-gcloud config set project $PROJECT_ID
+gcloud config set project $PROJECT_ID 2>/dev/null
 
 BILLING=$(gcloud billing projects describe $PROJECT_ID --format="value(billingEnabled)" 2>/dev/null || echo "false")
 if [ "$BILLING" != "True" ]; then
@@ -167,12 +236,12 @@ if [ -z "$STRIPE_WEBHOOK_SECRET" ]; then
     terraform apply -auto-approve \
         -var="project_id=$PROJECT_ID" \
         -var="stripe_secret_key=$STRIPE_SECRET_KEY" \
-        -var="stripe_webhook_secret="
+        -var="stripe_webhook_secret=" 2>&1 | grep -E "(Apply|Creating|created|Error|error)" || true
 else
     terraform apply -auto-approve \
         -var="project_id=$PROJECT_ID" \
         -var="stripe_secret_key=$STRIPE_SECRET_KEY" \
-        -var="stripe_webhook_secret=$STRIPE_WEBHOOK_SECRET"
+        -var="stripe_webhook_secret=$STRIPE_WEBHOOK_SECRET" 2>&1 | grep -E "(Apply|Creating|created|Error|error)" || true
 fi
 
 FUNCTION_URL=$(terraform output -raw function_url 2>/dev/null)
@@ -182,12 +251,18 @@ cd ..
 
 echo -e "${YELLOW}[7/8] Configuring extension for production...${NC}"
 
-sed -i.bak "s|https://us-central1-YOUR_PROJECT_ID.cloudfunctions.net/api|$FUNCTION_URL|g" extension/src/services/license.ts
-sed -i.bak 's/const DEV_MODE = true;/const DEV_MODE = false;/g' extension/src/services/license.ts
-rm -f extension/src/services/license.ts.bak
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    sed -i '' "s|https://us-central1-YOUR_PROJECT_ID.cloudfunctions.net/api|$FUNCTION_URL|g" extension/src/services/license.ts
+    sed -i '' 's/const DEV_MODE = true;/const DEV_MODE = false;/g' extension/src/services/license.ts
+else
+    sed -i "s|https://us-central1-YOUR_PROJECT_ID.cloudfunctions.net/api|$FUNCTION_URL|g" extension/src/services/license.ts
+    sed -i 's/const DEV_MODE = true;/const DEV_MODE = false;/g' extension/src/services/license.ts
+fi
 
 echo -e "${YELLOW}[8/8] Building extension...${NC}"
 npm run build
+
+cd dist && zip -r ../phantom-tabs.zip . > /dev/null && cd ..
 
 echo ""
 echo -e "${GREEN}========================================${NC}"
@@ -224,18 +299,21 @@ if [ -z "$STRIPE_WEBHOOK_SECRET" ]; then
 fi
 
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${GREEN}Next Steps${NC}"
+echo -e "${GREEN}Extension Ready${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
-echo "1. Load extension in Chrome:"
-echo "   - Go to chrome://extensions"
-echo "   - Enable 'Developer mode'"
-echo "   - Click 'Load unpacked' → select dist/"
+echo -e "Extension ZIP: ${YELLOW}phantom-tabs.zip${NC}"
 echo ""
-echo "2. Test the payment flow"
-echo ""
-echo "3. Publish to Chrome Web Store:"
-echo "   cd dist && zip -r ../phantom-tabs.zip ."
+
+if [ "$IN_CLOUD_SHELL" = true ]; then
+    echo "Download phantom-tabs.zip from Cloud Shell file browser"
+    echo ""
+fi
+
+echo "To load in Chrome:"
+echo "  1. Go to chrome://extensions"
+echo "  2. Enable 'Developer mode'"
+echo "  3. Drag phantom-tabs.zip or 'Load unpacked' → dist/"
 echo ""
 
 cat > .env.local << EOF
@@ -246,10 +324,6 @@ PROJECT_ID=$PROJECT_ID
 FUNCTION_URL=$FUNCTION_URL
 WEBHOOK_URL=$WEBHOOK_URL
 STRIPE_PUBLISHABLE_KEY=$STRIPE_PUBLISHABLE_KEY
-
-# Keep these secret - don't commit!
-# STRIPE_SECRET_KEY=$STRIPE_SECRET_KEY
-# STRIPE_WEBHOOK_SECRET=$STRIPE_WEBHOOK_SECRET
 EOF
 
 echo -e "${GREEN}Config saved to .env.local${NC}"
