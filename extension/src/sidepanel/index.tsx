@@ -153,6 +153,17 @@ const Sidepanel = () => {
         return labels[provider] || provider;
     };
 
+    const presetPrompts = [
+        { label: 'Organize', prompt: 'Analyze my tabs and suggest how to organize them into groups', icon: 'M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z' },
+        { label: 'Duplicates', prompt: 'Find and list any duplicate or similar tabs I have open', icon: 'M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z' },
+        { label: 'Priority', prompt: 'Which tabs should I focus on first based on my current tabs?', icon: 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z' },
+        { label: 'Cleanup', prompt: 'Which tabs can I safely close without losing important work?', icon: 'M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16' },
+    ];
+
+    const handlePresetClick = (prompt: string) => {
+        setChatInput(prompt);
+    };
+
     return (
         <div style={styles.container}>
             {/* Header */}
@@ -359,12 +370,30 @@ const Sidepanel = () => {
                     AI Assistant
                     {provider !== 'none' && <span style={styles.providerBadge}>{getProviderDisplay()}</span>}
                 </div>
+                {/* Preset Prompts */}
+                {provider !== 'none' && chatMessages.length === 0 && (
+                    <div style={styles.presetRow}>
+                        {presetPrompts.map(({ label, prompt, icon }) => (
+                            <button
+                                key={label}
+                                style={styles.presetBtn}
+                                onClick={() => handlePresetClick(prompt)}
+                                title={prompt}
+                            >
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <path d={icon} />
+                                </svg>
+                                {label}
+                            </button>
+                        ))}
+                    </div>
+                )}
                 <div style={styles.chatMessages}>
                     {chatMessages.length === 0 && (
                         <div style={styles.chatPlaceholder}>
                             {provider === 'none'
                                 ? 'Configure AI in settings to use the assistant'
-                                : 'Ask about your tabs, get suggestions, or request help organizing...'}
+                                : 'Select a quick action above or type your question...'}
                         </div>
                     )}
                     {chatMessages.map((msg, i) => (
@@ -642,6 +671,28 @@ const styles: { [key: string]: React.CSSProperties } = {
         display: 'flex',
         alignItems: 'center',
         gap: spacing.sm,
+    },
+    presetRow: {
+        display: 'flex',
+        gap: spacing.xs,
+        padding: `${spacing.sm}px ${spacing.lg}px`,
+        borderBottom: `1px solid ${colors.borderDark}`,
+        background: colors.bgDarker,
+        flexWrap: 'wrap',
+    },
+    presetBtn: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: spacing.xs,
+        padding: `${spacing.xs}px ${spacing.sm}px`,
+        background: colors.bgCard,
+        border: `1px solid ${colors.borderLight}`,
+        borderRadius: borderRadius.sm,
+        color: colors.textDim,
+        fontSize: typography.sizeSm,
+        cursor: 'pointer',
+        transition: `all ${transitions.fast}`,
+        whiteSpace: 'nowrap',
     },
     providerBadge: {
         marginLeft: 'auto',

@@ -73,6 +73,8 @@ const Options = () => {
     });
     const [autoPilotSaved, setAutoPilotSaved] = useState(false);
     const [hoveredProvider, setHoveredProvider] = useState<string | null>(null);
+    const [showApiKey, setShowApiKey] = useState(false);
+    const [confirmDelete, setConfirmDelete] = useState(false);
 
     useEffect(() => {
         loadConfig();
@@ -181,6 +183,21 @@ const Options = () => {
         }
 
         setTesting(false);
+    };
+
+    const deleteApiKey = async () => {
+        if (!confirmDelete) {
+            setConfirmDelete(true);
+            setTimeout(() => setConfirmDelete(false), 3000);
+            return;
+        }
+        setApiKey('');
+        await chrome.runtime.sendMessage({
+            action: 'setAIConfig',
+            payload: { cloudProvider, apiKey: '', model: '' }
+        });
+        setConfirmDelete(false);
+        checkProvider();
     };
 
     const getProviderColor = (p: string) => {
@@ -299,72 +316,47 @@ const Options = () => {
                     </div>
                 </section>
 
-                {/* Local AI (Gemini Nano) */}
-                <section style={styles.section}>
-                    <div style={styles.sectionHeader}>
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={colors.primary} strokeWidth="2">
-                            <rect x="4" y="4" width="16" height="16" rx="2" ry="2" />
-                            <rect x="9" y="9" width="6" height="6" />
-                            <line x1="9" y1="1" x2="9" y2="4" />
-                            <line x1="15" y1="1" x2="15" y2="4" />
-                            <line x1="9" y1="20" x2="9" y2="23" />
-                            <line x1="15" y1="20" x2="15" y2="23" />
-                        </svg>
-                        <h2 style={styles.sectionTitle}>Local AI (Priority 1)</h2>
-                        <span style={styles.recommendedBadge}>Recommended</span>
-                    </div>
-                    <div style={styles.card}>
-                        <div style={styles.nanoStatusRow}>
-                            <span>Gemini Nano Status:</span>
-                            <span style={{ color: getNanoStatusColor(), fontWeight: typography.semibold }}>
-                                {getNanoStatusLabel()}
-                            </span>
-                        </div>
-
-                        {nanoStatus && nanoStatus.status !== 'ready' && activeProvider !== 'nano' && (
-                            <div style={{
-                                ...styles.statusMessage,
-                                background: nanoStatus.status === 'downloading' ? colors.warningBg : '#1a1010',
-                                borderColor: nanoStatus.status === 'downloading' ? '#665500' : '#441111',
-                                color: nanoStatus.status === 'downloading' ? colors.warningText : '#ff8888',
-                            }}>
-                                {nanoStatus.message}
-                            </div>
-                        )}
-
-                        {(nanoStatus?.status === 'ready' || activeProvider === 'nano') && (
-                            <div style={{ ...styles.statusMessage, background: '#102810', borderColor: '#006600', color: colors.success }}>
-                                Gemini Nano is ready - local AI enabled!
-                            </div>
-                        )}
-
-                        <div style={styles.setupInstructions}>
-                            <p style={styles.setupTitle}>To enable Gemini Nano:</p>
-                            <ol style={styles.stepList}>
-                                <li>Open <code style={styles.code}>chrome://flags/#optimization-guide-on-device-model</code></li>
-                                <li>Set to <strong>"Enabled BypassPerfRequirement"</strong></li>
-                                <li>Open <code style={styles.code}>chrome://flags/#prompt-api-for-gemini-nano</code></li>
-                                <li>Set to <strong>"Enabled"</strong></li>
-                                <li>Click <strong>"Relaunch"</strong> to restart Chrome</li>
-                                <li>Wait 2-5 minutes for the model to download</li>
-                            </ol>
-                            <p style={styles.setupNote}>
-                                When enabled, Nano takes priority over cloud APIs (no API key needed).
-                            </p>
-                        </div>
-
-                        <button
-                            style={{ ...styles.secondaryBtn, marginTop: spacing.lg }}
-                            onClick={checkNanoStatus}
-                            disabled={checkingNano}
-                        >
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16" />
+                {/* Local AI (Gemini Nano) - Compact */}
+                {activeProvider !== 'nano' && (
+                    <section style={styles.section}>
+                        <div style={styles.sectionHeader}>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={colors.primary} strokeWidth="2">
+                                <rect x="4" y="4" width="16" height="16" rx="2" ry="2" />
+                                <rect x="9" y="9" width="6" height="6" />
                             </svg>
-                            {checkingNano ? 'Checking...' : 'Check Nano Status'}
-                        </button>
-                    </div>
-                </section>
+                            <h2 style={styles.sectionTitle}>Local AI</h2>
+                            <span style={styles.optionalBadge}>Optional</span>
+                        </div>
+                        <div style={styles.compactCard}>
+                            <div style={styles.compactRow}>
+                                <div style={styles.compactInfo}>
+                                    <span style={styles.compactLabel}>Gemini Nano</span>
+                                    <span style={styles.compactDesc}>Free, private, runs on device</span>
+                                </div>
+                                <div style={styles.compactActions}>
+                                    <span style={{ color: getNanoStatusColor(), fontSize: typography.sizeMd }}>
+                                        {getNanoStatusLabel()}
+                                    </span>
+                                    <button
+                                        style={styles.compactBtn}
+                                        onClick={checkNanoStatus}
+                                        disabled={checkingNano}
+                                    >
+                                        {checkingNano ? '...' : 'Check'}
+                                    </button>
+                                </div>
+                            </div>
+                            <details style={styles.nanoDetails}>
+                                <summary style={styles.nanoSummary}>Setup instructions</summary>
+                                <div style={styles.nanoSteps}>
+                                    <p>1. Enable <code style={styles.code}>chrome://flags/#optimization-guide-on-device-model</code></p>
+                                    <p>2. Enable <code style={styles.code}>chrome://flags/#prompt-api-for-gemini-nano</code></p>
+                                    <p>3. Relaunch Chrome and wait for download</p>
+                                </div>
+                            </details>
+                        </div>
+                    </section>
+                )}
 
                 {/* Cloud AI Configuration */}
                 <section style={styles.section}>
@@ -407,26 +399,68 @@ const Options = () => {
 
                         <div style={styles.formGroup}>
                             <label style={styles.label}>API Key</label>
-                            <input
-                                type="password"
-                                value={apiKey}
-                                onChange={(e) => setApiKey(e.target.value)}
-                                placeholder={`Enter your ${PROVIDER_INFO[cloudProvider].name} API key`}
-                                style={styles.input}
-                            />
-                            <a
-                                href={PROVIDER_INFO[cloudProvider].getKeyUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                style={styles.link}
-                            >
-                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-                                    <polyline points="15 3 21 3 21 9" />
-                                    <line x1="10" y1="14" x2="21" y2="3" />
-                                </svg>
-                                Get API key from {PROVIDER_INFO[cloudProvider].name}
-                            </a>
+                            <div style={styles.apiKeyRow}>
+                                <input
+                                    type={showApiKey ? 'text' : 'password'}
+                                    value={apiKey}
+                                    onChange={(e) => setApiKey(e.target.value)}
+                                    placeholder={`Enter your ${PROVIDER_INFO[cloudProvider].name} API key`}
+                                    style={{ ...styles.input, flex: 1 }}
+                                />
+                                <button
+                                    style={styles.iconBtn}
+                                    onClick={() => setShowApiKey(!showApiKey)}
+                                    title={showApiKey ? 'Hide API key' : 'Show API key'}
+                                    type="button"
+                                >
+                                    {showApiKey ? (
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+                                            <line x1="1" y1="1" x2="23" y2="23"/>
+                                        </svg>
+                                    ) : (
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                                            <circle cx="12" cy="12" r="3"/>
+                                        </svg>
+                                    )}
+                                </button>
+                                {apiKey && (
+                                    <button
+                                        style={{ ...styles.iconBtn, ...(confirmDelete ? styles.iconBtnDanger : {}) }}
+                                        onClick={deleteApiKey}
+                                        title={confirmDelete ? 'Click again to confirm' : 'Delete API key'}
+                                        type="button"
+                                    >
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                            <polyline points="3 6 5 6 21 6"/>
+                                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                                        </svg>
+                                    </button>
+                                )}
+                            </div>
+                            <div style={styles.apiKeyHelp}>
+                                <a
+                                    href={PROVIDER_INFO[cloudProvider].getKeyUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    style={styles.link}
+                                >
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                                        <polyline points="15 3 21 3 21 9" />
+                                        <line x1="10" y1="14" x2="21" y2="3" />
+                                    </svg>
+                                    Get API key
+                                </a>
+                                <span style={styles.secureNote}>
+                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                                        <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                                    </svg>
+                                    Stored securely on device
+                                </span>
+                            </div>
                         </div>
 
                         <div style={styles.formGroup}>
@@ -752,6 +786,68 @@ const styles: { [key: string]: React.CSSProperties } = {
         borderRadius: borderRadius.sm,
         fontWeight: typography.bold,
     },
+    optionalBadge: {
+        fontSize: typography.sizeSm,
+        color: colors.textDim,
+        background: colors.bgCardHover,
+        padding: `2px ${spacing.sm}px`,
+        borderRadius: borderRadius.sm,
+        marginLeft: 'auto',
+    },
+    compactCard: {
+        background: colors.bgCard,
+        padding: spacing.lg,
+        borderRadius: borderRadius.md,
+        border: `1px solid ${colors.borderDark}`,
+    },
+    compactRow: {
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    compactInfo: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 2,
+    },
+    compactLabel: {
+        fontSize: typography.sizeXl,
+        fontWeight: typography.medium,
+        color: colors.textSecondary,
+    },
+    compactDesc: {
+        fontSize: typography.sizeMd,
+        color: colors.textDimmest,
+    },
+    compactActions: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: spacing.md,
+    },
+    compactBtn: {
+        padding: `${spacing.xs}px ${spacing.md}px`,
+        background: colors.bgCardHover,
+        border: `1px solid ${colors.borderLight}`,
+        borderRadius: borderRadius.sm,
+        color: colors.textDim,
+        fontSize: typography.sizeMd,
+        cursor: 'pointer',
+    },
+    nanoDetails: {
+        marginTop: spacing.md,
+    },
+    nanoSummary: {
+        fontSize: typography.sizeMd,
+        color: colors.textDim,
+        cursor: 'pointer',
+        padding: `${spacing.sm}px 0`,
+    },
+    nanoSteps: {
+        fontSize: typography.sizeMd,
+        color: colors.textDimmest,
+        paddingLeft: spacing.md,
+        lineHeight: 1.8,
+    },
     card: {
         background: colors.bgCard,
         padding: spacing.xl,
@@ -906,11 +1002,48 @@ const styles: { [key: string]: React.CSSProperties } = {
         outline: 'none',
         cursor: 'pointer',
     },
+    apiKeyRow: {
+        display: 'flex',
+        gap: spacing.sm,
+        alignItems: 'center',
+    },
+    iconBtn: {
+        width: 42,
+        height: 42,
+        padding: 0,
+        background: colors.bgCardHover,
+        border: `1px solid ${colors.borderLight}`,
+        borderRadius: borderRadius.md,
+        color: colors.textDim,
+        cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        transition: `all ${transitions.fast}`,
+        flexShrink: 0,
+    },
+    iconBtnDanger: {
+        background: colors.errorBg,
+        borderColor: colors.error,
+        color: colors.error,
+    },
+    apiKeyHelp: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: spacing.lg,
+        marginTop: spacing.md,
+    },
+    secureNote: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: spacing.xs,
+        fontSize: typography.sizeMd,
+        color: colors.success,
+    },
     link: {
         display: 'inline-flex',
         alignItems: 'center',
         gap: spacing.xs,
-        marginTop: spacing.md,
         fontSize: typography.sizeLg,
         color: colors.info,
         textDecoration: 'none',
