@@ -68,11 +68,12 @@ type View = 'tabs' | 'duplicates' | 'upgrade' | 'autopilot' | 'analytics' | 'mem
 
 interface TabMemoryInfo {
     tabId: number;
-    estimatedMB: number;
+    actualMB: number;  // Real memory from Chrome API
     url: string;
     title: string;
     isAudible: boolean;
     hasMedia: boolean;
+    processId?: number;
 }
 
 interface MemoryReport {
@@ -82,7 +83,9 @@ interface MemoryReport {
     systemMemory?: {
         availableMB: number;
         capacityMB: number;
+        usedMB: number;
     };
+    browserMemoryMB: number;
 }
 
 const Popup = () => {
@@ -812,32 +815,44 @@ const Popup = () => {
                                     </div>
                                 </div>
 
-                                {memoryReport.systemMemory && (
-                                    <div style={styles.insightBox}>
-                                        <div style={styles.insightLabel}>
-                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
-                                            </svg>
-                                            SYSTEM STATUS
-                                        </div>
-                                        <div style={styles.insightText}>
-                                            <MicroLabel
-                                                label="AVAILABLE"
-                                                value={`${memoryReport.systemMemory.availableMB.toFixed(0)} MB`}
-                                            />
-                                            <MicroLabel
-                                                label="TOTAL"
-                                                value={`${memoryReport.systemMemory.capacityMB.toFixed(0)} MB`}
-                                                style={{ marginTop: spacing.xs }}
-                                            />
-                                            <MicroLabel
-                                                label="USAGE"
-                                                value={`${((1 - memoryReport.systemMemory.availableMB / memoryReport.systemMemory.capacityMB) * 100).toFixed(1)}%`}
-                                                style={{ marginTop: spacing.xs }}
-                                            />
-                                        </div>
+                                <div style={styles.insightBox}>
+                                    <div style={styles.insightLabel}>
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+                                        </svg>
+                                        MEMORY STATUS
                                     </div>
-                                )}
+                                    <div style={styles.insightText}>
+                                        <MicroLabel
+                                            label="BROWSER"
+                                            value={`${memoryReport.browserMemoryMB.toFixed(0)} MB`}
+                                        />
+                                        <MicroLabel
+                                            label="TABS"
+                                            value={`${memoryReport.totalMB.toFixed(0)} MB`}
+                                            style={{ marginTop: spacing.xs }}
+                                        />
+                                        {memoryReport.systemMemory && (
+                                            <>
+                                                <MicroLabel
+                                                    label="SYS AVAIL"
+                                                    value={`${(memoryReport.systemMemory.availableMB / 1024).toFixed(1)} GB`}
+                                                    style={{ marginTop: spacing.xs }}
+                                                />
+                                                <MicroLabel
+                                                    label="SYS TOTAL"
+                                                    value={`${(memoryReport.systemMemory.capacityMB / 1024).toFixed(1)} GB`}
+                                                    style={{ marginTop: spacing.xs }}
+                                                />
+                                                <MicroLabel
+                                                    label="SYS USAGE"
+                                                    value={`${((memoryReport.systemMemory.usedMB / memoryReport.systemMemory.capacityMB) * 100).toFixed(1)}%`}
+                                                    style={{ marginTop: spacing.xs }}
+                                                />
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
 
                                 {memoryReport.heavyTabs.length > 0 && (
                                     <div style={styles.section}>
@@ -853,7 +868,7 @@ const Popup = () => {
                                                     {tab.isAudible && <span style={{ color: colors.error, marginLeft: spacing.xs }}>🔊</span>}
                                                 </div>
                                                 <div style={styles.suggestionReason}>
-                                                    ~{tab.estimatedMB} MB
+                                                    {tab.actualMB.toFixed(1)} MB
                                                     {tab.hasMedia && ' • Media content'}
                                                     {tab.isAudible && ' • Playing audio'}
                                                 </div>
