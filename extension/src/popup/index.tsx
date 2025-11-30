@@ -22,7 +22,6 @@ interface TabHealth {
     title: string;
     url: string;
     favicon?: string;
-    memoryMB?: number;
     staleDays: number;
     category: string;
     isStale: boolean;
@@ -57,6 +56,7 @@ const Popup = () => {
     const [provider, setProvider] = useState<string>('none');
     const [license, setLicense] = useState<LicenseStatus | null>(null);
     const [autoPilotReport, setAutoPilotReport] = useState<AutoPilotReport | null>(null);
+    const [statusMessage, setStatusMessage] = useState<string>('');
 
     useEffect(() => {
         loadTabs();
@@ -65,29 +65,22 @@ const Popup = () => {
     }, []);
 
     const sendMessage = async (action: string, payload?: any) => {
-        const response = await chrome.runtime.sendMessage({ action, payload });
-        return response;
+        return await chrome.runtime.sendMessage({ action, payload });
     };
 
     const loadTabs = async () => {
         const response = await sendMessage('getWindowTabs');
-        if (response.success) {
-            setTabs(response.data);
-        }
+        if (response.success) setTabs(response.data);
     };
 
     const checkProvider = async () => {
         const response = await sendMessage('getAIProvider');
-        if (response.success) {
-            setProvider(response.data.provider);
-        }
+        if (response.success) setProvider(response.data.provider);
     };
 
     const checkLicense = async () => {
         const response = await sendMessage('getLicenseStatus', { forceRefresh: true });
-        if (response.success) {
-            setLicense(response.data);
-        }
+        if (response.success) setLicense(response.data);
     };
 
     const closeTab = async (tabId: number) => {
@@ -98,9 +91,7 @@ const Popup = () => {
     const findDuplicates = async () => {
         setView('duplicates');
         const response = await sendMessage('getDuplicates');
-        if (response.success) {
-            setDuplicates(response.data);
-        }
+        if (response.success) setDuplicates(response.data);
     };
 
     const closeDuplicates = async () => {
@@ -113,14 +104,27 @@ const Popup = () => {
     };
 
     const smartOrganize = async () => {
+        if (provider === 'none') {
+            setStatusMessage('Configure AI in settings first');
+            setTimeout(() => setStatusMessage(''), 3000);
+            return;
+        }
         setLoading(true);
-        await sendMessage('smartOrganize');
+        setStatusMessage('Analyzing tabs...');
+        const response = await sendMessage('smartOrganize');
+        if (response.success) {
+            setStatusMessage(response.data.message);
+            loadTabs();
+        } else {
+            setStatusMessage(response.error || 'Failed');
+        }
         setLoading(false);
+        setTimeout(() => setStatusMessage(''), 3000);
     };
 
     const analyzeWithAI = async () => {
         if (provider === 'none') {
-            setAnalysis('Configure AI in options first');
+            setAnalysis('[ NO AI CONFIGURED ]\n\nGo to Settings to configure an AI provider.');
             setView('analyze');
             return;
         }
@@ -130,7 +134,7 @@ const Popup = () => {
         if (response.success) {
             setAnalysis(response.data.analysis);
         } else {
-            if (response.error?.startsWith('TRIAL_EXPIRED:') || response.error?.startsWith('LIMIT_REACHED:')) {
+            if (response.error?.includes('TRIAL_EXPIRED') || response.error?.includes('LIMIT_REACHED')) {
                 setView('upgrade');
                 setLoading(false);
                 return;
@@ -144,9 +148,7 @@ const Popup = () => {
     const handleUpgrade = async () => {
         setLoading(true);
         const response = await sendMessage('getCheckoutUrl');
-        if (response.success) {
-            chrome.tabs.create({ url: response.data.url });
-        }
+        if (response.success) chrome.tabs.create({ url: response.data.url });
         setLoading(false);
     };
 
@@ -162,7 +164,7 @@ const Popup = () => {
         if (response.success) {
             setAutoPilotReport(response.data);
         } else {
-            if (response.error?.startsWith('TRIAL_EXPIRED:') || response.error?.startsWith('LIMIT_REACHED:')) {
+            if (response.error?.includes('TRIAL_EXPIRED') || response.error?.includes('LIMIT_REACHED')) {
                 setView('upgrade');
             }
         }
@@ -187,302 +189,222 @@ const Popup = () => {
         await runAutoPilot();
     };
 
-    const closeSingleTab = async (tabId: number) => {
-        await sendMessage('closeTab', { tabId });
-        await loadTabs();
-        if (view === 'autopilot') {
-            await runAutoPilot();
-        }
-    };
-
     const filteredTabs = searchQuery
-        ? tabs.filter(t =>
-            t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            t.url.toLowerCase().includes(searchQuery.toLowerCase())
-        )
+        ? tabs.filter(t => t.title.toLowerCase().includes(searchQuery.toLowerCase()) || t.url.toLowerCase().includes(searchQuery.toLowerCase()))
         : tabs;
 
     const getHostname = (url: string) => {
-        try {
-            return new URL(url).hostname;
-        } catch {
-            return url;
-        }
+        try { return new URL(url).hostname; } catch { return url; }
     };
 
-    const getLicenseDisplay = () => {
-        if (!license) return '';
-        if (license.paid) return 'PRO';
-        if (license.status === 'trial') return `Trial: ${license.usageRemaining}/day`;
-        if (license.status === 'expired') return 'Trial Expired';
-        return '';
+    const getLicenseTag = () => {
+        if (!license) return null;
+        if (license.paid) return <span style={styles.tagPro}>PRO</span>;
+        if (license.status === 'trial') return <span style={styles.tagTrial}>{license.usageRemaining}/day</span>;
+        return null;
     };
 
     return (
         <div style={styles.container}>
+            {/* Header */}
             <header style={styles.header}>
-                <div style={styles.headerRow}>
-                    <h1 style={styles.title}>PHANTOM TABS</h1>
-                    {license && !license.paid && (
-                        <button style={styles.upgradeBtn} onClick={() => setView('upgrade')}>
-                            Upgrade
-                        </button>
-                    )}
+                <div style={styles.headerMain}>
+                    <div style={styles.logoSection}>
+                        <div style={styles.logo}>PT</div>
+                        <div>
+                            <div style={styles.title}>PHANTOM TABS</div>
+                            <div style={styles.subtitle}>{tabs.length} TARGETS | {provider.toUpperCase()}</div>
+                        </div>
+                    </div>
+                    {getLicenseTag()}
                 </div>
-                <div style={styles.stats}>
-                    {tabs.length} tabs | AI: {provider} | {getLicenseDisplay()}
-                </div>
+                {statusMessage && <div style={styles.statusBar}>{statusMessage}</div>}
             </header>
 
+            {/* Actions */}
             <div style={styles.actions}>
-                <button
-                    style={{
-                        ...styles.btn,
-                        ...(license?.paid ? styles.btnPro : {}),
-                        flex: 1.5
-                    }}
-                    onClick={runAutoPilot}
-                    disabled={loading}
-                    title="Auto Pilot - Smart tab management (PRO)"
-                >
-                    Auto
+                <button style={license?.paid ? styles.btnPrimary : styles.btn} onClick={runAutoPilot} disabled={loading}>
+                    AUTO
                 </button>
                 <button style={styles.btn} onClick={smartOrganize} disabled={loading}>
-                    Group
+                    GROUP
                 </button>
                 <button style={styles.btn} onClick={findDuplicates}>
-                    Dupes
+                    DUPES
                 </button>
                 <button style={styles.btn} onClick={analyzeWithAI} disabled={loading}>
-                    AI
+                    SCAN
                 </button>
-                <button style={styles.btn} onClick={() => chrome.runtime.openOptionsPage()}>
-                    Cfg
+                <button style={styles.btnIcon} onClick={() => chrome.runtime.openOptionsPage()} title="Settings">
+                    <span style={{ fontSize: 14 }}>&#9881;</span>
                 </button>
             </div>
 
-            <input
-                type="text"
-                placeholder="Search tabs..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                style={styles.search}
-            />
+            {/* Search */}
+            <div style={styles.searchWrap}>
+                <input
+                    type="text"
+                    placeholder="SEARCH TARGETS..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    style={styles.search}
+                />
+            </div>
 
+            {/* Tab List View */}
             {view === 'tabs' && (
                 <div style={styles.tabList}>
                     {filteredTabs.map(tab => (
                         <div key={tab.id} style={styles.tabItem}>
-                            <img
-                                src={tab.favIconUrl || 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg"/>'}
-                                style={styles.favicon}
-                                alt=""
-                            />
+                            <img src={tab.favIconUrl || ''} style={styles.favicon} alt="" onError={(e) => (e.currentTarget.style.display = 'none')} />
                             <div style={styles.tabInfo}>
                                 <div style={styles.tabTitle}>{tab.title}</div>
                                 <div style={styles.tabUrl}>{getHostname(tab.url)}</div>
                             </div>
-                            <button
-                                style={styles.closeBtn}
-                                onClick={() => closeTab(tab.id)}
-                            >
-                                x
-                            </button>
+                            <button style={styles.closeBtn} onClick={() => closeTab(tab.id)}>×</button>
                         </div>
                     ))}
                 </div>
             )}
 
+            {/* Duplicates View */}
             {view === 'duplicates' && (
-                <div style={styles.section}>
-                    <div style={styles.sectionHeader}>
-                        <span>Duplicates: {duplicates.length} groups</span>
+                <div style={styles.panel}>
+                    <div style={styles.panelHeader}>
+                        <span>DUPLICATE TARGETS</span>
                         {duplicates.length > 0 && (
-                            <button style={styles.btnSmall} onClick={closeDuplicates}>
-                                Close All Dupes
-                            </button>
+                            <button style={styles.btnDanger} onClick={closeDuplicates}>ELIMINATE ALL</button>
                         )}
                     </div>
-                    {duplicates.map((group, i) => (
-                        <div key={i} style={styles.dupeGroup}>
-                            <div style={styles.dupeTitle}>{group[0]?.title}</div>
-                            <div style={styles.dupeCount}>{group.length} tabs</div>
-                        </div>
-                    ))}
-                    {duplicates.length === 0 && (
-                        <div style={styles.empty}>No duplicates found</div>
-                    )}
-                    <button style={styles.btnBack} onClick={() => setView('tabs')}>
-                        Back to Tabs
-                    </button>
+                    <div style={styles.panelContent}>
+                        {duplicates.length === 0 ? (
+                            <div style={styles.emptyState}>NO DUPLICATES DETECTED</div>
+                        ) : (
+                            duplicates.map((group, i) => (
+                                <div key={i} style={styles.dupeItem}>
+                                    <div style={styles.dupeTitle}>{group[0]?.title}</div>
+                                    <div style={styles.dupeCount}>{group.length} instances</div>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                    <button style={styles.btnBack} onClick={() => setView('tabs')}>← BACK</button>
                 </div>
             )}
 
+            {/* Analysis View */}
             {view === 'analyze' && (
-                <div style={styles.section}>
-                    <div style={styles.sectionHeader}>AI Analysis</div>
-                    {loading ? (
-                        <div style={styles.loading}>Analyzing...</div>
-                    ) : (
-                        <div style={styles.analysis}>{analysis}</div>
-                    )}
-                    <button style={styles.btnBack} onClick={() => setView('tabs')}>
-                        Back to Tabs
-                    </button>
+                <div style={styles.panel}>
+                    <div style={styles.panelHeader}>INTEL REPORT</div>
+                    <div style={styles.panelContent}>
+                        {loading ? (
+                            <div style={styles.loading}>SCANNING...</div>
+                        ) : (
+                            <pre style={styles.analysisText}>{analysis}</pre>
+                        )}
+                    </div>
+                    <button style={styles.btnBack} onClick={() => setView('tabs')}>← BACK</button>
                 </div>
             )}
 
+            {/* Auto Pilot View */}
             {view === 'autopilot' && (
-                <div style={styles.section}>
-                    <div style={styles.sectionHeader}>
-                        <span>Auto Pilot</span>
-                        <span style={{ fontSize: 11, color: '#ffd700' }}>PRO</span>
+                <div style={styles.panel}>
+                    <div style={styles.panelHeader}>
+                        <span>AUTO PILOT</span>
+                        <span style={styles.tagPro}>PRO</span>
                     </div>
-
-                    {loading ? (
-                        <div style={styles.loading}>Analyzing your tabs...</div>
-                    ) : autoPilotReport ? (
-                        <>
-                            {/* Stats Overview */}
-                            <div style={styles.statsGrid}>
-                                <div style={styles.statCard}>
-                                    <div style={styles.statValue}>{autoPilotReport.totalTabs}</div>
-                                    <div style={styles.statLabel}>Total Tabs</div>
-                                </div>
-                                <div style={styles.statCard}>
-                                    <div style={{ ...styles.statValue, color: autoPilotReport.staleCount > 0 ? '#ff8800' : '#00ff88' }}>
-                                        {autoPilotReport.staleCount}
+                    <div style={styles.panelContent}>
+                        {loading ? (
+                            <div style={styles.loading}>ANALYZING TARGETS...</div>
+                        ) : autoPilotReport ? (
+                            <>
+                                <div style={styles.statsRow}>
+                                    <div style={styles.stat}>
+                                        <div style={styles.statNum}>{autoPilotReport.totalTabs}</div>
+                                        <div style={styles.statLabel}>TOTAL</div>
                                     </div>
-                                    <div style={styles.statLabel}>Stale</div>
-                                </div>
-                                <div style={styles.statCard}>
-                                    <div style={{ ...styles.statValue, color: autoPilotReport.duplicateCount > 0 ? '#ff4444' : '#00ff88' }}>
-                                        {autoPilotReport.duplicateCount}
-                                    </div>
-                                    <div style={styles.statLabel}>Duplicates</div>
-                                </div>
-                            </div>
-
-                            {/* Categories */}
-                            <div style={styles.categorySection}>
-                                <div style={styles.categoryTitle}>Categories</div>
-                                <div style={styles.categoryList}>
-                                    {Object.entries(autoPilotReport.categoryGroups).map(([cat, tabs]) => (
-                                        <div key={cat} style={styles.categoryItem}>
-                                            <span>{cat}</span>
-                                            <span style={{ color: '#666' }}>{tabs.length}</span>
+                                    <div style={styles.stat}>
+                                        <div style={{ ...styles.statNum, color: autoPilotReport.staleCount > 0 ? '#ff8800' : '#00ff88' }}>
+                                            {autoPilotReport.staleCount}
                                         </div>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* AI Insights */}
-                            {autoPilotReport.aiInsights && (
-                                <div style={styles.insightsBox}>
-                                    <div style={{ fontSize: 11, color: '#00ff88', marginBottom: 6 }}>AI Insights</div>
-                                    <div style={{ whiteSpace: 'pre-wrap', fontSize: 12, lineHeight: 1.5 }}>
-                                        {autoPilotReport.aiInsights}
+                                        <div style={styles.statLabel}>STALE</div>
+                                    </div>
+                                    <div style={styles.stat}>
+                                        <div style={{ ...styles.statNum, color: autoPilotReport.duplicateCount > 0 ? '#ff4444' : '#00ff88' }}>
+                                            {autoPilotReport.duplicateCount}
+                                        </div>
+                                        <div style={styles.statLabel}>DUPES</div>
                                     </div>
                                 </div>
-                            )}
 
-                            {/* Recommendations */}
-                            {autoPilotReport.recommendations.closeSuggestions.length > 0 && (
-                                <div style={styles.recommendSection}>
-                                    <div style={styles.recommendHeader}>
-                                        <span>Suggested to Close ({autoPilotReport.recommendations.closeSuggestions.length})</span>
-                                        <button style={styles.btnAction} onClick={executeCleanup}>
-                                            Close All
-                                        </button>
+                                {autoPilotReport.aiInsights && (
+                                    <div style={styles.insightBox}>
+                                        <div style={styles.insightLabel}>AI INTEL</div>
+                                        <div style={styles.insightText}>{autoPilotReport.aiInsights}</div>
                                     </div>
-                                    <div style={styles.recommendList}>
-                                        {autoPilotReport.recommendations.closeSuggestions.slice(0, 5).map(th => (
-                                            <div key={th.tabId} style={styles.recommendItem}>
-                                                <div style={styles.recommendItemInfo}>
-                                                    <div style={styles.recommendTitle}>{th.title}</div>
-                                                    <div style={styles.recommendReason}>{th.reason}</div>
-                                                </div>
-                                                <button
-                                                    style={styles.closeBtn}
-                                                    onClick={() => closeSingleTab(th.tabId)}
-                                                >
-                                                    x
-                                                </button>
+                                )}
+
+                                {autoPilotReport.recommendations.closeSuggestions.length > 0 && (
+                                    <div style={styles.section}>
+                                        <div style={styles.sectionHead}>
+                                            <span>CLOSE ({autoPilotReport.recommendations.closeSuggestions.length})</span>
+                                            <button style={styles.btnSmall} onClick={executeCleanup}>ALL</button>
+                                        </div>
+                                        {autoPilotReport.recommendations.closeSuggestions.slice(0, 4).map(th => (
+                                            <div key={th.tabId} style={styles.suggestionItem}>
+                                                <span style={styles.suggestionTitle}>{th.title}</span>
+                                                <span style={styles.suggestionReason}>{th.reason}</span>
                                             </div>
                                         ))}
                                     </div>
-                                </div>
-                            )}
+                                )}
 
-                            {/* Group Suggestions */}
-                            {autoPilotReport.recommendations.groupSuggestions.length > 0 && (
-                                <div style={styles.recommendSection}>
-                                    <div style={styles.recommendHeader}>
-                                        <span>Smart Groups ({autoPilotReport.recommendations.groupSuggestions.length})</span>
-                                        <button style={styles.btnAction} onClick={executeGrouping}>
-                                            Group All
-                                        </button>
-                                    </div>
-                                    <div style={styles.recommendList}>
+                                {autoPilotReport.recommendations.groupSuggestions.length > 0 && (
+                                    <div style={styles.section}>
+                                        <div style={styles.sectionHead}>
+                                            <span>GROUP ({autoPilotReport.recommendations.groupSuggestions.length})</span>
+                                            <button style={styles.btnSmall} onClick={executeGrouping}>ALL</button>
+                                        </div>
                                         {autoPilotReport.recommendations.groupSuggestions.map(g => (
-                                            <div key={g.name} style={styles.groupSuggestion}>
+                                            <div key={g.name} style={styles.groupItem}>
                                                 <span>{g.name}</span>
-                                                <span style={{ color: '#666' }}>{g.tabIds.length} tabs</span>
+                                                <span style={styles.groupCount}>{g.tabIds.length}</span>
                                             </div>
                                         ))}
                                     </div>
-                                </div>
-                            )}
+                                )}
 
-                            {autoPilotReport.recommendations.closeSuggestions.length === 0 &&
-                             autoPilotReport.recommendations.groupSuggestions.length === 0 && (
-                                <div style={styles.empty}>Your tabs are well organized!</div>
-                            )}
-                        </>
-                    ) : (
-                        <div style={styles.empty}>Click Auto to analyze</div>
-                    )}
-
-                    <button style={styles.btnBack} onClick={() => setView('tabs')}>
-                        Back to Tabs
-                    </button>
+                                {autoPilotReport.recommendations.closeSuggestions.length === 0 &&
+                                 autoPilotReport.recommendations.groupSuggestions.length === 0 && (
+                                    <div style={styles.emptyState}>ALL TARGETS OPTIMIZED</div>
+                                )}
+                            </>
+                        ) : null}
+                    </div>
+                    <button style={styles.btnBack} onClick={() => setView('tabs')}>← BACK</button>
                 </div>
             )}
 
+            {/* Upgrade View */}
             {view === 'upgrade' && (
-                <div style={styles.section}>
-                    <div style={styles.upgradeCard}>
-                        <div style={styles.upgradeTitle}>Upgrade to Pro</div>
+                <div style={styles.panel}>
+                    <div style={styles.upgradeBox}>
+                        <div style={styles.upgradeTitle}>UPGRADE TO PRO</div>
                         <div style={styles.upgradePrice}>$9.99</div>
-                        <div style={styles.upgradeSubtitle}>One-time payment</div>
-                        <ul style={styles.upgradeFeatures}>
-                            <li>Auto Pilot - Smart tab management</li>
-                            <li>AI-powered tab analysis</li>
-                            <li>Unlimited AI queries</li>
-                            <li>Future updates included</li>
+                        <div style={styles.upgradeOnce}>ONE-TIME</div>
+                        <ul style={styles.upgradeList}>
+                            <li>+ Auto Pilot Mode</li>
+                            <li>+ Unlimited AI Scans</li>
+                            <li>+ Smart Grouping</li>
+                            <li>+ Priority Support</li>
                         </ul>
-
-                        <button
-                            style={styles.upgradeBtnLarge}
-                            onClick={handleUpgrade}
-                            disabled={loading}
-                        >
-                            {loading ? 'Loading...' : 'Pay Now'}
+                        <button style={styles.btnUpgrade} onClick={handleUpgrade} disabled={loading}>
+                            {loading ? 'LOADING...' : 'ACTIVATE'}
                         </button>
-
-                        <div style={styles.paymentNote}>
-                            Secure payment via Stripe
-                        </div>
-                        <div style={styles.refreshNote}>
-                            After payment, click here to refresh your status
-                        </div>
-                        <button style={styles.refreshBtn} onClick={checkLicense}>
-                            Refresh Status
-                        </button>
+                        <button style={styles.btnRefresh} onClick={checkLicense}>REFRESH STATUS</button>
                     </div>
-                    <button style={styles.btnBack} onClick={() => setView('tabs')}>
-                        Back to Tabs
-                    </button>
+                    <button style={styles.btnBack} onClick={() => setView('tabs')}>← BACK</button>
                 </div>
             )}
         </div>
@@ -490,365 +412,62 @@ const Popup = () => {
 };
 
 const styles: { [key: string]: React.CSSProperties } = {
-    container: {
-        width: 380,
-        maxHeight: 580,
-        background: '#0a0a0a',
-        color: '#e0e0e0',
-        fontFamily: 'system-ui, -apple-system, sans-serif',
-        fontSize: 13,
-        overflow: 'hidden',
-        display: 'flex',
-        flexDirection: 'column',
-    },
-    header: {
-        padding: '12px 16px',
-        borderBottom: '1px solid #222',
-        background: '#111',
-    },
-    headerRow: {
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-    },
-    title: {
-        margin: 0,
-        fontSize: 16,
-        fontWeight: 600,
-        color: '#00ff88',
-        letterSpacing: 1,
-    },
-    upgradeBtn: {
-        padding: '4px 10px',
-        background: 'linear-gradient(135deg, #ffd700, #ff8c00)',
-        border: 'none',
-        borderRadius: 4,
-        color: '#000',
-        fontSize: 11,
-        fontWeight: 600,
-        cursor: 'pointer',
-    },
-    stats: {
-        fontSize: 11,
-        color: '#666',
-        marginTop: 4,
-    },
-    actions: {
-        display: 'flex',
-        gap: 8,
-        padding: '10px 16px',
-        borderBottom: '1px solid #222',
-    },
-    btn: {
-        flex: 1,
-        padding: '8px 12px',
-        background: '#1a1a1a',
-        border: '1px solid #333',
-        borderRadius: 4,
-        color: '#ccc',
-        cursor: 'pointer',
-        fontSize: 12,
-    },
-    btnPro: {
-        background: 'linear-gradient(135deg, #1a2a1a, #0a1f0a)',
-        border: '1px solid #00ff88',
-        color: '#00ff88',
-    },
-    btnAction: {
-        padding: '4px 10px',
-        background: '#00ff88',
-        border: 'none',
-        borderRadius: 4,
-        color: '#000',
-        cursor: 'pointer',
-        fontSize: 11,
-        fontWeight: 600,
-    },
-    statsGrid: {
-        display: 'grid',
-        gridTemplateColumns: 'repeat(3, 1fr)',
-        gap: 8,
-        marginBottom: 12,
-    },
-    statCard: {
-        background: '#111',
-        padding: '10px 8px',
-        borderRadius: 6,
-        textAlign: 'center',
-        border: '1px solid #222',
-    },
-    statValue: {
-        fontSize: 20,
-        fontWeight: 700,
-        color: '#00ff88',
-    },
-    statLabel: {
-        fontSize: 10,
-        color: '#666',
-        marginTop: 2,
-    },
-    categorySection: {
-        marginBottom: 12,
-    },
-    categoryTitle: {
-        fontSize: 11,
-        color: '#888',
-        marginBottom: 6,
-        textTransform: 'uppercase',
-        letterSpacing: 1,
-    },
-    categoryList: {
-        display: 'flex',
-        flexWrap: 'wrap',
-        gap: 6,
-    },
-    categoryItem: {
-        display: 'flex',
-        gap: 6,
-        padding: '4px 8px',
-        background: '#1a1a1a',
-        borderRadius: 4,
-        fontSize: 11,
-    },
-    insightsBox: {
-        background: '#0a1a0a',
-        border: '1px solid #003300',
-        borderRadius: 6,
-        padding: 10,
-        marginBottom: 12,
-    },
-    recommendSection: {
-        marginBottom: 12,
-    },
-    recommendHeader: {
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 8,
-        fontSize: 12,
-        fontWeight: 600,
-    },
-    recommendList: {
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 6,
-    },
-    recommendItem: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: 8,
-        padding: '6px 10px',
-        background: '#1a1010',
-        borderRadius: 4,
-        border: '1px solid #331111',
-    },
-    recommendItemInfo: {
-        flex: 1,
-        minWidth: 0,
-    },
-    recommendTitle: {
-        fontSize: 11,
-        whiteSpace: 'nowrap',
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
-    },
-    recommendReason: {
-        fontSize: 10,
-        color: '#ff8800',
-    },
-    groupSuggestion: {
-        display: 'flex',
-        justifyContent: 'space-between',
-        padding: '6px 10px',
-        background: '#1a1a2a',
-        borderRadius: 4,
-        border: '1px solid #333366',
-        fontSize: 11,
-    },
-    search: {
-        margin: '10px 16px',
-        padding: '8px 12px',
-        background: '#111',
-        border: '1px solid #333',
-        borderRadius: 4,
-        color: '#fff',
-        fontSize: 13,
-    },
-    tabList: {
-        flex: 1,
-        overflowY: 'auto',
-        padding: '0 8px 8px',
-    },
-    tabItem: {
-        display: 'flex',
-        alignItems: 'center',
-        padding: '8px',
-        borderRadius: 4,
-        cursor: 'pointer',
-        gap: 10,
-    },
-    favicon: {
-        width: 16,
-        height: 16,
-        borderRadius: 2,
-    },
-    tabInfo: {
-        flex: 1,
-        minWidth: 0,
-    },
-    tabTitle: {
-        whiteSpace: 'nowrap',
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
-        fontSize: 13,
-    },
-    tabUrl: {
-        fontSize: 11,
-        color: '#666',
-        whiteSpace: 'nowrap',
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
-    },
-    closeBtn: {
-        width: 20,
-        height: 20,
-        background: 'transparent',
-        border: 'none',
-        color: '#666',
-        cursor: 'pointer',
-        fontSize: 16,
-        lineHeight: 1,
-    },
-    section: {
-        flex: 1,
-        padding: 16,
-        overflowY: 'auto',
-    },
-    sectionHeader: {
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 12,
-        fontSize: 14,
-        fontWeight: 600,
-        color: '#00ff88',
-    },
-    btnSmall: {
-        padding: '4px 8px',
-        background: '#ff4444',
-        border: 'none',
-        borderRadius: 4,
-        color: '#fff',
-        cursor: 'pointer',
-        fontSize: 11,
-    },
-    dupeGroup: {
-        padding: '8px 12px',
-        background: '#1a1a1a',
-        borderRadius: 4,
-        marginBottom: 8,
-    },
-    dupeTitle: {
-        fontSize: 12,
-        whiteSpace: 'nowrap',
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
-    },
-    dupeCount: {
-        fontSize: 11,
-        color: '#ff8800',
-        marginTop: 4,
-    },
-    empty: {
-        textAlign: 'center',
-        color: '#666',
-        padding: 20,
-    },
-    loading: {
-        textAlign: 'center',
-        color: '#00ff88',
-        padding: 20,
-    },
-    analysis: {
-        whiteSpace: 'pre-wrap',
-        lineHeight: 1.5,
-        background: '#111',
-        padding: 12,
-        borderRadius: 4,
-        maxHeight: 300,
-        overflowY: 'auto',
-    },
-    btnBack: {
-        width: '100%',
-        marginTop: 12,
-        padding: '8px',
-        background: '#222',
-        border: '1px solid #333',
-        borderRadius: 4,
-        color: '#ccc',
-        cursor: 'pointer',
-    },
-    upgradeCard: {
-        background: 'linear-gradient(135deg, #1a1a2e, #16213e)',
-        border: '1px solid #ffd700',
-        borderRadius: 12,
-        padding: 24,
-        textAlign: 'center',
-    },
-    upgradeTitle: {
-        fontSize: 20,
-        fontWeight: 700,
-        color: '#ffd700',
-        marginBottom: 8,
-    },
-    upgradePrice: {
-        fontSize: 36,
-        fontWeight: 700,
-        color: '#fff',
-    },
-    upgradeSubtitle: {
-        fontSize: 12,
-        color: '#888',
-        marginBottom: 16,
-    },
-    upgradeFeatures: {
-        textAlign: 'left',
-        listStyle: 'none',
-        padding: 0,
-        margin: '0 0 20px 0',
-        fontSize: 13,
-    },
-    upgradeBtnLarge: {
-        width: '100%',
-        padding: '12px 24px',
-        background: 'linear-gradient(135deg, #ffd700, #ff8c00)',
-        border: 'none',
-        borderRadius: 6,
-        color: '#000',
-        fontSize: 16,
-        fontWeight: 700,
-        cursor: 'pointer',
-    },
-    paymentNote: {
-        fontSize: 11,
-        color: '#666',
-        marginTop: 8,
-    },
-    refreshNote: {
-        fontSize: 11,
-        color: '#888',
-        marginTop: 16,
-    },
-    refreshBtn: {
-        marginTop: 8,
-        padding: '6px 12px',
-        background: '#333',
-        border: 'none',
-        borderRadius: 4,
-        color: '#00ff88',
-        fontSize: 12,
-        cursor: 'pointer',
-    },
+    container: { width: 380, maxHeight: 520, background: '#0d0d0d', color: '#c0c0c0', fontFamily: "'Segoe UI', system-ui, sans-serif", fontSize: 12, display: 'flex', flexDirection: 'column' },
+    header: { background: '#111', borderBottom: '2px solid #00ff88' },
+    headerMain: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px' },
+    logoSection: { display: 'flex', alignItems: 'center', gap: 10 },
+    logo: { width: 32, height: 32, background: '#00ff88', color: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 12, borderRadius: 4 },
+    title: { fontSize: 14, fontWeight: 700, color: '#00ff88', letterSpacing: 2 },
+    subtitle: { fontSize: 10, color: '#666', letterSpacing: 1, marginTop: 2 },
+    tagPro: { background: '#00ff88', color: '#000', padding: '3px 8px', fontSize: 10, fontWeight: 700, borderRadius: 2, letterSpacing: 1 },
+    tagTrial: { background: '#333', color: '#ff8800', padding: '3px 8px', fontSize: 10, fontWeight: 600, borderRadius: 2 },
+    statusBar: { background: '#1a1a00', color: '#ffcc00', padding: '6px 12px', fontSize: 11, borderTop: '1px solid #333' },
+    actions: { display: 'flex', gap: 6, padding: '8px 12px', background: '#0a0a0a', borderBottom: '1px solid #222' },
+    btn: { flex: 1, padding: '8px 4px', background: '#1a1a1a', border: '1px solid #333', color: '#888', fontSize: 10, fontWeight: 600, letterSpacing: 1, cursor: 'pointer', borderRadius: 2 },
+    btnPrimary: { flex: 1, padding: '8px 4px', background: '#002200', border: '1px solid #00ff88', color: '#00ff88', fontSize: 10, fontWeight: 600, letterSpacing: 1, cursor: 'pointer', borderRadius: 2 },
+    btnIcon: { padding: '8px 10px', background: '#1a1a1a', border: '1px solid #333', color: '#666', cursor: 'pointer', borderRadius: 2 },
+    searchWrap: { padding: '8px 12px', background: '#0a0a0a' },
+    search: { width: '100%', padding: '8px 10px', background: '#111', border: '1px solid #222', color: '#fff', fontSize: 11, letterSpacing: 1, borderRadius: 2, boxSizing: 'border-box' },
+    tabList: { flex: 1, overflowY: 'auto', padding: '4px 8px' },
+    tabItem: { display: 'flex', alignItems: 'center', padding: '8px', gap: 10, borderBottom: '1px solid #1a1a1a' },
+    favicon: { width: 16, height: 16, borderRadius: 2 },
+    tabInfo: { flex: 1, minWidth: 0 },
+    tabTitle: { fontSize: 12, color: '#ddd', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
+    tabUrl: { fontSize: 10, color: '#555', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
+    closeBtn: { width: 20, height: 20, background: 'transparent', border: 'none', color: '#444', cursor: 'pointer', fontSize: 16 },
+    panel: { flex: 1, display: 'flex', flexDirection: 'column', padding: 12 },
+    panelHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12, fontWeight: 700, color: '#00ff88', letterSpacing: 2, marginBottom: 12, paddingBottom: 8, borderBottom: '1px solid #222' },
+    panelContent: { flex: 1, overflowY: 'auto' },
+    emptyState: { textAlign: 'center', color: '#444', padding: 30, fontSize: 11, letterSpacing: 1 },
+    loading: { textAlign: 'center', color: '#00ff88', padding: 30, letterSpacing: 2 },
+    btnBack: { marginTop: 12, padding: '10px', background: '#111', border: '1px solid #222', color: '#666', fontSize: 11, cursor: 'pointer', borderRadius: 2, letterSpacing: 1 },
+    btnDanger: { padding: '5px 10px', background: '#330000', border: '1px solid #ff4444', color: '#ff4444', fontSize: 10, fontWeight: 600, cursor: 'pointer', borderRadius: 2 },
+    dupeItem: { padding: '10px', background: '#111', marginBottom: 6, borderRadius: 2, borderLeft: '2px solid #ff8800' },
+    dupeTitle: { fontSize: 11, color: '#ccc', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
+    dupeCount: { fontSize: 10, color: '#ff8800', marginTop: 4 },
+    analysisText: { margin: 0, whiteSpace: 'pre-wrap', fontFamily: 'inherit', fontSize: 11, lineHeight: 1.6, color: '#aaa', background: '#0a0a0a', padding: 12, borderRadius: 2, border: '1px solid #1a1a1a' },
+    statsRow: { display: 'flex', gap: 8, marginBottom: 12 },
+    stat: { flex: 1, background: '#111', padding: '12px 8px', textAlign: 'center', borderRadius: 2, border: '1px solid #1a1a1a' },
+    statNum: { fontSize: 22, fontWeight: 700, color: '#00ff88' },
+    statLabel: { fontSize: 9, color: '#555', letterSpacing: 1, marginTop: 4 },
+    insightBox: { background: '#001a00', border: '1px solid #003300', padding: 10, marginBottom: 12, borderRadius: 2 },
+    insightLabel: { fontSize: 9, color: '#00ff88', letterSpacing: 1, marginBottom: 6 },
+    insightText: { fontSize: 11, lineHeight: 1.5, color: '#88cc88', whiteSpace: 'pre-wrap' },
+    section: { marginBottom: 12 },
+    sectionHead: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 10, fontWeight: 600, color: '#888', letterSpacing: 1, marginBottom: 8 },
+    btnSmall: { padding: '4px 10px', background: '#00ff88', border: 'none', color: '#000', fontSize: 9, fontWeight: 700, cursor: 'pointer', borderRadius: 2 },
+    suggestionItem: { padding: '8px', background: '#1a0a0a', marginBottom: 4, borderRadius: 2, borderLeft: '2px solid #ff4444' },
+    suggestionTitle: { display: 'block', fontSize: 11, color: '#ccc', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
+    suggestionReason: { display: 'block', fontSize: 9, color: '#ff8800', marginTop: 3 },
+    groupItem: { display: 'flex', justifyContent: 'space-between', padding: '8px', background: '#0a0a1a', marginBottom: 4, borderRadius: 2, borderLeft: '2px solid #4488ff', fontSize: 11 },
+    groupCount: { color: '#4488ff', fontSize: 10 },
+    upgradeBox: { background: 'linear-gradient(180deg, #0a0a0a, #111)', border: '2px solid #00ff88', borderRadius: 4, padding: 24, textAlign: 'center' },
+    upgradeTitle: { fontSize: 16, fontWeight: 700, color: '#00ff88', letterSpacing: 3, marginBottom: 8 },
+    upgradePrice: { fontSize: 36, fontWeight: 700, color: '#fff' },
+    upgradeOnce: { fontSize: 10, color: '#666', letterSpacing: 2, marginBottom: 16 },
+    upgradeList: { textAlign: 'left', listStyle: 'none', padding: 0, margin: '0 0 20px', fontSize: 12, color: '#888' },
+    btnUpgrade: { width: '100%', padding: '12px', background: '#00ff88', border: 'none', color: '#000', fontSize: 14, fontWeight: 700, letterSpacing: 2, cursor: 'pointer', borderRadius: 2, marginBottom: 8 },
+    btnRefresh: { width: '100%', padding: '8px', background: 'transparent', border: '1px solid #333', color: '#666', fontSize: 10, cursor: 'pointer', borderRadius: 2 },
 };
 
 const container = document.getElementById('root');
