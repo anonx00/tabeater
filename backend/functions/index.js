@@ -32,6 +32,10 @@ functions.http('api', async (req, res) => {
                 return await handleCheckout(req, res);
             case 'webhook':
                 return await handleWebhook(req, res);
+            case 'success':
+                return handleSuccess(req, res);
+            case 'cancel':
+                return handleCancel(req, res);
             default:
                 return res.status(404).json({ error: 'Not found' });
         }
@@ -209,8 +213,8 @@ async function handleCheckout(req, res) {
             licenseKey,
             deviceId
         },
-        success_url: 'https://phantom-tabs.web.app/success',
-        cancel_url: 'https://phantom-tabs.web.app/cancel'
+        success_url: `https://${req.headers.host}/success`,
+        cancel_url: `https://${req.headers.host}/cancel`
     });
 
     return res.json({ url: session.url });
@@ -253,6 +257,56 @@ async function handleWebhook(req, res) {
     }
 
     return res.json({ received: true });
+}
+
+function handleSuccess(req, res) {
+    res.set('Content-Type', 'text/html');
+    res.send(`<!DOCTYPE html>
+<html>
+<head>
+    <title>Payment Successful - PHANTOM TABS</title>
+    <style>
+        body { font-family: system-ui; background: #0a0a0a; color: #e0e0e0; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .card { background: #111; border: 1px solid #00ff88; border-radius: 12px; padding: 40px; text-align: center; max-width: 400px; }
+        h1 { color: #00ff88; margin: 0 0 16px; }
+        p { color: #888; margin: 16px 0; }
+        .icon { font-size: 64px; margin-bottom: 16px; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="icon">✓</div>
+        <h1>Payment Successful!</h1>
+        <p>Your PHANTOM TABS Pro license is now active.</p>
+        <p>Return to the extension and click "Refresh Status" to activate.</p>
+    </div>
+</body>
+</html>`);
+}
+
+function handleCancel(req, res) {
+    res.set('Content-Type', 'text/html');
+    res.send(`<!DOCTYPE html>
+<html>
+<head>
+    <title>Payment Cancelled - PHANTOM TABS</title>
+    <style>
+        body { font-family: system-ui; background: #0a0a0a; color: #e0e0e0; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .card { background: #111; border: 1px solid #ff4444; border-radius: 12px; padding: 40px; text-align: center; max-width: 400px; }
+        h1 { color: #ff4444; margin: 0 0 16px; }
+        p { color: #888; margin: 16px 0; }
+        .icon { font-size: 64px; margin-bottom: 16px; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="icon">✕</div>
+        <h1>Payment Cancelled</h1>
+        <p>No charges were made.</p>
+        <p>You can try again anytime from the extension.</p>
+    </div>
+</body>
+</html>`);
 }
 
 function generateLicenseKey() {
