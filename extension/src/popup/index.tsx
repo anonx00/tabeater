@@ -64,7 +64,26 @@ interface AutoPilotReport {
     aiInsights?: string;
 }
 
-type View = 'tabs' | 'duplicates' | 'upgrade' | 'autopilot' | 'analytics';
+type View = 'tabs' | 'duplicates' | 'upgrade' | 'autopilot' | 'analytics' | 'memory';
+
+interface TabMemoryInfo {
+    tabId: number;
+    estimatedMB: number;
+    url: string;
+    title: string;
+    isAudible: boolean;
+    hasMedia: boolean;
+}
+
+interface MemoryReport {
+    totalMB: number;
+    tabs: TabMemoryInfo[];
+    heavyTabs: TabMemoryInfo[];
+    systemMemory?: {
+        availableMB: number;
+        capacityMB: number;
+    };
+}
 
 const Popup = () => {
     const [tabs, setTabs] = useState<TabInfo[]>([]);
@@ -80,12 +99,21 @@ const Popup = () => {
     const [hoveredButton, setHoveredButton] = useState<string | null>(null);
     const [undoAction, setUndoAction] = useState<{ message: string; action: () => void } | null>(null);
     const [closedTabs, setClosedTabs] = useState<{ id: number; title: string; url: string; index: number }[]>([]);
+    const [memoryUsageMB, setMemoryUsageMB] = useState<number>(0);
+    const [systemMemoryMB, setSystemMemoryMB] = useState<number | null>(null);
+    const [memoryReport, setMemoryReport] = useState<MemoryReport | null>(null);
 
     useEffect(() => {
         loadTabs();
         checkProvider();
         checkLicense();
+        updateMemoryUsage();
     }, []);
+
+    useEffect(() => {
+        // Update memory when tabs change
+        updateMemoryUsage();
+    }, [tabs]);
 
     const sendMessage = useCallback(async (action: string, payload?: any) => {
         return await chrome.runtime.sendMessage({ action, payload });
@@ -105,6 +133,41 @@ const Popup = () => {
         const response = await sendMessage('getLicenseStatus', { forceRefresh: true });
         if (response.success) setLicense(response.data);
     }, [sendMessage]);
+
+    const updateMemoryUsage = useCallback(async () => {
+        const response = await sendMessage('getMemoryReport');
+        if (response.success) {
+            setMemoryUsageMB(response.data.totalMB);
+            if (response.data.systemMemory) {
+                setSystemMemoryMB(response.data.systemMemory.capacityMB);
+            }
+            setMemoryReport(response.data);
+        }
+    }, [sendMessage]);
+
+    const showMemoryOptimizer = useCallback(async () => {
+        setView('memory');
+        setLoading(true);
+        await updateMemoryUsage();
+        setLoading(false);
+    }, [updateMemoryUsage]);
+
+    const closeMemoryHogs = useCallback(async () => {
+        if (!memoryReport) return;
+        const tabIds = memoryReport.heavyTabs.slice(0, 5).map(t => t.tabId);
+
+        setTabs(prev => prev.filter(t => !tabIds.includes(t.id)));
+        await sendMessage('closeTabs', { tabIds });
+
+        setUndoAction({
+            message: `Closed ${tabIds.length} memory-heavy tabs`,
+            action: () => {
+                loadTabs();
+            }
+        });
+
+        await updateMemoryUsage();
+    }, [memoryReport, sendMessage, loadTabs, updateMemoryUsage]);
 
     const closeTab = useCallback(async (tabId: number) => {
         // Optimistic UI update
@@ -309,10 +372,14 @@ const Popup = () => {
                 )}
 
                 {/* Memory Gauge */}
-                <div style={styles.memoryBar}>
+                <div
+                    style={{...styles.memoryBar, cursor: 'pointer'}}
+                    onClick={showMemoryOptimizer}
+                    title="Click to optimize memory"
+                >
                     <MemoryGauge
-                        currentMB={tabs.length * 75} // Estimate: ~75MB per tab
-                        maxMB={2048} // 2GB reference
+                        currentMB={memoryUsageMB}
+                        maxMB={systemMemoryMB || 4096}
                         compact={true}
                     />
                 </div>
@@ -704,6 +771,109 @@ const Popup = () => {
                                         <div style={styles.miniStatLabel}>Dupes</div>
                                     </div>
                                 </div>
+                            </>
+                        ) : null}
+                    </div>
+                    <button style={styles.btnBack} onClick={() => setView('tabs')}>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="m15 18-6-6 6-6" />
+                        </svg>
+                        Back to tabs
+                    </button>
+                </div>
+            )}
+
+            {/* Memory Optimizer View */}
+            {view === 'memory' && (
+                <div style={styles.panel}>
+                    <div style={styles.panelHeader}>
+                        <span>Memory Optimizer</span>
+                    </div>
+                    <div style={styles.panelContent}>
+                        {loading ? (
+                            <div style={styles.loadingContainer}>
+                                <div style={styles.loadingSpinner} />
+                                <span>Analyzing memory usage...</span>
+                            </div>
+                        ) : memoryReport ? (
+                            <>
+                                <div style={styles.statsRow}>
+                                    <div style={styles.stat}>
+                                        <div style={styles.statNum}>{memoryReport.totalMB.toFixed(0)}</div>
+                                        <div style={styles.statLabel}>Total MB</div>
+                                    </div>
+                                    <div style={styles.stat}>
+                                        <div style={styles.statNum}>{memoryReport.tabs.length}</div>
+                                        <div style={styles.statLabel}>Tabs</div>
+                                    </div>
+                                    <div style={styles.stat}>
+                                        <div style={styles.statNum}>{(memoryReport.totalMB / memoryReport.tabs.length).toFixed(0)}</div>
+                                        <div style={styles.statLabel}>Avg MB</div>
+                                    </div>
+                                </div>
+
+                                {memoryReport.systemMemory && (
+                                    <div style={styles.insightBox}>
+                                        <div style={styles.insightLabel}>
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+                                            </svg>
+                                            SYSTEM STATUS
+                                        </div>
+                                        <div style={styles.insightText}>
+                                            <MicroLabel
+                                                label="AVAILABLE"
+                                                value={`${memoryReport.systemMemory.availableMB.toFixed(0)} MB`}
+                                            />
+                                            <MicroLabel
+                                                label="TOTAL"
+                                                value={`${memoryReport.systemMemory.capacityMB.toFixed(0)} MB`}
+                                                style={{ marginTop: spacing.xs }}
+                                            />
+                                            <MicroLabel
+                                                label="USAGE"
+                                                value={`${((1 - memoryReport.systemMemory.availableMB / memoryReport.systemMemory.capacityMB) * 100).toFixed(1)}%`}
+                                                style={{ marginTop: spacing.xs }}
+                                            />
+                                        </div>
+                                    </div>
+                                )}
+
+                                {memoryReport.heavyTabs.length > 0 && (
+                                    <div style={styles.section}>
+                                        <div style={styles.sectionHead}>
+                                            <span>Memory Hogs ({memoryReport.heavyTabs.length})</span>
+                                            <button style={styles.btnSmall} onClick={closeMemoryHogs}>Close Top 5</button>
+                                        </div>
+                                        {memoryReport.heavyTabs.slice(0, 10).map(tab => (
+                                            <div key={tab.tabId} style={styles.suggestionItem}>
+                                                <div style={styles.suggestionTitle}>
+                                                    {tab.title}
+                                                    {tab.hasMedia && <span style={{ color: colors.warning, marginLeft: spacing.xs }}>📹</span>}
+                                                    {tab.isAudible && <span style={{ color: colors.error, marginLeft: spacing.xs }}>🔊</span>}
+                                                </div>
+                                                <div style={styles.suggestionReason}>
+                                                    ~{tab.estimatedMB} MB
+                                                    {tab.hasMedia && ' • Media content'}
+                                                    {tab.isAudible && ' • Playing audio'}
+                                                </div>
+                                                <button
+                                                    style={styles.btnClose}
+                                                    onClick={async () => {
+                                                        await closeTab(tab.tabId);
+                                                        await updateMemoryUsage();
+                                                    }}
+                                                >
+                                                    ×
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {memoryReport.heavyTabs.length === 0 && (
+                                    <EmptyState type="all-optimized" message="Memory usage is optimized!" />
+                                )}
                             </>
                         ) : null}
                     </div>
@@ -1243,8 +1413,29 @@ const styles: { [key: string]: React.CSSProperties } = {
         cursor: 'pointer',
         borderRadius: borderRadius.sm,
     },
+    btnClose: {
+        position: 'absolute' as const,
+        top: spacing.sm,
+        right: spacing.sm,
+        width: 24,
+        height: 24,
+        background: colors.error,
+        border: 'none',
+        color: colors.textPrimary,
+        fontSize: typography.sizeLg,
+        fontWeight: typography.bold,
+        cursor: 'pointer',
+        borderRadius: borderRadius.full,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        lineHeight: 1,
+        padding: 0,
+    },
     suggestionItem: {
+        position: 'relative' as const,
         padding: spacing.sm,
+        paddingRight: 40, // Make room for close button
         background: '#1a0a0a',
         marginBottom: spacing.xs,
         borderRadius: borderRadius.sm,

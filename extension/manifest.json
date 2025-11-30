@@ -9,7 +9,9 @@
         "storage",
         "sidePanel",
         "scripting",
-        "activeTab"
+        "activeTab",
+        "system.memory",
+        "processes"
     ],
     "background": {
         "service_worker": "background.js",
