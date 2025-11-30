@@ -189,14 +189,31 @@ const Options = () => {
                 <section style={styles.section}>
                     <h2 style={styles.sectionTitle}>Local AI (Priority 1)</h2>
                     <div style={styles.infoCard}>
-                        <p>Chrome's built-in Gemini Nano runs locally - fastest and most private.</p>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                            <span>Gemini Nano Status:</span>
+                            <span style={{
+                                color: activeProvider === 'nano' ? '#00ff88' : '#ff8800',
+                                fontWeight: 600
+                            }}>
+                                {activeProvider === 'nano' ? 'Active' : 'Not Available'}
+                            </span>
+                        </div>
+                        <p>Chrome's built-in AI runs locally - fastest and most private.</p>
+                        <p style={{ fontWeight: 600, marginTop: 12 }}>To enable Gemini Nano:</p>
                         <ol style={styles.list}>
-                            <li>Go to <code>chrome://flags</code></li>
-                            <li>Enable "Prompt API for Gemini Nano"</li>
-                            <li>Enable "Optimization Guide On Device Model"</li>
-                            <li>Restart Chrome</li>
+                            <li>Open <code>chrome://flags/#optimization-guide-on-device-model</code></li>
+                            <li>Set to <strong>"Enabled BypassPerfRequirement"</strong></li>
+                            <li>Open <code>chrome://flags/#prompt-api-for-gemini-nano</code></li>
+                            <li>Set to <strong>"Enabled"</strong></li>
+                            <li>Click "Relaunch" to restart Chrome</li>
                         </ol>
-                        <p style={styles.note}>When enabled, local AI takes priority over cloud.</p>
+                        <p style={styles.note}>When enabled, Nano takes priority over cloud APIs (no API key needed).</p>
+                        <button
+                            style={{ ...styles.refreshBtn, marginTop: 12 }}
+                            onClick={() => { checkProvider(); }}
+                        >
+                            Check Nano Status
+                        </button>
                     </div>
                 </section>
 
