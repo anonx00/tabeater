@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
 import { colors, spacing, typography, borderRadius, transitions, faviconFallback } from '../shared/theme';
+import { formatMarkdown } from '../shared/markdown';
 
 interface TabInfo {
     id: number;
@@ -449,7 +450,7 @@ const Sidepanel = () => {
                             key={i}
                             style={msg.role === 'user' ? styles.userMessage : styles.assistantMessage}
                         >
-                            {msg.content}
+                            {msg.role === 'assistant' ? formatMarkdown(msg.content) : msg.content}
                         </div>
                     ))}
                     {loading && (

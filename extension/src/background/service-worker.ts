@@ -220,12 +220,18 @@ Rules:
         // Clean and parse JSON response
         let parsedAnalysis;
         try {
-            // Remove any markdown code blocks or extra text
-            const cleanJson = analysis
-                .replace(/```json\n?/g, '')
-                .replace(/```\n?/g, '')
-                .replace(/^[^{]*({[\s\S]*})[^}]*$/g, '$1')
-                .trim();
+            // Remove markdown code blocks and extract JSON
+            let cleanJson = analysis.trim();
+
+            // Remove markdown code fences
+            cleanJson = cleanJson.replace(/^```(?:json)?\s*\n/gm, '');
+            cleanJson = cleanJson.replace(/\n```\s*$/gm, '');
+
+            // Extract first complete JSON object
+            const jsonMatch = cleanJson.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+                cleanJson = jsonMatch[0];
+            }
 
             parsedAnalysis = JSON.parse(cleanJson);
 
@@ -238,30 +244,16 @@ Rules:
                 insights: Array.isArray(parsedAnalysis.insights) ? parsedAnalysis.insights.slice(0, 4) : []
             };
         } catch (parseErr) {
-            // Fallback: try to extract JSON from response
-            const jsonMatch = analysis.match(/\{[\s\S]*\}/);
-            if (jsonMatch) {
-                try {
-                    parsedAnalysis = JSON.parse(jsonMatch[0]);
-                } catch {
-                    parsedAnalysis = {
-                        summary: 'Unable to parse analysis',
-                        duplicates: [],
-                        closeable: [],
-                        groups: [],
-                        insights: [analysis.slice(0, 100)]
-                    };
-                }
-            } else {
-                // Ultimate fallback: return plain text as insight
-                parsedAnalysis = {
-                    summary: 'Analysis complete',
-                    duplicates: [],
-                    closeable: [],
-                    groups: [],
-                    insights: [analysis.slice(0, 200)]
-                };
-            }
+            console.error('JSON parse error:', parseErr, 'Raw response:', analysis);
+
+            // Fallback: return error message with helpful info
+            parsedAnalysis = {
+                summary: 'AI returned invalid format',
+                duplicates: [],
+                closeable: [],
+                groups: [],
+                insights: ['The AI response could not be parsed. Please try again or check your AI configuration.']
+            };
         }
 
         return {
