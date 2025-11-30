@@ -1,0 +1,57 @@
+:root {
+  --color-bg: #0a0a0a;
+  --color-surface: #1a1a1a;
+  --color-primary: #00ff41; /* Matrix/Tactical Green */
+  --color-secondary: #ff4500; /* Alert Orange */
+  --color-text: #e0e0e0;
+  --color-text-muted: #888;
+  --font-mono: 'Courier New', Courier, monospace;
+}
+
+body {
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  margin: 0;
+  padding: 0;
+  font-size: 14px;
+}
+
+h1, h2, h3 {
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin: 0 0 1rem 0;
+}
+
+.tactical-container {
+  padding: 1rem;
+  border: 1px solid var(--color-surface);
+}
+
+.tactical-header {
+  border-bottom: 2px solid var(--color-primary);
+  padding-bottom: 0.5rem;
+  margin-bottom: 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.status-indicator {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background-color: var(--color-text-muted);
+  display: inline-block;
+  margin-right: 0.5rem;
+}
+
+.status-active {
+  background-color: var(--color-primary);
+  box-shadow: 0 0 5px var(--color-primary);
+}
+
+.status-alert {
+  background-color: var(--color-secondary);
+  box-shadow: 0 0 5px var(--color-secondary);
+}

@@ -1,0 +1,31 @@
+name: CD Staging
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy-staging:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - id: 'auth'
+      name: 'Authenticate to Google Cloud'
+      uses: 'google-github-actions/auth@v2'
+      with:
+        workload_identity_provider: 'projects/123456789/locations/global/workloadIdentityPools/github-actions/providers/github-provider' # Replace with actual ID after terraform apply
+        service_account: 'github-actions@YOUR_PROJECT_ID.iam.gserviceaccount.com'
+
+    - name: 'Deploy AI Proxy'
+      uses: 'google-github-actions/deploy-cloud-functions@v2'
+      with:
+        name: 'ai-proxy'
+        runtime: 'nodejs20'
+        entry_point: 'aiProxy'
+        source_dir: 'cloud-functions'
+        region: 'us-central1'
