@@ -26,6 +26,10 @@ interface MemoryReport {
 }
 
 class MemoryService {
+    private processCache: Map<number, number> = new Map(); // tabId -> processId
+    private lastCacheUpdate: number = 0;
+    private readonly CACHE_TTL = 5000; // 5 seconds
+
     /**
      * Get actual memory usage for all tabs using Chrome Processes API
      */
@@ -36,14 +40,21 @@ class MemoryService {
         let browserMemoryMB = 0;
 
         try {
-            // Get process information for all tabs
+            // Step 1: Get process info for all processes
             const processes = await this.getProcessMemory();
+            const processMap = new Map(processes.map(p => [p.id, p]));
 
+            // Step 2: Get process IDs for all tabs
+            await this.updateProcessCache(tabs.map(t => t.id!).filter(Boolean));
+
+            // Step 3: Match tabs to their process memory
             for (const tab of tabs) {
                 if (!tab.id) continue;
 
-                // Get actual memory for this tab from processes API
-                const actualMB = this.getTabMemoryFromProcesses(tab, processes);
+                const processId = this.processCache.get(tab.id);
+                const process = processId ? processMap.get(processId) : null;
+
+                const actualMB = process ? process.memoryMB : this.getEstimatedMemory(tab);
                 totalMB += actualMB;
 
                 tabMemoryInfo.push({
@@ -53,7 +64,7 @@ class MemoryService {
                     title: tab.title || 'Untitled',
                     isAudible: tab.audible || false,
                     hasMedia: this.hasMediaContent(tab.url || ''),
-                    processId: await this.getTabProcessId(tab.id),
+                    processId,
                 });
             }
 
@@ -61,8 +72,7 @@ class MemoryService {
             browserMemoryMB = processes.reduce((sum, proc) => sum + proc.memoryMB, 0);
 
         } catch (error) {
-            console.error('Failed to get process memory, using fallback:', error);
-            // Fallback: If processes API fails, return basic info
+            console.error('Failed to get process memory:', error);
             return this.getFallbackReport(tabs);
         }
 
@@ -98,6 +108,36 @@ class MemoryService {
     }
 
     /**
+     * Update process cache for given tab IDs
+     */
+    private async updateProcessCache(tabIds: number[]): Promise<void> {
+        const now = Date.now();
+        if (now - this.lastCacheUpdate < this.CACHE_TTL) {
+            return; // Cache still valid
+        }
+
+        if (!chrome.processes) return;
+
+        // Get process IDs for all tabs in parallel
+        const processPromises = tabIds.map(tabId =>
+            new Promise<{ tabId: number; processId: number }>((resolve) => {
+                chrome.processes.getProcessIdForTab(tabId, (processId) => {
+                    resolve({ tabId, processId });
+                });
+            })
+        );
+
+        const results = await Promise.all(processPromises);
+        results.forEach(({ tabId, processId }) => {
+            if (processId) {
+                this.processCache.set(tabId, processId);
+            }
+        });
+
+        this.lastCacheUpdate = now;
+    }
+
+    /**
      * Get memory usage for all Chrome processes
      */
     private async getProcessMemory(): Promise<Array<{ id: number; memoryMB: number; type: string }>> {
@@ -110,7 +150,7 @@ class MemoryService {
             chrome.processes.getProcessInfo([], true, (processes) => {
                 const result = Object.entries(processes).map(([id, info]) => ({
                     id: parseInt(id),
-                    memoryMB: (info.privateMemory || 0) / 1024 / 1024, // Convert bytes to MB
+                    memoryMB: (info.privateMemory || 0) / 1024 / 1024,
                     type: info.type,
                 }));
                 resolve(result);
@@ -119,79 +159,45 @@ class MemoryService {
     }
 
     /**
-     * Get process ID for a specific tab
+     * Get estimated memory when process info unavailable
      */
-    private async getTabProcessId(tabId: number): Promise<number | undefined> {
-        return new Promise((resolve) => {
-            if (!chrome.processes) {
-                resolve(undefined);
-                return;
-            }
+    private getEstimatedMemory(tab: chrome.tabs.Tab): number {
+        if (tab.discarded) return 0.5;
 
-            chrome.processes.getProcessIdForTab(tabId, (processId) => {
-                resolve(processId);
-            });
-        });
-    }
+        const url = tab.url?.toLowerCase() || '';
 
-    /**
-     * Get memory usage for a specific tab from process list
-     */
-    private getTabMemoryFromProcesses(
-        tab: chrome.tabs.Tab,
-        processes: Array<{ id: number; memoryMB: number; type: string }>
-    ): number {
-        // For tabs, we need to get the process ID and look it up
-        // Since getProcessIdForTab is async, we'll estimate based on process type
-        // In production, we cache this mapping
-
-        // If tab is discarded, it uses minimal memory
-        if (tab.discarded) {
-            return 0.5; // Suspended tabs use ~0.5MB
+        // Video/streaming
+        if (url.includes('youtube.com/watch') || url.includes('netflix.com/watch') ||
+            url.includes('twitch.tv') || url.includes('hianime')) {
+            return tab.audible ? 200 : 150;
         }
 
-        // Find renderer processes (tabs typically use renderer processes)
-        const rendererProcesses = processes.filter(p => p.type === 'renderer');
-
-        if (rendererProcesses.length === 0) {
-            return 50; // Fallback estimate
+        // Heavy web apps
+        if (url.includes('docs.google.com') || url.includes('sheets.google.com') ||
+            url.includes('figma.com') || url.includes('canva.com')) {
+            return 120;
         }
 
-        // Average renderer memory divided by number of tabs
-        // This is approximate but better than pure estimation
-        const avgRendererMemory = rendererProcesses.reduce((sum, p) => sum + p.memoryMB, 0) / rendererProcesses.length;
-
-        // Apply multipliers based on tab state
-        let memory = avgRendererMemory;
-
-        if (tab.audible) {
-            memory *= 1.2; // Audio/video tabs typically use more
+        // Development
+        if (url.includes('github.com') || url.includes('console.cloud.google.com') ||
+            url.includes('vercel.com') || url.includes('netlify.com')) {
+            return 100;
         }
 
-        return memory;
-    }
-
-    /**
-     * Enhanced version with per-tab process tracking (called after initial report)
-     */
-    async getDetailedTabMemory(tabId: number): Promise<number> {
-        try {
-            const processId = await this.getTabProcessId(tabId);
-            if (!processId) return 0;
-
-            return new Promise((resolve) => {
-                chrome.processes.getProcessInfo([processId], true, (processes) => {
-                    const processInfo = processes[processId];
-                    if (processInfo && processInfo.privateMemory) {
-                        resolve(processInfo.privateMemory / 1024 / 1024);
-                    } else {
-                        resolve(0);
-                    }
-                });
-            });
-        } catch {
-            return 0;
+        // AI tools
+        if (url.includes('chatgpt.com') || url.includes('claude.ai') ||
+            url.includes('gemini.google.com') || url.includes('aistudio.google.com')) {
+            return 90;
         }
+
+        // Social media
+        if (url.includes('twitter.com') || url.includes('x.com') ||
+            url.includes('facebook.com') || url.includes('instagram.com')) {
+            return 80;
+        }
+
+        // Default for regular pages
+        return 60;
     }
 
     /**
@@ -204,8 +210,7 @@ class MemoryService {
         for (const tab of tabs) {
             if (!tab.id) continue;
 
-            // Use conservative estimate
-            const estimatedMB = tab.discarded ? 0.5 : 50;
+            const estimatedMB = this.getEstimatedMemory(tab);
             totalMB += estimatedMB;
 
             tabMemoryInfo.push({
@@ -226,7 +231,7 @@ class MemoryService {
             totalMB: Math.round(totalMB),
             tabs: tabMemoryInfo,
             heavyTabs,
-            browserMemoryMB: Math.round(totalMB * 1.2), // Estimate browser overhead
+            browserMemoryMB: Math.round(totalMB * 1.3), // Estimate browser overhead
         };
     }
 
@@ -272,7 +277,7 @@ class MemoryService {
         const suggestions: string[] = [];
 
         // Check if browser is using too much memory
-        if (report.systemMemory) {
+        if (report.systemMemory && report.browserMemoryMB > 0) {
             const browserPercent = (report.browserMemoryMB / report.systemMemory.capacityMB) * 100;
             if (browserPercent > 25) {
                 suggestions.push(`Browser using ${browserPercent.toFixed(1)}% of system RAM. Consider closing tabs.`);

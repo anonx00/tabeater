@@ -520,7 +520,10 @@ const Options = () => {
                                 <span style={styles.settingDesc}>Tabs not accessed for this many days are considered stale</span>
                             </div>
                             <select
-                                style={{ ...styles.select, width: 80 }}
+                                style={{
+                                    ...styles.compactSelect,
+                                    minWidth: 120,
+                                }}
                                 value={autoPilotSettings.staleDaysThreshold}
                                 onChange={(e) => updateAutoPilotSetting('staleDaysThreshold', parseInt(e.target.value))}
                             >
@@ -898,6 +901,21 @@ const styles: { [key: string]: React.CSSProperties } = {
         boxSizing: 'border-box',
         outline: 'none',
         cursor: 'pointer',
+    },
+    compactSelect: {
+        padding: `${spacing.sm}px ${spacing.md}px`,
+        background: colors.bgDarker,
+        border: `1px solid ${colors.primary}`,
+        borderRadius: borderRadius.sm,
+        color: colors.textPrimary,
+        fontSize: typography.sizeLg,
+        fontWeight: typography.medium,
+        fontFamily: typography.fontMono,
+        boxSizing: 'border-box',
+        outline: 'none',
+        cursor: 'pointer',
+        transition: `all ${transitions.fast}`,
+        boxShadow: `0 0 4px ${colors.primary}33`,
     },
     apiKeyRow: {
         display: 'flex',
