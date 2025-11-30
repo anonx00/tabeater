@@ -12,7 +12,7 @@ const FREE_DAILY_LIMIT = 20;
 functions.http('api', async (req, res) => {
     res.set('Access-Control-Allow-Origin', '*');
     res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.set('Access-Control-Allow-Headers', 'Content-Type, X-License-Key');
+    res.set('Access-Control-Allow-Headers', 'Content-Type, X-License-Key, X-Device-Id');
 
     if (req.method === 'OPTIONS') {
         return res.status(204).send('');
@@ -75,6 +75,7 @@ async function handleRegister(req, res) {
 
 async function handleStatus(req, res) {
     const licenseKey = req.headers['x-license-key'];
+    const deviceId = req.headers['x-device-id'];
 
     if (!licenseKey) {
         return res.status(400).json({ error: 'License key required' });
@@ -87,6 +88,11 @@ async function handleStatus(req, res) {
     }
 
     const data = doc.data();
+
+    if (data.deviceId !== deviceId) {
+        return res.status(403).json({ error: 'Device mismatch' });
+    }
+
     const now = new Date();
     const trialEnd = new Date(data.trialEndDate);
     const trialExpired = now > trialEnd;
@@ -119,6 +125,7 @@ async function handleStatus(req, res) {
 
 async function handleUse(req, res) {
     const licenseKey = req.headers['x-license-key'];
+    const deviceId = req.headers['x-device-id'];
 
     if (!licenseKey) {
         return res.status(400).json({ error: 'License key required' });
@@ -131,6 +138,10 @@ async function handleUse(req, res) {
     }
 
     const data = doc.data();
+
+    if (data.deviceId !== deviceId) {
+        return res.status(403).json({ error: 'Device mismatch' });
+    }
 
     if (data.paid) {
         return res.json({ allowed: true, remaining: 999 });
@@ -162,6 +173,7 @@ async function handleUse(req, res) {
 
 async function handleCheckout(req, res) {
     const licenseKey = req.headers['x-license-key'];
+    const deviceId = req.headers['x-device-id'];
 
     if (!licenseKey) {
         return res.status(400).json({ error: 'License key required' });
@@ -171,6 +183,12 @@ async function handleCheckout(req, res) {
 
     if (!doc.exists) {
         return res.status(404).json({ error: 'License not found' });
+    }
+
+    const data = doc.data();
+
+    if (data.deviceId !== deviceId) {
+        return res.status(403).json({ error: 'Device mismatch' });
     }
 
     const session = await stripe.checkout.sessions.create({
@@ -188,7 +206,8 @@ async function handleCheckout(req, res) {
         }],
         mode: 'payment',
         metadata: {
-            licenseKey
+            licenseKey,
+            deviceId
         },
         success_url: 'https://phantom-tabs.web.app/success',
         cancel_url: 'https://phantom-tabs.web.app/cancel'
@@ -214,16 +233,22 @@ async function handleWebhook(req, res) {
 
     if (event.type === 'checkout.session.completed') {
         const session = event.data.object;
-        const { licenseKey } = session.metadata;
+        const { licenseKey, deviceId } = session.metadata;
 
         if (licenseKey) {
-            await db.collection('devices').doc(licenseKey).update({
-                paid: true,
-                paidAt: new Date().toISOString(),
-                stripeSessionId: session.id
-            });
+            const doc = await db.collection('devices').doc(licenseKey).get();
 
-            console.log(`License ${licenseKey} upgraded to Pro`);
+            if (doc.exists && doc.data().deviceId === deviceId) {
+                await db.collection('devices').doc(licenseKey).update({
+                    paid: true,
+                    paidAt: new Date().toISOString(),
+                    stripeSessionId: session.id
+                });
+
+                console.log(`License ${licenseKey} upgraded to Pro`);
+            } else {
+                console.error(`Device mismatch for license ${licenseKey}`);
+            }
         }
     }
 
