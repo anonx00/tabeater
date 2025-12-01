@@ -94,15 +94,15 @@ export const typographyPro = {
     display: '32px',
 
     // Weights
-    normal: 400,
-    medium: 500,
-    semibold: 600,
-    bold: 700,
+    weightNormal: 400,
+    weightMedium: 500,
+    weightSemibold: 600,
+    weightBold: 700,
 
     // Line heights
-    tight: 1.2,
-    normal: 1.5,
-    relaxed: 1.75,
+    lineHeightTight: 1.2,
+    lineHeightNormal: 1.5,
+    lineHeightRelaxed: 1.75,
 };
 
 export const borderRadiusPro = {

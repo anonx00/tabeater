@@ -381,7 +381,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     cardTitle: {
         margin: 0,
         fontSize: typographyPro.md,
-        fontWeight: typographyPro.semibold,
+        fontWeight: typographyPro.weightSemibold,
         color: colorsPro.textSecondary,
         textTransform: 'uppercase',
         letterSpacing: '1px',
@@ -390,14 +390,14 @@ const styles: { [key: string]: React.CSSProperties } = {
         padding: '2px 8px',
         borderRadius: borderRadiusPro.sm,
         fontSize: typographyPro.xs,
-        fontWeight: typographyPro.medium,
+        fontWeight: typographyPro.weightMedium,
         background: colorsPro.glassAccent,
         color: colorsPro.primaryPurple,
         border: `1px solid ${colorsPro.primaryPurple}40`,
     },
     memoryValue: {
         fontSize: typographyPro.lg,
-        fontWeight: typographyPro.bold,
+        fontWeight: typographyPro.weightBold,
         color: colorsPro.accentCyan,
         fontFamily: typographyPro.fontMono,
     },
@@ -405,7 +405,7 @@ const styles: { [key: string]: React.CSSProperties } = {
         margin: 0,
         marginBottom: spacingPro.sm,
         fontSize: typographyPro.sm,
-        fontWeight: typographyPro.medium,
+        fontWeight: typographyPro.weightMedium,
         color: colorsPro.textMuted,
         textTransform: 'uppercase',
         letterSpacing: '1px',
@@ -431,7 +431,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     },
     actionLabel: {
         fontSize: typographyPro.md,
-        fontWeight: typographyPro.semibold,
+        fontWeight: typographyPro.weightSemibold,
         color: colorsPro.textPrimary,
         display: 'flex',
         alignItems: 'center',
@@ -447,7 +447,7 @@ const styles: { [key: string]: React.CSSProperties } = {
         borderRadius: borderRadiusPro.sm,
         background: colorsPro.proGold,
         color: colorsPro.bgDarkest,
-        fontWeight: typographyPro.bold,
+        fontWeight: typographyPro.weightBold,
     },
     bottomNav: {
         position: 'fixed',
@@ -485,7 +485,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     },
     navButtonLabel: {
         fontSize: typographyPro.xs,
-        fontWeight: typographyPro.medium,
+        fontWeight: typographyPro.weightMedium,
     },
     emptyState: {
         textAlign: 'center',
