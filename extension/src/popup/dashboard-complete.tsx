@@ -646,14 +646,14 @@ const styles: { [key: string]: React.CSSProperties } = {
     cardTitle: {
         margin: 0,
         fontSize: typographyPro.sm,
-        fontWeight: typographyPro.semibold,
+        fontWeight: typographyPro.weightSemibold,
         color: colorsPro.textMuted,
         textTransform: 'uppercase',
         letterSpacing: '1px',
     },
     statValue: {
         fontSize: typographyPro.md,
-        fontWeight: typographyPro.bold,
+        fontWeight: typographyPro.weightBold,
         color: colorsPro.accentCyan,
         fontFamily: typographyPro.fontMono,
     },
@@ -661,7 +661,7 @@ const styles: { [key: string]: React.CSSProperties } = {
         margin: 0,
         marginBottom: spacingPro.sm,
         fontSize: typographyPro.xs,
-        fontWeight: typographyPro.medium,
+        fontWeight: typographyPro.weightMedium,
         color: colorsPro.textDim,
         textTransform: 'uppercase',
         letterSpacing: '1px',
@@ -683,7 +683,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     },
     actionLabel: {
         fontSize: typographyPro.sm,
-        fontWeight: typographyPro.medium,
+        fontWeight: typographyPro.weightMedium,
         color: colorsPro.textPrimary,
         display: 'flex',
         alignItems: 'center',
@@ -695,7 +695,7 @@ const styles: { [key: string]: React.CSSProperties } = {
         borderRadius: borderRadiusPro.sm,
         background: colorsPro.proGold,
         color: colorsPro.bgDarkest,
-        fontWeight: typographyPro.bold,
+        fontWeight: typographyPro.weightBold,
     },
     searchContainer: {
         ...glassPanelStyle,
@@ -815,7 +815,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     },
     upgradeTitle: {
         fontSize: typographyPro.xxl,
-        fontWeight: typographyPro.bold,
+        fontWeight: typographyPro.weightBold,
         background: `linear-gradient(135deg, ${colorsPro.proGold} 0%, ${colorsPro.primaryPurple} 100%)`,
         WebkitBackgroundClip: 'text',
         WebkitTextFillColor: 'transparent',
@@ -831,12 +831,12 @@ const styles: { [key: string]: React.CSSProperties } = {
     upgradePriceCurrency: {
         fontSize: typographyPro.xl,
         color: colorsPro.proGold,
-        fontWeight: typographyPro.bold,
+        fontWeight: typographyPro.weightBold,
     },
     upgradePriceAmount: {
         fontSize: '48px',
         color: colorsPro.proGold,
-        fontWeight: typographyPro.bold,
+        fontWeight: typographyPro.weightBold,
         fontFamily: typographyPro.fontMono,
     },
     upgradePriceNote: {
@@ -869,7 +869,7 @@ const styles: { [key: string]: React.CSSProperties } = {
         borderRadius: borderRadiusPro.md,
         color: colorsPro.bgDarkest,
         fontSize: typographyPro.md,
-        fontWeight: typographyPro.bold,
+        fontWeight: typographyPro.weightBold,
         cursor: 'pointer',
         transition: transitionsPro.fast,
         position: 'relative',
@@ -889,7 +889,7 @@ const styles: { [key: string]: React.CSSProperties } = {
         borderRadius: borderRadiusPro.md,
         color: colorsPro.textPrimary,
         fontSize: typographyPro.base,
-        fontWeight: typographyPro.semibold,
+        fontWeight: typographyPro.weightSemibold,
         cursor: 'pointer',
         transition: transitionsPro.fast,
     },
@@ -929,7 +929,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     },
     navButtonLabel: {
         fontSize: typographyPro.xs,
-        fontWeight: typographyPro.medium,
+        fontWeight: typographyPro.weightMedium,
     },
     emptyState: {
         textAlign: 'center',

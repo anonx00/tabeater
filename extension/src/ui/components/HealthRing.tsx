@@ -106,7 +106,7 @@ export const HealthRing: React.FC<HealthRingProps> = ({
                 }}>
                     <div style={{
                         fontSize: typographyPro.huge,
-                        fontWeight: typographyPro.bold,
+                        fontWeight: typographyPro.weightBold,
                         color: color,
                         fontFamily: typographyPro.fontMono,
                         lineHeight: 1,
@@ -132,7 +132,7 @@ export const HealthRing: React.FC<HealthRingProps> = ({
                     color: colorsPro.textMuted,
                     textTransform: 'uppercase',
                     letterSpacing: '1px',
-                    fontWeight: typographyPro.medium,
+                    fontWeight: typographyPro.weightMedium,
                 }}>
                     {label}
                 </div>
