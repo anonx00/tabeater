@@ -9,7 +9,8 @@
         "storage",
         "sidePanel",
         "scripting",
-        "activeTab"
+        "activeTab",
+        "system.memory"
     ],
     "optional_permissions": [
         "processes"
