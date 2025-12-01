@@ -200,7 +200,7 @@ class AIService {
             }
 
             this.session = await ai.languageModel.create({
-                systemPrompt: `You are PHANTOM TABS, a tactical tab intelligence assistant.
+                systemPrompt: `You are TabEater, a tactical tab intelligence assistant.
                 Provide concise, actionable insights about browser tabs and web content.
                 Keep responses brief and focused.`
             });
@@ -268,7 +268,7 @@ class AIService {
             body: JSON.stringify({
                 contents: [{
                     parts: [{
-                        text: `You are PHANTOM TABS, a tactical tab intelligence assistant. Provide concise, actionable insights.\n\n${text}`
+                        text: `You are TabEater, a tactical tab intelligence assistant. Provide concise, actionable insights.\n\n${text}`
                     }]
                 }],
                 generationConfig: {
@@ -299,7 +299,7 @@ class AIService {
                 messages: [
                     {
                         role: 'system',
-                        content: 'You are PHANTOM TABS, a tactical tab intelligence assistant. Provide concise, actionable insights.'
+                        content: 'You are TabEater, a tactical tab intelligence assistant. Provide concise, actionable insights.'
                     },
                     { role: 'user', content: text }
                 ],
@@ -327,7 +327,7 @@ class AIService {
             body: JSON.stringify({
                 model: model,
                 max_tokens: 500,
-                system: 'You are PHANTOM TABS, a tactical tab intelligence assistant. Provide concise, actionable insights.',
+                system: 'You are TabEater, a tactical tab intelligence assistant. Provide concise, actionable insights.',
                 messages: [
                     { role: 'user', content: text }
                 ]
