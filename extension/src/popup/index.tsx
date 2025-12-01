@@ -106,6 +106,9 @@ const Popup = () => {
     const [memoryUsageMB, setMemoryUsageMB] = useState<number>(0);
     const [systemMemoryMB, setSystemMemoryMB] = useState<number | null>(null);
     const [memoryReport, setMemoryReport] = useState<MemoryReport | null>(null);
+    const [showEmailVerify, setShowEmailVerify] = useState(false);
+    const [verifyEmail, setVerifyEmail] = useState('');
+    const [verifyError, setVerifyError] = useState('');
 
     useEffect(() => {
         loadTabs();
@@ -144,6 +147,28 @@ const Popup = () => {
         const response = await sendMessage('getLicenseStatus', { forceRefresh: true });
         if (response.success) setLicense(response.data);
     }, [sendMessage]);
+
+    const verifyByEmail = useCallback(async () => {
+        if (!verifyEmail.trim()) {
+            setVerifyError('Please enter your payment email');
+            return;
+        }
+        setLoading(true);
+        setVerifyError('');
+        try {
+            const response = await sendMessage('verifyByEmail', { email: verifyEmail.trim() });
+            if (response.success && response.data.verified) {
+                await checkLicense();
+                setShowEmailVerify(false);
+                setVerifyEmail('');
+            } else {
+                setVerifyError('No payment found for this email');
+            }
+        } catch {
+            setVerifyError('Failed to verify. Please try again.');
+        }
+        setLoading(false);
+    }, [verifyEmail, sendMessage, checkLicense]);
 
     const updateMemoryUsage = useCallback(async () => {
         const response = await sendMessage('getMemoryReport');
@@ -958,6 +983,50 @@ const Popup = () => {
                         >
                             Already purchased? Refresh status
                         </button>
+                        {!showEmailVerify ? (
+                            <button
+                                style={styles.btnRefresh}
+                                onClick={() => setShowEmailVerify(true)}
+                            >
+                                Paid on different device? Verify by email
+                            </button>
+                        ) : (
+                            <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                <input
+                                    type="email"
+                                    placeholder="Enter your payment email"
+                                    value={verifyEmail}
+                                    onChange={(e) => setVerifyEmail(e.target.value)}
+                                    style={{
+                                        padding: '8px 12px',
+                                        background: colors.bgCard,
+                                        border: `1px solid ${colors.borderLight}`,
+                                        borderRadius: 6,
+                                        color: colors.textPrimary,
+                                        fontSize: 12,
+                                    }}
+                                    onKeyDown={(e) => e.key === 'Enter' && verifyByEmail()}
+                                />
+                                {verifyError && (
+                                    <span style={{ color: colors.error, fontSize: 11 }}>{verifyError}</span>
+                                )}
+                                <div style={{ display: 'flex', gap: 6 }}>
+                                    <button
+                                        style={{ ...styles.btnRefresh, flex: 1 }}
+                                        onClick={verifyByEmail}
+                                        disabled={loading}
+                                    >
+                                        {loading ? 'Verifying...' : 'Verify'}
+                                    </button>
+                                    <button
+                                        style={{ ...styles.btnRefresh, flex: 1 }}
+                                        onClick={() => { setShowEmailVerify(false); setVerifyError(''); }}
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                            </div>
+                        )}
                     </div>
                     <button style={styles.btnBack} onClick={() => setView('tabs')}>
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

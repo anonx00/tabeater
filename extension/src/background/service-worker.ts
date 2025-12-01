@@ -115,12 +115,18 @@ async function handleMessage(message: Message): Promise<MessageResponse> {
             return { success: true, data: { response } };
 
         case 'getLicenseStatus':
+            console.log('[ServiceWorker] getLicenseStatus called with forceRefresh:', message.payload?.forceRefresh);
             const status = await licenseService.getStatus(message.payload?.forceRefresh);
+            console.log('[ServiceWorker] getLicenseStatus result:', status);
             return { success: true, data: status };
 
         case 'getCheckoutUrl':
             const checkoutUrl = await licenseService.getCheckoutUrl();
             return { success: true, data: { url: checkoutUrl } };
+
+        case 'verifyByEmail':
+            const verifyResult = await licenseService.verifyByEmail(message.payload?.email);
+            return { success: true, data: verifyResult };
 
         // Auto Pilot actions (PRO features)
         case 'autoPilotAnalyze':
