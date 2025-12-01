@@ -128,7 +128,9 @@ class LicenseService {
             // If force refresh is requested and user is not paid (or status unknown), try to verify payment first
             // This handles cases where webhook failed but user completed payment
             if (forceRefresh && (!this.cachedStatus || !this.cachedStatus.paid)) {
-                await this.verifyPayment();
+                console.log('[License] Force refresh requested, verifying payment...');
+                const verifyResult = await this.verifyPayment();
+                console.log('[License] Verify payment result:', verifyResult);
             }
 
             const response = await fetch(`${API_BASE}/status`, {
@@ -144,8 +146,10 @@ class LicenseService {
 
             this.cachedStatus = await response.json();
             this.lastCheck = now;
+            console.log('[License] Status response:', this.cachedStatus);
             return this.cachedStatus!;
-        } catch {
+        } catch (err) {
+            console.error('[License] Error getting status:', err);
             if (this.cachedStatus) return this.cachedStatus;
             return {
                 status: 'none',
@@ -169,6 +173,11 @@ class LicenseService {
             await this.initialize();
         }
 
+        console.log('[License] Calling verify-payment with:', {
+            licenseKey: this.licenseKey,
+            deviceId: this.deviceId
+        });
+
         try {
             const response = await fetch(`${API_BASE}/verify-payment`, {
                 method: 'POST',
@@ -178,11 +187,16 @@ class LicenseService {
                 }
             });
 
+            console.log('[License] verify-payment response status:', response.status);
+
             if (!response.ok) {
+                const errorText = await response.text();
+                console.error('[License] verify-payment error:', errorText);
                 return { verified: false, status: 'error' };
             }
 
             const result = await response.json();
+            console.log('[License] verify-payment result:', result);
 
             // If payment was found and activated, clear cache to force status refresh
             if (result.verified && result.status === 'activated') {
@@ -190,7 +204,8 @@ class LicenseService {
             }
 
             return result;
-        } catch {
+        } catch (err) {
+            console.error('[License] verify-payment network error:', err);
             return { verified: false, status: 'network_error' };
         }
     }
