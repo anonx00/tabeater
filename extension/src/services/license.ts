@@ -1,6 +1,8 @@
-const API_BASE = 'https://api-5dab6ha67q-uc.a.run.app';
-
-const DEV_MODE = false;
+// Build-time constants injected by webpack DefinePlugin
+// These are set during build and cannot be changed without recompiling
+// For production builds, these are hardcoded into the bundle
+const API_BASE = (process.env.API_BASE || 'https://api-5dab6ha67q-uc.a.run.app') as string;
+const DEV_MODE = Boolean(process.env.DEV_MODE);
 
 interface LicenseStatus {
     status: 'trial' | 'pro' | 'expired' | 'none';
