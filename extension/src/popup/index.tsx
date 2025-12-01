@@ -118,10 +118,10 @@ const Popup = () => {
         checkAdvancedMemory();
         checkAIPrivacy();
 
-        // Update memory every 3 seconds for real-time tracking
+        // Update memory every 10 seconds to reduce CPU usage
         const memoryInterval = setInterval(() => {
             updateMemoryUsage();
-        }, 3000);
+        }, 10000);
 
         return () => clearInterval(memoryInterval);
     }, []);
@@ -370,7 +370,7 @@ const Popup = () => {
     };
 
     const buttonLabels: Record<string, { label: string; title: string; icon: string }> = {
-        auto: { label: 'Pilot', title: 'Auto Pilot - AI-powered cleanup', icon: 'M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5' },
+        auto: { label: (loading && view === 'autopilot') ? 'Analyzing...' : 'Pilot', title: 'Auto Pilot - AI-powered cleanup', icon: 'M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5' },
         group: { label: grouping ? 'Grouping...' : 'Group', title: 'Smart Group - Organize by purpose', icon: 'M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z' },
         stats: { label: 'Stats', title: 'Analytics - View insights', icon: 'M18 20V10M12 20V4M6 20v-6' },
     };
@@ -462,7 +462,18 @@ const Popup = () => {
                         ...styles.btnIcon,
                         ...(hoveredButton === 'sidepanel' ? styles.btnIconHover : {}),
                     }}
-                    onClick={() => chrome.sidePanel.open({ windowId: chrome.windows.WINDOW_ID_CURRENT })}
+                    onClick={async () => {
+                        try {
+                            const window = await chrome.windows.getCurrent();
+                            if (window.id !== undefined) {
+                                await chrome.sidePanel.open({ windowId: window.id });
+                            } else {
+                                showStatus('Failed to open Command Center', 3000);
+                            }
+                        } catch (error) {
+                            showStatus('Failed to open Command Center', 3000);
+                        }
+                    }}
                     onMouseEnter={() => setHoveredButton('sidepanel')}
                     onMouseLeave={() => setHoveredButton(null)}
                     title="Open Command Center"

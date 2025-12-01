@@ -1,10 +1,10 @@
-# Privacy Policy for PHANTOM TABS
+# Privacy Policy for TabEater
 
-Last Updated: November 2024
+Last Updated: December 1, 2025
 
 ## Overview
 
-PHANTOM TABS ("the Extension") is committed to protecting your privacy. This privacy policy explains how the Extension handles your data.
+TabEater ("the Extension") is committed to protecting your privacy. This privacy policy explains how the Extension handles your data.
 
 ## Data Collection
 
@@ -62,7 +62,8 @@ If you configure a cloud AI provider:
 | sidePanel | Show side panel | None |
 | scripting | Extract page content | Page text (local only) |
 | activeTab | Access current tab | Current tab info |
-| host_permissions | Read page content | Page content for AI |
+| system.memory | Monitor memory usage | Tab memory usage |
+| host_permissions | Read page content | Page content for AI analysis (optional) |
 
 ## Third-Party Services
 
@@ -73,12 +74,6 @@ Payments are processed by Stripe. When you purchase:
 - Stripe handles all payment data according to PCI compliance standards
 - We only receive confirmation of successful payment
 - Review [Stripe's Privacy Policy](https://stripe.com/privacy)
-
-### Email Delivery (SendGrid)
-
-Activation codes are sent via SendGrid:
-- Only your email address is shared for delivery
-- Review [SendGrid's Privacy Policy](https://sendgrid.com/policies/privacy/)
 
 ### Cloud Infrastructure (Google Cloud)
 
@@ -109,7 +104,7 @@ We may update this privacy policy. Changes will be reflected in the "Last Update
 
 ## Contact
 
-For privacy concerns, please open an issue on our GitHub repository.
+For privacy concerns, please open an issue on our GitHub repository at https://github.com/anonx00/tabeater
 
 ## Your Rights
 
@@ -126,3 +121,5 @@ You can:
 - Payments handled securely by Stripe
 - Local AI processing by default
 - You control your data
+- No browsing history retention
+- No data sold to third parties

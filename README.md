@@ -1,4 +1,4 @@
-# PHANTOM TABS
+# TabEater
 
 AI-powered tab intelligence system for Chrome. Organize, analyze, and manage browser tabs with local AI or cloud fallback.
 
