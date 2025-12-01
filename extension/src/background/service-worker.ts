@@ -15,27 +15,30 @@ interface MessageResponse {
     error?: string;
 }
 
-chrome.runtime.onInstalled.addListener(async () => {
+// Single initialization promise to prevent race conditions
+let initializationPromise: Promise<void> | null = null;
+
+async function initializeServices(): Promise<void> {
     await licenseService.initialize();
     await aiService.initialize();
+}
+
+// Ensure services are initialized only once, even if called concurrently
+async function ensureServicesInitialized(): Promise<void> {
+    if (!initializationPromise) {
+        initializationPromise = initializeServices();
+    }
+    return initializationPromise;
+}
+
+chrome.runtime.onInstalled.addListener(async () => {
+    await ensureServicesInitialized();
     await chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: false });
 });
 
 chrome.runtime.onStartup.addListener(async () => {
-    await licenseService.initialize();
-    await aiService.initialize();
+    await ensureServicesInitialized();
 });
-
-// Ensure services are initialized when service worker wakes from suspension
-let servicesInitialized = false;
-
-async function ensureServicesInitialized() {
-    if (!servicesInitialized) {
-        await licenseService.initialize();
-        await aiService.initialize();
-        servicesInitialized = true;
-    }
-}
 
 chrome.runtime.onMessage.addListener((message: Message, _sender, sendResponse) => {
     ensureServicesInitialized()
@@ -97,6 +100,9 @@ async function handleMessage(message: Message): Promise<MessageResponse> {
         case 'getAIProvider':
             return { success: true, data: { provider: aiService.getProvider() } };
 
+        case 'getAIPrivacyInfo':
+            return { success: true, data: aiService.getPrivacyInfo() };
+
         case 'checkNanoStatus':
             const nanoStatus = await aiService.checkNanoAvailability();
             return { success: true, data: nanoStatus };
@@ -115,9 +121,7 @@ async function handleMessage(message: Message): Promise<MessageResponse> {
             return { success: true, data: { response } };
 
         case 'getLicenseStatus':
-            console.log('[ServiceWorker] getLicenseStatus called with forceRefresh:', message.payload?.forceRefresh);
             const status = await licenseService.getStatus(message.payload?.forceRefresh);
-            console.log('[ServiceWorker] getLicenseStatus result:', status);
             return { success: true, data: status };
 
         case 'getCheckoutUrl':
@@ -190,6 +194,13 @@ async function handleMessage(message: Message): Promise<MessageResponse> {
         case 'getMemoryOptimizations':
             const suggestions = await memoryService.getOptimizationSuggestions();
             return { success: true, data: { suggestions } };
+
+        case 'hasAdvancedMemory':
+            return { success: true, data: { available: memoryService.hasAdvancedMemory() } };
+
+        case 'requestAdvancedMemory':
+            const granted = await memoryService.requestAdvancedMemoryPermission();
+            return { success: true, data: { granted } };
 
         default:
             return { success: false, error: 'Unknown action' };

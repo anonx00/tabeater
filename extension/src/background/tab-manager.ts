@@ -28,8 +28,6 @@ export class TabManager {
 
         if (tabsToAnalyze.length === 0) return;
 
-        console.log('PHANTOM TABS: Analyzing', tabsToAnalyze.length, 'tabs...');
-
         let categories: Record<number, string> = {};
         let priorities: Record<number, { priority: string; reason: string }> = {};
 
@@ -38,7 +36,6 @@ export class TabManager {
         // Process in batches to respect token limits
         for (let i = 0; i < tabsToAnalyze.length; i += BATCH_SIZE) {
             const batch = tabsToAnalyze.slice(i, i + BATCH_SIZE);
-            console.log(`PHANTOM TABS: Processing batch ${i / BATCH_SIZE + 1} (${batch.length} tabs)...`);
 
             try {
                 let batchCategories = {};
@@ -46,7 +43,6 @@ export class TabManager {
 
                 // Try Gemini Nano first
                 if (await this.nanoService.isAvailable()) {
-                    console.log('PHANTOM TABS: Engaging Local Intelligence (Nano)...');
                     [batchCategories, batchPriorities] = await Promise.all([
                         this.nanoService.categorizeTabs(batch),
                         this.nanoService.prioritizeTabs(batch)
@@ -58,8 +54,7 @@ export class TabManager {
                 Object.assign(categories, batchCategories);
                 Object.assign(priorities, batchPriorities);
 
-            } catch (error) {
-                console.log('PHANTOM TABS: Local Intelligence Failed for batch. Requesting Cloud Support...', error);
+            } catch {
                 try {
                     // Fallback to Cloud
                     const [cloudCats, cloudPrios] = await Promise.all([
@@ -68,8 +63,7 @@ export class TabManager {
                     ]);
                     Object.assign(categories, cloudCats);
                     Object.assign(priorities, cloudPrios);
-                } catch (cloudError) {
-                    console.error('PHANTOM TABS: All Intelligence Channels Failed for batch.', cloudError);
+                } catch {
                     // Continue to next batch instead of aborting entirely
                 }
             }
@@ -86,7 +80,6 @@ export class TabManager {
         });
 
         await browser.storage.local.set({ tabAnalysis: this.analysisCache });
-        console.log('PHANTOM TABS: Analysis Complete.', this.analysisCache);
     }
 
     async autoGroupTabs(): Promise<void> {

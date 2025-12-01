@@ -88,8 +88,7 @@ class AIService {
                 }
             }
             return null;
-        } catch (e) {
-            console.log('Nano detection error:', e);
+        } catch {
             return null;
         }
     }
@@ -356,6 +355,52 @@ class AIService {
 
     getConfig(): AIConfig {
         return this.config;
+    }
+
+    /**
+     * Check if the current provider sends data to cloud servers
+     */
+    isCloudProvider(): boolean {
+        return this.provider === 'gemini' || this.provider === 'openai' || this.provider === 'anthropic';
+    }
+
+    /**
+     * Get privacy info about current provider
+     */
+    getPrivacyInfo(): { isLocal: boolean; provider: string; message: string } {
+        if (this.provider === 'nano') {
+            return {
+                isLocal: true,
+                provider: 'Gemini Nano',
+                message: 'AI runs locally on your device. No data leaves your browser.'
+            };
+        }
+        if (this.provider === 'gemini') {
+            return {
+                isLocal: false,
+                provider: 'Google Gemini',
+                message: 'Tab data is sent to Google servers for AI processing.'
+            };
+        }
+        if (this.provider === 'openai') {
+            return {
+                isLocal: false,
+                provider: 'OpenAI',
+                message: 'Tab data is sent to OpenAI servers for AI processing.'
+            };
+        }
+        if (this.provider === 'anthropic') {
+            return {
+                isLocal: false,
+                provider: 'Anthropic Claude',
+                message: 'Tab data is sent to Anthropic servers for AI processing.'
+            };
+        }
+        return {
+            isLocal: true,
+            provider: 'None',
+            message: 'No AI provider configured.'
+        };
     }
 
     destroy(): void {

@@ -106,12 +106,17 @@ const Popup = () => {
     const [memoryUsageMB, setMemoryUsageMB] = useState<number>(0);
     const [systemMemoryMB, setSystemMemoryMB] = useState<number | null>(null);
     const [memoryReport, setMemoryReport] = useState<MemoryReport | null>(null);
+    const [hasAdvancedMemory, setHasAdvancedMemory] = useState<boolean>(true);
+    const [isCloudAI, setIsCloudAI] = useState<boolean>(false);
+    const [grouping, setGrouping] = useState<boolean>(false);
 
     useEffect(() => {
         loadTabs();
         checkProvider();
         checkLicense();
         updateMemoryUsage();
+        checkAdvancedMemory();
+        checkAIPrivacy();
 
         // Update memory every 3 seconds for real-time tracking
         const memoryInterval = setInterval(() => {
@@ -153,6 +158,28 @@ const Popup = () => {
                 setSystemMemoryMB(response.data.systemMemory.capacityMB);
             }
             setMemoryReport(response.data);
+        }
+    }, [sendMessage]);
+
+    const checkAdvancedMemory = useCallback(async () => {
+        const response = await sendMessage('hasAdvancedMemory');
+        if (response.success) {
+            setHasAdvancedMemory(response.data.available);
+        }
+    }, [sendMessage]);
+
+    const requestAdvancedMemory = useCallback(async () => {
+        const response = await sendMessage('requestAdvancedMemory');
+        if (response.success && response.data.granted) {
+            setHasAdvancedMemory(true);
+            await updateMemoryUsage();
+        }
+    }, [sendMessage, updateMemoryUsage]);
+
+    const checkAIPrivacy = useCallback(async () => {
+        const response = await sendMessage('getAIPrivacyInfo');
+        if (response.success) {
+            setIsCloudAI(!response.data.isLocal);
         }
     }, [sendMessage]);
 
@@ -236,8 +263,9 @@ const Popup = () => {
             showStatus('Configure AI in settings first');
             return;
         }
+        setGrouping(true);
         setLoading(true);
-        showStatus('Organizing tabs...');
+        showStatus('Analyzing tabs with AI...');
         const response = await sendMessage('smartOrganize');
         if (response.success) {
             showStatus(response.data.message);
@@ -246,6 +274,7 @@ const Popup = () => {
             showStatus(response.error || 'Organization failed');
         }
         setLoading(false);
+        setGrouping(false);
     }, [provider, sendMessage, loadTabs, showStatus]);
 
 
@@ -342,7 +371,7 @@ const Popup = () => {
 
     const buttonLabels: Record<string, { label: string; title: string; icon: string }> = {
         auto: { label: 'Pilot', title: 'Auto Pilot - AI-powered cleanup', icon: 'M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5' },
-        group: { label: 'Group', title: 'Smart Group - Organize by purpose', icon: 'M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z' },
+        group: { label: grouping ? 'Grouping...' : 'Group', title: 'Smart Group - Organize by purpose', icon: 'M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z' },
         stats: { label: 'Stats', title: 'Analytics - View insights', icon: 'M18 20V10M12 20V4M6 20v-6' },
     };
 
@@ -368,7 +397,11 @@ const Popup = () => {
                                     <span style={{ margin: `0 ${spacing.xs}px`, color: colors.textDimmer }}>·</span>
                                 )}
                                 {provider !== 'none' && (
-                                    <MicroLabel label="AI" value={getProviderDisplay()} />
+                                    <MicroLabel
+                                        label={isCloudAI ? "CLOUD" : "LOCAL"}
+                                        value={getProviderDisplay()}
+                                        style={isCloudAI ? { color: colors.warning } : { color: colors.success }}
+                                    />
                                 )}
                             </div>
                         </div>
@@ -427,6 +460,22 @@ const Popup = () => {
                 <button
                     style={{
                         ...styles.btnIcon,
+                        ...(hoveredButton === 'sidepanel' ? styles.btnIconHover : {}),
+                    }}
+                    onClick={() => chrome.sidePanel.open({ windowId: chrome.windows.WINDOW_ID_CURRENT })}
+                    onMouseEnter={() => setHoveredButton('sidepanel')}
+                    onMouseLeave={() => setHoveredButton(null)}
+                    title="Open Command Center"
+                    aria-label="Open Side Panel"
+                >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                        <line x1="9" y1="3" x2="9" y2="21"/>
+                    </svg>
+                </button>
+                <button
+                    style={{
+                        ...styles.btnIcon,
                         ...(hoveredButton === 'settings' ? styles.btnIconHover : {}),
                     }}
                     onClick={() => chrome.runtime.openOptionsPage()}
@@ -441,6 +490,47 @@ const Popup = () => {
                     </svg>
                 </button>
             </div>
+
+            {/* Onboarding - Show when no AI provider configured */}
+            {provider === 'none' && view === 'tabs' && (
+                <div style={{
+                    padding: spacing.md,
+                    background: colors.primaryBg,
+                    borderBottom: `1px solid ${colors.primary}`,
+                }}>
+                    <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: spacing.sm,
+                        marginBottom: spacing.sm,
+                    }}>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={colors.primary} strokeWidth="2">
+                            <circle cx="12" cy="12" r="10" />
+                            <path d="M12 16v-4M12 8h.01" />
+                        </svg>
+                        <span style={{ color: colors.primary, fontWeight: typography.semibold }}>
+                            Set Up AI for Smart Features
+                        </span>
+                    </div>
+                    <p style={{ color: colors.textDim, fontSize: typography.sizeSm, marginBottom: spacing.sm }}>
+                        Enable Gemini Nano for free, private AI or configure a cloud provider in Settings.
+                    </p>
+                    <button
+                        style={{
+                            ...styles.btnRefresh,
+                            width: '100%',
+                            justifyContent: 'center',
+                            background: colors.primary,
+                            color: colors.bgDarkest,
+                            fontWeight: typography.semibold,
+                            border: 'none',
+                        }}
+                        onClick={() => chrome.runtime.openOptionsPage()}
+                    >
+                        Open Settings
+                    </button>
+                </div>
+            )}
 
             {/* Search - Only show in tabs view */}
             {view === 'tabs' && (
@@ -874,6 +964,26 @@ const Popup = () => {
                                         )}
                                     </div>
                                 </div>
+
+                                {/* Advanced Memory Permission Request */}
+                                {!hasAdvancedMemory && (
+                                    <button
+                                        style={{
+                                            ...styles.btnRefresh,
+                                            marginBottom: spacing.md,
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            gap: spacing.sm,
+                                        }}
+                                        onClick={requestAdvancedMemory}
+                                    >
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                                        </svg>
+                                        Enable Accurate Memory Tracking
+                                    </button>
+                                )}
 
                                 {memoryReport.heavyTabs.length > 0 && (
                                     <div style={styles.section}>

@@ -81,13 +81,28 @@ const Options = () => {
     const [verifyEmail, setVerifyEmail] = useState('');
     const [verifyError, setVerifyError] = useState('');
     const [verifyLoading, setVerifyLoading] = useState(false);
+    const [cleanMode, setCleanMode] = useState(false);
 
     useEffect(() => {
         loadConfig();
         loadLicense();
         checkNanoStatus();
         loadAutoPilotSettings();
+        loadDisplaySettings();
     }, []);
+
+    const loadDisplaySettings = async () => {
+        const stored = await chrome.storage.local.get(['cleanMode']);
+        if (stored.cleanMode !== undefined) {
+            setCleanMode(stored.cleanMode);
+        }
+    };
+
+    const toggleCleanMode = async () => {
+        const newValue = !cleanMode;
+        setCleanMode(newValue);
+        await chrome.storage.local.set({ cleanMode: newValue });
+    };
 
     const loadConfig = async () => {
         const stored = await chrome.storage.local.get(['aiConfig']);
@@ -712,6 +727,33 @@ const Options = () => {
                                 </>
                             ) : 'Save Auto Pilot Settings'}
                         </button>
+                    </div>
+                </section>
+
+                {/* Display & Accessibility */}
+                <section style={styles.section}>
+                    <div style={styles.sectionHeader}>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={colors.primary} strokeWidth="2">
+                            <circle cx="12" cy="12" r="3" />
+                            <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
+                        </svg>
+                        <h2 style={styles.sectionTitle}>Display & Accessibility</h2>
+                    </div>
+                    <div style={styles.card}>
+                        <div style={styles.checkboxRow}>
+                            <label style={styles.checkboxLabel}>
+                                <input
+                                    type="checkbox"
+                                    checked={cleanMode}
+                                    onChange={toggleCleanMode}
+                                    style={styles.checkbox}
+                                />
+                                <span>Clean Mode (High Contrast)</span>
+                            </label>
+                        </div>
+                        <p style={{ color: colors.textDim, fontSize: typography.sizeSm, marginTop: spacing.sm, marginLeft: spacing.xl }}>
+                            Disables scanline effects and increases text brightness for better readability
+                        </p>
                     </div>
                 </section>
 

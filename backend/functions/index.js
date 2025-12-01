@@ -8,6 +8,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 const PRICE_CENTS = 600; // 6.00 AUD
 const TRIAL_DAYS = 7;
 const FREE_DAILY_LIMIT = 20;
+const MAX_DEVICES_PER_LICENSE = 5; // Pro users can use up to 5 devices
 
 functions.http('api', async (req, res) => {
     res.set('Access-Control-Allow-Origin', '*');
@@ -98,9 +99,29 @@ async function handleStatus(req, res) {
     }
 
     const data = doc.data();
+    const allowedDevices = data.allowedDevices || [data.deviceId];
 
-    if (data.deviceId !== deviceId) {
-        return res.status(403).json({ error: 'Device mismatch' });
+    // For Pro users, allow multiple devices (up to MAX_DEVICES_PER_LICENSE)
+    if (data.paid) {
+        if (!allowedDevices.includes(deviceId)) {
+            if (allowedDevices.length < MAX_DEVICES_PER_LICENSE) {
+                // Auto-add this device to allowed list for Pro users
+                allowedDevices.push(deviceId);
+                await db.collection('devices').doc(licenseKey).update({
+                    allowedDevices: allowedDevices
+                });
+            } else {
+                return res.status(403).json({
+                    error: 'Device limit reached',
+                    message: `This license is already active on ${MAX_DEVICES_PER_LICENSE} devices`
+                });
+            }
+        }
+    } else {
+        // For trial users, enforce single device
+        if (data.deviceId !== deviceId) {
+            return res.status(403).json({ error: 'Device mismatch' });
+        }
     }
 
     const now = new Date();
@@ -130,7 +151,8 @@ async function handleStatus(req, res) {
         usageRemaining: data.paid ? 999 : Math.max(0, FREE_DAILY_LIMIT - todayUsage),
         dailyLimit: FREE_DAILY_LIMIT,
         trialEndDate: data.trialEndDate,
-        canUse
+        canUse,
+        deviceCount: data.paid ? allowedDevices.length : 1
     });
 }
 
@@ -149,13 +171,19 @@ async function handleUse(req, res) {
     }
 
     const data = doc.data();
+    const allowedDevices = data.allowedDevices || [data.deviceId];
 
-    if (data.deviceId !== deviceId) {
-        return res.status(403).json({ error: 'Device mismatch' });
+    // For Pro users, check against allowed devices list
+    if (data.paid) {
+        if (!allowedDevices.includes(deviceId)) {
+            return res.status(403).json({ error: 'Device not authorized' });
+        }
+        return res.json({ allowed: true, remaining: 999 });
     }
 
-    if (data.paid) {
-        return res.json({ allowed: true, remaining: 999 });
+    // For trial users, enforce single device
+    if (data.deviceId !== deviceId) {
+        return res.status(403).json({ error: 'Device mismatch' });
     }
 
     const now = new Date();
