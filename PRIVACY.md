@@ -15,10 +15,9 @@ The extension requires the following permissions to function:
 - `tabGroups`: To organize tabs into groups.
 - `storage`: To save your preferences and cached analysis results locally.
 - `sidePanel`: To display the tactical dashboard.
-- `scripting`: To extract page content for AI analysis (optional).
-- `activeTab`: To access current tab information.
+- `scripting`: To extract page content for AI analysis (user-initiated only).
+- `activeTab`: To access current tab content when you request analysis.
 - `system.memory`: To monitor memory usage per tab.
-- `host_permissions`: To allow AI to analyze page content (optional feature).
 
 ## 3. Third-Party Services
 - **Google Cloud Platform**: Hosts the serverless backend for license management.

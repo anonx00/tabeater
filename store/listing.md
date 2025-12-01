@@ -59,10 +59,9 @@ PERMISSIONS EXPLAINED
 - Tab Groups: Required for smart tab grouping
 - Storage: Saves your preferences locally
 - Side Panel: Enables the tactical command center
-- Scripting: Extracts page content for AI analysis (optional)
-- Active Tab: Accesses current tab information
+- Scripting: Extracts page content for AI analysis (when user requests)
+- Active Tab: Grants temporary access to analyze current tab content
 - System Memory: Shows memory usage per tab
-- All URLs: Allows AI to analyze page content (optional feature)
 
 PERFECT FOR
 

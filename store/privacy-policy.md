@@ -60,10 +60,9 @@ If you configure a cloud AI provider:
 | tabGroups | Group tabs | Tab group data |
 | storage | Save settings | Local preferences |
 | sidePanel | Show side panel | None |
-| scripting | Extract page content | Page text (local only) |
-| activeTab | Access current tab | Current tab info |
+| scripting | Extract page content | Page text (user-initiated only) |
+| activeTab | Access current tab | Current tab content (temporary) |
 | system.memory | Monitor memory usage | Tab memory usage |
-| host_permissions | Read page content | Page content for AI analysis (optional) |
 
 ## Third-Party Services
 
