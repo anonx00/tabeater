@@ -9,6 +9,7 @@ interface LicenseStatus {
     status: 'trial' | 'pro' | 'expired' | 'none';
     paid: boolean;
     usageRemaining: number;
+    dailyLimit?: number;
     trialEndDate?: string;
     canUse: boolean;
 }
@@ -240,7 +241,8 @@ const Options = () => {
             const daysLeft = license.trialEndDate
                 ? Math.ceil((new Date(license.trialEndDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
                 : 0;
-            return { text: `Free Trial - ${daysLeft} days left (${license.usageRemaining}/day remaining)`, color: colors.licenseTrial, icon: 'clock' };
+            const dailyLimit = license.dailyLimit || 20;
+            return { text: `Free Trial - ${daysLeft} days left (${license.usageRemaining}/${dailyLimit} uses today)`, color: colors.licenseTrial, icon: 'clock' };
         }
         if (license.status === 'expired') return { text: 'Trial Expired', color: colors.licenseExpired, icon: 'x' };
         return { text: 'Not Registered', color: colors.licenseExpired, icon: 'x' };

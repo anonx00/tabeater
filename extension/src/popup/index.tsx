@@ -22,6 +22,7 @@ interface LicenseStatus {
     status: 'trial' | 'pro' | 'expired' | 'none';
     paid: boolean;
     usageRemaining: number;
+    dailyLimit?: number;
     trialEndDate?: string;
     canUse: boolean;
 }
@@ -314,7 +315,7 @@ const Popup = () => {
     const getLicenseTag = () => {
         if (!license) return null;
         if (license.paid) return <span style={styles.tagPro}>PRO</span>;
-        if (license.status === 'trial') return <span style={styles.tagTrial}>{license.usageRemaining} left</span>;
+        if (license.status === 'trial') return <span style={styles.tagTrial}>{license.usageRemaining}/{license.dailyLimit || 20} today</span>;
         return null;
     };
 

@@ -126,6 +126,7 @@ async function handleStatus(req, res) {
         status,
         paid: data.paid,
         usageRemaining: data.paid ? 999 : Math.max(0, FREE_DAILY_LIMIT - todayUsage),
+        dailyLimit: FREE_DAILY_LIMIT,
         trialEndDate: data.trialEndDate,
         canUse
     });

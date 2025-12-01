@@ -6,6 +6,7 @@ interface LicenseStatus {
     status: 'trial' | 'pro' | 'expired' | 'none';
     paid: boolean;
     usageRemaining: number;
+    dailyLimit?: number;
     trialEndDate?: string;
     canUse: boolean;
 }
