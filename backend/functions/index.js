@@ -234,6 +234,8 @@ async function handleVerifyPayment(req, res) {
     const licenseKey = req.headers['x-license-key'];
     const deviceId = req.headers['x-device-id'];
 
+    console.log('Verify payment request:', { licenseKey, deviceId });
+
     if (!licenseKey) {
         return res.status(400).json({ error: 'License key required' });
     }
@@ -248,30 +250,48 @@ async function handleVerifyPayment(req, res) {
 
     // If already paid, no need to verify
     if (data.paid) {
+        console.log('License already paid:', licenseKey);
         return res.json({ verified: true, status: 'already_pro' });
     }
 
     // Validate device ownership
     if (data.deviceId !== deviceId) {
+        console.log('Device mismatch:', { expected: data.deviceId, received: deviceId });
         return res.status(403).json({ error: 'Device mismatch' });
     }
 
     try {
-        // Search for completed checkout sessions with this license key in metadata
+        // Search for completed checkout sessions
         // Search last 100 sessions to catch older payments if webhook failed
         const sessions = await stripe.checkout.sessions.list({
             limit: 100,
             expand: ['data.payment_intent']
         });
 
-        // Find a completed session for this license
-        const matchingSession = sessions.data.find(session =>
+        console.log(`Searching ${sessions.data.length} sessions for licenseKey: ${licenseKey} or deviceId: ${deviceId}`);
+
+        // First try to find by licenseKey in metadata
+        let matchingSession = sessions.data.find(session =>
             session.metadata?.licenseKey === licenseKey &&
             session.payment_status === 'paid' &&
             session.status === 'complete'
         );
 
+        // If not found by licenseKey, try by deviceId (handles case where license changed)
+        if (!matchingSession) {
+            matchingSession = sessions.data.find(session =>
+                session.metadata?.deviceId === deviceId &&
+                session.payment_status === 'paid' &&
+                session.status === 'complete'
+            );
+            if (matchingSession) {
+                console.log('Found session by deviceId instead of licenseKey');
+            }
+        }
+
         if (matchingSession) {
+            console.log('Found matching session:', matchingSession.id);
+
             // Payment found! Activate the license
             await db.collection('devices').doc(licenseKey).update({
                 paid: true,
@@ -279,14 +299,14 @@ async function handleVerifyPayment(req, res) {
                 stripeSessionId: matchingSession.id,
                 stripePaymentIntent: matchingSession.payment_intent?.id || matchingSession.payment_intent,
                 customerEmail: matchingSession.customer_details?.email || null,
-                activatedVia: 'verify-payment' // Track that this was activated via fallback
+                activatedVia: 'verify-payment'
             });
 
             console.log(`License ${licenseKey} activated via verify-payment fallback`);
             return res.json({ verified: true, status: 'activated', sessionId: matchingSession.id });
         }
 
-        // No matching payment found
+        console.log('No matching payment found for:', { licenseKey, deviceId });
         return res.json({ verified: false, status: 'no_payment_found' });
     } catch (err) {
         console.error('Error verifying payment:', err);
