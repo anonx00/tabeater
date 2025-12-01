@@ -77,6 +77,10 @@ const Options = () => {
     const [hoveredProvider, setHoveredProvider] = useState<string | null>(null);
     const [showApiKey, setShowApiKey] = useState(false);
     const [confirmDelete, setConfirmDelete] = useState(false);
+    const [showEmailVerify, setShowEmailVerify] = useState(false);
+    const [verifyEmail, setVerifyEmail] = useState('');
+    const [verifyError, setVerifyError] = useState('');
+    const [verifyLoading, setVerifyLoading] = useState(false);
 
     useEffect(() => {
         loadConfig();
@@ -100,6 +104,32 @@ const Options = () => {
         if (response.success) {
             setLicense(response.data);
         }
+    };
+
+    const verifyByEmail = async () => {
+        if (!verifyEmail.trim()) {
+            setVerifyError('Please enter your payment email');
+            return;
+        }
+        setVerifyLoading(true);
+        setVerifyError('');
+        try {
+            const response = await chrome.runtime.sendMessage({
+                action: 'verifyByEmail',
+                payload: { email: verifyEmail.trim() }
+            });
+            if (response.success && response.data.verified) {
+                await loadLicense();
+                setShowEmailVerify(false);
+                setVerifyEmail('');
+                setVerifyError('');
+            } else {
+                setVerifyError('No payment found for this email');
+            }
+        } catch {
+            setVerifyError('Failed to verify. Please try again.');
+        }
+        setVerifyLoading(false);
     };
 
     const checkProvider = async () => {
@@ -284,6 +314,89 @@ const Options = () => {
                             Refresh
                         </button>
                     </div>
+                    {/* Email Verification for Cross-Device Purchases */}
+                    {license && !license.paid && (
+                        <div style={{ marginTop: spacing.md }}>
+                            {!showEmailVerify ? (
+                                <button
+                                    style={{
+                                        ...styles.compactBtn,
+                                        width: '100%',
+                                        justifyContent: 'center',
+                                        background: colors.bgCard,
+                                        color: colors.textMuted,
+                                        fontSize: typography.sizeSm,
+                                    }}
+                                    onClick={() => setShowEmailVerify(true)}
+                                >
+                                    Already paid? Verify by email
+                                </button>
+                            ) : (
+                                <div style={{
+                                    background: colors.bgCard,
+                                    padding: spacing.md,
+                                    borderRadius: borderRadius.lg,
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: spacing.sm,
+                                }}>
+                                    <span style={{ color: colors.textMuted, fontSize: typography.sizeSm }}>
+                                        Enter the email you used for payment:
+                                    </span>
+                                    <input
+                                        type="email"
+                                        placeholder="your@email.com"
+                                        value={verifyEmail}
+                                        onChange={(e) => setVerifyEmail(e.target.value)}
+                                        onKeyDown={(e) => e.key === 'Enter' && verifyByEmail()}
+                                        style={{
+                                            padding: `${spacing.sm}px ${spacing.md}px`,
+                                            background: colors.bgInput,
+                                            border: `1px solid ${colors.borderLight}`,
+                                            borderRadius: borderRadius.md,
+                                            color: colors.textPrimary,
+                                            fontSize: typography.sizeMd,
+                                            outline: 'none',
+                                        }}
+                                    />
+                                    {verifyError && (
+                                        <span style={{ color: colors.error, fontSize: typography.sizeSm }}>
+                                            {verifyError}
+                                        </span>
+                                    )}
+                                    <div style={{ display: 'flex', gap: spacing.sm }}>
+                                        <button
+                                            style={{
+                                                ...styles.compactBtn,
+                                                flex: 1,
+                                                justifyContent: 'center',
+                                                background: colors.primary,
+                                                color: colors.bgDarkest,
+                                            }}
+                                            onClick={verifyByEmail}
+                                            disabled={verifyLoading}
+                                        >
+                                            {verifyLoading ? 'Verifying...' : 'Verify Payment'}
+                                        </button>
+                                        <button
+                                            style={{
+                                                ...styles.compactBtn,
+                                                flex: 1,
+                                                justifyContent: 'center',
+                                            }}
+                                            onClick={() => {
+                                                setShowEmailVerify(false);
+                                                setVerifyError('');
+                                                setVerifyEmail('');
+                                            }}
+                                        >
+                                            Cancel
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </section>
 
                 {/* Current AI Provider */}
