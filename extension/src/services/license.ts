@@ -210,6 +210,53 @@ class LicenseService {
         }
     }
 
+    /**
+     * Verify payment by email - for users who paid on a different device
+     */
+    async verifyByEmail(email: string): Promise<{ verified: boolean; status: string }> {
+        if (DEV_MODE) {
+            return { verified: true, status: 'dev_mode' };
+        }
+
+        if (!this.licenseKey) {
+            await this.initialize();
+        }
+
+        console.log('[License] Verifying by email:', email);
+
+        try {
+            const response = await fetch(`${API_BASE}/verify-by-email`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-License-Key': this.licenseKey!,
+                    'X-Device-Id': this.deviceId!
+                },
+                body: JSON.stringify({ email })
+            });
+
+            console.log('[License] verify-by-email response status:', response.status);
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('[License] verify-by-email error:', errorText);
+                return { verified: false, status: 'error' };
+            }
+
+            const result = await response.json();
+            console.log('[License] verify-by-email result:', result);
+
+            if (result.verified && result.status === 'activated') {
+                this.clearCache();
+            }
+
+            return result;
+        } catch (err) {
+            console.error('[License] verify-by-email network error:', err);
+            return { verified: false, status: 'network_error' };
+        }
+    }
+
     async checkAndUse(): Promise<UseResponse> {
         if (DEV_MODE) {
             return { allowed: true, remaining: 999 };

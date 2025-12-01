@@ -34,6 +34,8 @@ functions.http('api', async (req, res) => {
                 return await handleWebhook(req, res);
             case 'verify-payment':
                 return await handleVerifyPayment(req, res);
+            case 'verify-by-email':
+                return await handleVerifyByEmail(req, res);
             case 'success':
                 return handleSuccess(req, res);
             case 'cancel':
@@ -310,6 +312,76 @@ async function handleVerifyPayment(req, res) {
         return res.json({ verified: false, status: 'no_payment_found' });
     } catch (err) {
         console.error('Error verifying payment:', err);
+        return res.status(500).json({ error: 'Failed to verify payment' });
+    }
+}
+
+/**
+ * Verify payment by email - for users who paid on a different device
+ * Searches Stripe for payments made with the given email and activates the current license
+ */
+async function handleVerifyByEmail(req, res) {
+    const licenseKey = req.headers['x-license-key'];
+    const deviceId = req.headers['x-device-id'];
+    const { email } = req.body || {};
+
+    console.log('Verify by email request:', { licenseKey, deviceId, email });
+
+    if (!licenseKey || !email) {
+        return res.status(400).json({ error: 'License key and email required' });
+    }
+
+    const doc = await db.collection('devices').doc(licenseKey).get();
+
+    if (!doc.exists) {
+        return res.status(404).json({ error: 'License not found' });
+    }
+
+    const data = doc.data();
+
+    // If already paid, no need to verify
+    if (data.paid) {
+        return res.json({ verified: true, status: 'already_pro' });
+    }
+
+    try {
+        // Search for completed checkout sessions with this email
+        const sessions = await stripe.checkout.sessions.list({
+            limit: 100,
+            expand: ['data.payment_intent']
+        });
+
+        console.log(`Searching ${sessions.data.length} sessions for email: ${email}`);
+
+        // Find a completed session for this email
+        const matchingSession = sessions.data.find(session =>
+            session.customer_details?.email?.toLowerCase() === email.toLowerCase() &&
+            session.payment_status === 'paid' &&
+            session.status === 'complete'
+        );
+
+        if (matchingSession) {
+            console.log('Found matching session by email:', matchingSession.id);
+
+            // Payment found! Activate the current license
+            await db.collection('devices').doc(licenseKey).update({
+                paid: true,
+                paidAt: new Date().toISOString(),
+                stripeSessionId: matchingSession.id,
+                stripePaymentIntent: matchingSession.payment_intent?.id || matchingSession.payment_intent,
+                customerEmail: email,
+                activatedVia: 'verify-by-email',
+                originalLicenseKey: matchingSession.metadata?.licenseKey || null
+            });
+
+            console.log(`License ${licenseKey} activated via email verification`);
+            return res.json({ verified: true, status: 'activated', sessionId: matchingSession.id });
+        }
+
+        console.log('No matching payment found for email:', email);
+        return res.json({ verified: false, status: 'no_payment_found' });
+    } catch (err) {
+        console.error('Error verifying by email:', err);
         return res.status(500).json({ error: 'Failed to verify payment' });
     }
 }
