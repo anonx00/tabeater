@@ -40,6 +40,16 @@ chrome.runtime.onStartup.addListener(async () => {
     await ensureServicesInitialized();
 });
 
+// Handle keyboard shortcuts
+chrome.commands.onCommand.addListener(async (command) => {
+    if (command === 'open_sidepanel') {
+        const windows = await chrome.windows.getAll();
+        if (windows.length > 0 && windows[0].id !== undefined) {
+            await chrome.sidePanel.open({ windowId: windows[0].id });
+        }
+    }
+});
+
 chrome.runtime.onMessage.addListener((message: Message, _sender, sendResponse) => {
     ensureServicesInitialized()
         .then(() => handleMessage(message))

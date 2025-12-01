@@ -1,8 +1,8 @@
 {
     "manifest_version": 3,
-    "name": "PHANTOM TABS",
+    "name": "TabEater",
     "version": "1.0.0",
-    "description": "Tactical Tab Intelligence System",
+    "description": "AI-powered tab manager with smart grouping, duplicate detection, and intelligent organization using local Gemini Nano AI",
     "permissions": [
         "tabs",
         "tabGroups",
@@ -11,6 +11,9 @@
         "scripting",
         "activeTab",
         "system.memory"
+    ],
+    "host_permissions": [
+        "<all_urls>"
     ],
     "optional_permissions": [
         "processes"
@@ -21,7 +24,7 @@
     },
     "action": {
         "default_popup": "popup.html",
-        "default_title": "PHANTOM TABS"
+        "default_title": "TabEater"
     },
     "side_panel": {
         "default_path": "sidepanel.html"
@@ -31,6 +34,22 @@
         "16": "icon16.png",
         "48": "icon48.png",
         "128": "icon128.png"
+    },
+    "commands": {
+        "_execute_action": {
+            "suggested_key": {
+                "default": "Ctrl+Shift+T",
+                "mac": "Command+Shift+T"
+            },
+            "description": "Open TabEater popup"
+        },
+        "open_sidepanel": {
+            "suggested_key": {
+                "default": "Ctrl+Shift+E",
+                "mac": "Command+Shift+E"
+            },
+            "description": "Open Command Center"
+        }
     },
     "content_security_policy": {
         "extension_pages": "script-src 'self'; object-src 'self'"
