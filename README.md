@@ -12,12 +12,42 @@ AI-powered tab intelligence system for Chrome. Organize, analyze, and manage bro
 
 ## AI Providers
 
-| Priority | Provider | Setup |
-|----------|----------|-------|
-| 1 | Chrome Nano | Enable in `chrome://flags` (local, free) |
-| 2 | Google Gemini | [Get API key](https://aistudio.google.com/app/apikey) (free tier) |
-| 2 | OpenAI | [Get API key](https://platform.openai.com/api-keys) |
-| 2 | Anthropic | [Get API key](https://console.anthropic.com/settings/keys) |
+TabEater supports multiple AI providers with automatic fallback:
+
+### Local AI (Recommended - Privacy First)
+
+**Chrome Gemini Nano** - Runs entirely on your device, completely private
+
+**Requirements:**
+- Chrome 128+ (Dev/Canary channel) OR Chrome 131+ (Stable, high-end hardware only)
+- 8GB+ RAM (22GB+ recommended)
+- 2GB+ free disk space for model
+
+**Setup:**
+1. Install [Chrome Canary](https://www.google.com/chrome/canary/) or [Chrome Dev](https://www.google.com/chrome/dev/)
+2. Open `chrome://flags` in the new Chrome
+3. Enable these two flags:
+   - `#optimization-guide-on-device-model` → **Enabled BypassPerfRequirement**
+   - `#prompt-api-for-gemini-nano` → **Enabled**
+4. Click **Relaunch** button (bottom of page)
+5. Wait 2-3 minutes after relaunch
+6. Go to `chrome://components`
+7. Find "Optimization Guide On Device Model"
+8. Click "Check for update" (downloads ~1.7GB model)
+9. Wait for download to complete
+10. Install TabEater extension and enjoy local AI!
+
+**Troubleshooting:** See [NANO_TROUBLESHOOTING.md](NANO_TROUBLESHOOTING.md) if Nano isn't working
+
+### Cloud AI (Works on Any Chrome Version)
+
+| Provider | Setup | Cost |
+|----------|-------|------|
+| Google Gemini | [Get API key](https://aistudio.google.com/app/apikey) | Free tier available |
+| OpenAI | [Get API key](https://platform.openai.com/api-keys) | Pay as you go |
+| Anthropic Claude | [Get API key](https://console.anthropic.com/settings/keys) | Pay as you go |
+
+Configure in TabEater → Options → Cloud AI section
 
 ## Install
 
