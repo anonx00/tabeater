@@ -94,8 +94,8 @@ class MemoryService {
                     usedMB: Math.round(capacityMB - availableMB),
                 };
             }
-        } catch (e) {
-            console.log('System memory API not available');
+        } catch {
+            // System memory API not available
         }
 
         return {
@@ -327,6 +327,28 @@ class MemoryService {
         }, intervalMs);
 
         return () => clearInterval(interval);
+    }
+
+    /**
+     * Check if advanced memory features (processes API) are available
+     */
+    hasAdvancedMemory(): boolean {
+        return typeof chrome.processes !== 'undefined';
+    }
+
+    /**
+     * Request the optional processes permission for accurate memory data
+     */
+    async requestAdvancedMemoryPermission(): Promise<boolean> {
+        try {
+            const granted = await chrome.permissions.request({
+                permissions: ['processes']
+            });
+            return granted;
+        } catch (e) {
+            console.error('Failed to request processes permission:', e);
+            return false;
+        }
     }
 }
 

@@ -42,44 +42,32 @@ class LicenseService {
     }
 
     /**
-     * Generate a persistent device ID based on browser characteristics
-     * This prevents trial bypass by reinstalling the extension
+     * Generate a stable, persistent device ID using UUID
+     * Uses a random UUID stored in local storage - survives browser updates
+     * This is more reliable than fingerprinting which changes with browser updates
      */
     private async generateDeviceId(): Promise<string> {
         try {
-            // Get machine ID from chrome (persistent across extension installs)
-            const info = await chrome.storage.local.get(['machineId']);
-
-            if (info.machineId) {
-                return info.machineId;
+            // Check local storage first (most persistent - survives sync clear)
+            const local = await chrome.storage.local.get(['machineId']);
+            if (local.machineId) {
+                return local.machineId;
             }
 
-            // Generate a fingerprint based on browser/system characteristics
-            const fingerprint = [
-                navigator.userAgent,
-                navigator.language,
-                new Date().getTimezoneOffset().toString(),
-                screen.width + 'x' + screen.height,
-                screen.colorDepth.toString()
-            ].join('|');
+            // Generate a stable random UUID (not based on browser characteristics)
+            const uuid = crypto.randomUUID();
+            const machineId = 'device_' + uuid.replace(/-/g, '').substring(0, 24);
 
-            // Hash the fingerprint to create a unique device ID
-            const encoder = new TextEncoder();
-            const data = encoder.encode(fingerprint);
-            const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-            const hashArray = Array.from(new Uint8Array(hashBuffer));
-            const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-
-            const machineId = 'device_' + hashHex.substring(0, 24);
-
-            // Store in local storage as backup (persists even after sync storage is cleared)
+            // Store in local storage for persistence
             await chrome.storage.local.set({ machineId });
 
             return machineId;
         } catch (e) {
-            // Fallback to random ID if fingerprinting fails
-            return 'device_' + Math.random().toString(36).substring(2, 15) +
+            // Fallback to random ID if crypto.randomUUID fails
+            const fallbackId = 'device_' + Math.random().toString(36).substring(2, 15) +
                    Math.random().toString(36).substring(2, 15);
+            await chrome.storage.local.set({ machineId: fallbackId });
+            return fallbackId;
         }
     }
 
@@ -128,9 +116,7 @@ class LicenseService {
             // If force refresh is requested and user is not paid (or status unknown), try to verify payment first
             // This handles cases where webhook failed but user completed payment
             if (forceRefresh && (!this.cachedStatus || !this.cachedStatus.paid)) {
-                console.log('[License] Force refresh requested, verifying payment...');
-                const verifyResult = await this.verifyPayment();
-                console.log('[License] Verify payment result:', verifyResult);
+                await this.verifyPayment();
             }
 
             const response = await fetch(`${API_BASE}/status`, {
@@ -146,10 +132,8 @@ class LicenseService {
 
             this.cachedStatus = await response.json();
             this.lastCheck = now;
-            console.log('[License] Status response:', this.cachedStatus);
             return this.cachedStatus!;
-        } catch (err) {
-            console.error('[License] Error getting status:', err);
+        } catch {
             if (this.cachedStatus) return this.cachedStatus;
             return {
                 status: 'none',
@@ -173,11 +157,6 @@ class LicenseService {
             await this.initialize();
         }
 
-        console.log('[License] Calling verify-payment with:', {
-            licenseKey: this.licenseKey,
-            deviceId: this.deviceId
-        });
-
         try {
             const response = await fetch(`${API_BASE}/verify-payment`, {
                 method: 'POST',
@@ -187,16 +166,11 @@ class LicenseService {
                 }
             });
 
-            console.log('[License] verify-payment response status:', response.status);
-
             if (!response.ok) {
-                const errorText = await response.text();
-                console.error('[License] verify-payment error:', errorText);
                 return { verified: false, status: 'error' };
             }
 
             const result = await response.json();
-            console.log('[License] verify-payment result:', result);
 
             // If payment was found and activated, clear cache to force status refresh
             if (result.verified && result.status === 'activated') {
@@ -204,8 +178,7 @@ class LicenseService {
             }
 
             return result;
-        } catch (err) {
-            console.error('[License] verify-payment network error:', err);
+        } catch {
             return { verified: false, status: 'network_error' };
         }
     }
@@ -222,8 +195,6 @@ class LicenseService {
             await this.initialize();
         }
 
-        console.log('[License] Verifying by email:', email);
-
         try {
             const response = await fetch(`${API_BASE}/verify-by-email`, {
                 method: 'POST',
@@ -235,24 +206,18 @@ class LicenseService {
                 body: JSON.stringify({ email })
             });
 
-            console.log('[License] verify-by-email response status:', response.status);
-
             if (!response.ok) {
-                const errorText = await response.text();
-                console.error('[License] verify-by-email error:', errorText);
                 return { verified: false, status: 'error' };
             }
 
             const result = await response.json();
-            console.log('[License] verify-by-email result:', result);
 
             if (result.verified && result.status === 'activated') {
                 this.clearCache();
             }
 
             return result;
-        } catch (err) {
-            console.error('[License] verify-by-email network error:', err);
+        } catch {
             return { verified: false, status: 'network_error' };
         }
     }
