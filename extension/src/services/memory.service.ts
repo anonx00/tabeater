@@ -338,15 +338,29 @@ class MemoryService {
 
     /**
      * Request the optional processes permission for accurate memory data
+     * Note: This can only be called in response to a user action (button click)
      */
     async requestAdvancedMemoryPermission(): Promise<boolean> {
         try {
+            // First check if we already have the permission
+            const hasPermission = await chrome.permissions.contains({
+                permissions: ['processes']
+            });
+
+            if (hasPermission) {
+                return true;
+            }
+
+            // Request the permission (must be triggered by user action)
             const granted = await chrome.permissions.request({
                 permissions: ['processes']
             });
             return granted;
-        } catch (e) {
-            console.error('Failed to request processes permission:', e);
+        } catch (e: any) {
+            // Only log unexpected errors, not user gesture errors
+            if (!e.message?.includes('user gesture')) {
+                console.error('Failed to request processes permission:', e);
+            }
             return false;
         }
     }
