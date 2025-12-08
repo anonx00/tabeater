@@ -4,6 +4,11 @@
 const API_BASE = (process.env.API_BASE || 'https://api-5dab6ha67q-uc.a.run.app') as string;
 const DEV_MODE = Boolean(process.env.DEV_MODE);
 
+// Production constants
+const MAX_RETRIES = 3;
+const RETRY_DELAY_MS = 1000;
+const REQUEST_TIMEOUT_MS = 10000;
+
 interface LicenseStatus {
     status: 'trial' | 'pro' | 'expired' | 'none';
     paid: boolean;
@@ -17,6 +22,44 @@ interface UseResponse {
     allowed: boolean;
     remaining: number;
     reason?: string;
+}
+
+/**
+ * Fetch with timeout and retry logic for production reliability
+ */
+async function fetchWithRetry(
+    url: string,
+    options: RequestInit,
+    retries = MAX_RETRIES
+): Promise<Response> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+    try {
+        const response = await fetch(url, {
+            ...options,
+            signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+
+        // Retry on 5xx errors
+        if (response.status >= 500 && retries > 0) {
+            await new Promise(r => setTimeout(r, RETRY_DELAY_MS));
+            return fetchWithRetry(url, options, retries - 1);
+        }
+
+        return response;
+    } catch (error: any) {
+        clearTimeout(timeoutId);
+
+        // Retry on network errors
+        if (retries > 0 && (error.name === 'AbortError' || error.name === 'TypeError')) {
+            await new Promise(r => setTimeout(r, RETRY_DELAY_MS));
+            return fetchWithRetry(url, options, retries - 1);
+        }
+
+        throw error;
+    }
 }
 
 class LicenseService {
@@ -79,7 +122,7 @@ class LicenseService {
             return;
         }
 
-        const response = await fetch(`${API_BASE}/register`, {
+        const response = await fetchWithRetry(`${API_BASE}/register`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ deviceId: this.deviceId })
@@ -121,7 +164,8 @@ class LicenseService {
                 await this.verifyPayment();
             }
 
-            const response = await fetch(`${API_BASE}/status`, {
+            const response = await fetchWithRetry(`${API_BASE}/status`, {
+                method: 'GET',
                 headers: {
                     'X-License-Key': this.licenseKey!,
                     'X-Device-Id': this.deviceId!
@@ -160,7 +204,7 @@ class LicenseService {
         }
 
         try {
-            const response = await fetch(`${API_BASE}/verify-payment`, {
+            const response = await fetchWithRetry(`${API_BASE}/verify-payment`, {
                 method: 'POST',
                 headers: {
                     'X-License-Key': this.licenseKey!,
@@ -198,7 +242,7 @@ class LicenseService {
         }
 
         try {
-            const response = await fetch(`${API_BASE}/verify-by-email`, {
+            const response = await fetchWithRetry(`${API_BASE}/verify-by-email`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -233,7 +277,7 @@ class LicenseService {
             await this.initialize();
         }
 
-        const response = await fetch(`${API_BASE}/use`, {
+        const response = await fetchWithRetry(`${API_BASE}/use`, {
             method: 'POST',
             headers: {
                 'X-License-Key': this.licenseKey!,
@@ -263,7 +307,7 @@ class LicenseService {
             await this.initialize();
         }
 
-        const response = await fetch(`${API_BASE}/checkout`, {
+        const response = await fetchWithRetry(`${API_BASE}/checkout`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
