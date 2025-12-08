@@ -40,6 +40,50 @@ chrome.runtime.onStartup.addListener(async () => {
     await ensureServicesInitialized();
 });
 
+// Auto-group new tabs when they finish loading (Auto Pilot feature)
+chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+    // Only act when the page is fully loaded and has a url
+    if (changeInfo.status === 'complete' && tab.url && !tab.url.startsWith('chrome://')) {
+        try {
+            await ensureServicesInitialized();
+
+            // Load settings to check if auto-grouping is enabled
+            const settings = await autoPilotService.loadSettings();
+            if (!settings.autoGroupByCategory) return;
+
+            // Skip if tab is already in a group
+            if (tab.groupId !== undefined && tab.groupId !== -1) return;
+
+            // Categorize the tab
+            const category = autoPilotService.categorizeTab({
+                id: tabId,
+                title: tab.title || '',
+                url: tab.url,
+                favIconUrl: tab.favIconUrl,
+                active: tab.active,
+                pinned: tab.pinned,
+                groupId: tab.groupId ?? -1,
+                windowId: tab.windowId
+            });
+
+            // Only group if it's not "Other" category
+            if (category && category !== 'Other') {
+                // Find existing group for this category in the same window
+                const groups = await chrome.tabGroups.query({ title: category, windowId: tab.windowId });
+
+                if (groups.length > 0) {
+                    // Move to existing group
+                    await chrome.tabs.group({ tabIds: tabId, groupId: groups[0].id });
+                }
+                // Note: We don't create new groups for single tabs, only add to existing ones
+            }
+        } catch (err) {
+            // Silently fail - auto-grouping is a convenience feature
+            console.debug('Auto-group failed:', err);
+        }
+    }
+});
+
 // Handle keyboard shortcuts
 chrome.commands.onCommand.addListener(async (command) => {
     if (command === 'open_sidepanel') {

@@ -4,10 +4,8 @@ import { colors, spacing, typography, borderRadius, transitions, shadows, favico
 import { UndoToast } from '../ui/components/UndoToast';
 import { SkeletonLoader } from '../ui/components/SkeletonLoader';
 import { EmptyState } from '../ui/components/EmptyState';
-import { ScanlineOverlay } from '../ui/components/ScanlineOverlay';
 import { MicroLabel } from '../ui/components/MicroLabel';
 import { MemoryGauge } from '../ui/components/MemoryGauge';
-import { ScrambleText } from '../ui/components/ScrambleText';
 import { formatMarkdown, formatInsights } from '../shared/markdown';
 
 interface TabInfo {
@@ -344,7 +342,7 @@ const Popup = () => {
     const getLicenseTag = () => {
         if (!license) return null;
         if (license.paid) return <span style={styles.tagPro}>PRO</span>;
-        if (license.status === 'trial') return <span style={styles.tagTrial}>{license.usageRemaining}/{license.dailyLimit || 20} today</span>;
+        if (license.status === 'trial') return <span style={styles.tagTrial}>{license.usageRemaining}/2 daily · 7 day trial</span>;
         return null;
     };
 
@@ -388,9 +386,7 @@ const Popup = () => {
                             </svg>
                         </div>
                         <div>
-                            <div style={styles.title}>
-                                <ScrambleText text="TabEater" speed={40} scrambleIterations={2} />
-                            </div>
+                            <div style={styles.title}>TabEater</div>
                             <div style={styles.subtitle}>
                                 <MicroLabel label="TABS" value={tabs.length} />
                                 {provider !== 'none' && (
@@ -464,9 +460,11 @@ const Popup = () => {
                     }}
                     onClick={async () => {
                         try {
-                            const window = await chrome.windows.getCurrent();
-                            if (window.id !== undefined) {
-                                await chrome.sidePanel.open({ windowId: window.id });
+                            const win = await chrome.windows.getCurrent();
+                            if (win.id !== undefined) {
+                                await chrome.sidePanel.open({ windowId: win.id });
+                                // Close popup so user focuses on sidebar
+                                window.close();
                             } else {
                                 showStatus('Failed to open Command Center', 3000);
                             }
@@ -692,11 +690,11 @@ const Popup = () => {
                 />
             )}
 
-            {/* Auto Pilot View */}
+            {/* Auto Pilot View - Action-focused minimalist design */}
             {view === 'autopilot' && (
                 <div style={styles.panel}>
                     <div style={styles.panelHeader}>
-                        <span>Auto Pilot</span>
+                        <span>Actions</span>
                         <span style={styles.tagPro}>PRO</span>
                     </div>
                     <div style={styles.panelContent}>
@@ -706,75 +704,74 @@ const Popup = () => {
                                 <span>Analyzing tabs...</span>
                             </div>
                         ) : autoPilotReport ? (
-                            <>
-                                <div style={styles.statsRow}>
-                                    <div style={styles.stat}>
-                                        <div style={styles.statNum}>{autoPilotReport.totalTabs}</div>
-                                        <div style={styles.statLabel}>Total</div>
+                            <div style={styles.actionGrid}>
+                                {/* Cleanup Action Card */}
+                                <div style={styles.actionCard}>
+                                    <div style={styles.actionIcon}>
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={colors.error} strokeWidth="2">
+                                            <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                                        </svg>
                                     </div>
-                                    <div style={styles.stat}>
-                                        <div style={{ ...styles.statNum, color: autoPilotReport.staleCount > 0 ? colors.warning : colors.success }}>
-                                            {autoPilotReport.staleCount}
-                                        </div>
-                                        <div style={styles.statLabel}>Stale</div>
-                                    </div>
-                                    <div style={styles.stat}>
-                                        <div style={{ ...styles.statNum, color: autoPilotReport.duplicateCount > 0 ? colors.error : colors.success }}>
-                                            {autoPilotReport.duplicateCount}
-                                        </div>
-                                        <div style={styles.statLabel}>Dupes</div>
-                                    </div>
+                                    <div style={styles.actionTitle}>Cleanup</div>
+                                    {autoPilotReport.recommendations.closeSuggestions.length > 0 ? (
+                                        <>
+                                            <div style={styles.actionDesc}>
+                                                {autoPilotReport.recommendations.closeSuggestions.length} tabs to clean
+                                            </div>
+                                            <button style={styles.actionBtn} onClick={executeCleanup}>
+                                                Clean All
+                                            </button>
+                                        </>
+                                    ) : (
+                                        <div style={styles.actionEmpty}>No cleanup needed</div>
+                                    )}
                                 </div>
 
-                                {autoPilotReport.aiInsights && (
-                                    <div style={styles.insightBox}>
-                                        <div style={styles.insightLabel}>
-                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                                <path d="M12 2v20M2 12h20M6 6l12 12M6 18L18 6" />
-                                            </svg>
-                                            AI INSIGHTS
-                                        </div>
-                                        <div style={styles.insightText}>
-                                            {formatMarkdown(autoPilotReport.aiInsights)}
-                                        </div>
+                                {/* Organize Action Card */}
+                                <div style={styles.actionCard}>
+                                    <div style={styles.actionIcon}>
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={colors.info} strokeWidth="2">
+                                            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                                        </svg>
                                     </div>
-                                )}
-
-                                {autoPilotReport.recommendations.closeSuggestions.length > 0 && (
-                                    <div style={styles.section}>
-                                        <div style={styles.sectionHead}>
-                                            <span>Suggested to Close ({autoPilotReport.recommendations.closeSuggestions.length})</span>
-                                            <button style={styles.btnSmall} onClick={executeCleanup}>Close All</button>
-                                        </div>
-                                        {autoPilotReport.recommendations.closeSuggestions.slice(0, 4).map(th => (
-                                            <div key={th.tabId} style={styles.suggestionItem}>
-                                                <span style={styles.suggestionTitle}>{th.title}</span>
-                                                <span style={styles.suggestionReason}>{th.reason}</span>
+                                    <div style={styles.actionTitle}>Organize</div>
+                                    {autoPilotReport.recommendations.groupSuggestions.length > 0 ? (
+                                        <>
+                                            <div style={styles.actionDesc}>
+                                                {autoPilotReport.recommendations.groupSuggestions.length} groups to create
                                             </div>
-                                        ))}
-                                    </div>
-                                )}
-
-                                {autoPilotReport.recommendations.groupSuggestions.length > 0 && (
-                                    <div style={styles.section}>
-                                        <div style={styles.sectionHead}>
-                                            <span>Suggested Groups ({autoPilotReport.recommendations.groupSuggestions.length})</span>
-                                            <button style={styles.btnSmall} onClick={executeGrouping}>Group All</button>
-                                        </div>
-                                        {autoPilotReport.recommendations.groupSuggestions.map(g => (
-                                            <div key={g.name} style={styles.groupItem}>
-                                                <span>{g.name}</span>
-                                                <span style={styles.groupCount}>{g.tabIds.length} tabs</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-
-                                {autoPilotReport.recommendations.closeSuggestions.length === 0 &&
-                                    autoPilotReport.recommendations.groupSuggestions.length === 0 && (
-                                        <EmptyState type="all-optimized" />
+                                            <button style={styles.actionBtn} onClick={executeGrouping}>
+                                                Group All
+                                            </button>
+                                        </>
+                                    ) : (
+                                        <div style={styles.actionEmpty}>Already organized</div>
                                     )}
-                            </>
+                                </div>
+
+                                {/* Duplicates Action Card */}
+                                <div style={styles.actionCard}>
+                                    <div style={styles.actionIcon}>
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={colors.warning} strokeWidth="2">
+                                            <rect x="8" y="8" width="12" height="12" rx="2" />
+                                            <path d="M4 16V6a2 2 0 0 1 2-2h10" />
+                                        </svg>
+                                    </div>
+                                    <div style={styles.actionTitle}>Duplicates</div>
+                                    {autoPilotReport.duplicateCount > 0 ? (
+                                        <>
+                                            <div style={styles.actionDesc}>
+                                                {autoPilotReport.duplicateCount} duplicates found
+                                            </div>
+                                            <button style={styles.actionBtn} onClick={() => { findDuplicates(); }}>
+                                                View & Clean
+                                            </button>
+                                        </>
+                                    ) : (
+                                        <div style={styles.actionEmpty}>No duplicates</div>
+                                    )}
+                                </div>
+                            </div>
                         ) : null}
                     </div>
                     <button style={styles.btnBack} onClick={() => setView('tabs')}>
@@ -1095,8 +1092,6 @@ const Popup = () => {
                 </div>
             )}
 
-            {/* MGS Scanline Overlay */}
-            <ScanlineOverlay />
         </div>
     );
 };
@@ -1794,6 +1789,60 @@ const styles: { [key: string]: React.CSSProperties } = {
         fontSize: typography.sizeXs,
         color: colors.textDimmest,
         marginTop: 2,
+    },
+    // Action card styles for minimalist Auto Pilot view
+    actionGrid: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: spacing.md,
+    },
+    actionCard: {
+        background: colors.bgCard,
+        border: `1px solid ${colors.borderMedium}`,
+        borderRadius: borderRadius.lg,
+        padding: spacing.lg,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        textAlign: 'center',
+        gap: spacing.sm,
+    },
+    actionIcon: {
+        width: 48,
+        height: 48,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: colors.bgDarker,
+        borderRadius: borderRadius.full,
+    },
+    actionTitle: {
+        fontSize: typography.sizeLg,
+        fontWeight: typography.semibold,
+        color: colors.textSecondary,
+    },
+    actionDesc: {
+        fontSize: typography.sizeMd,
+        color: colors.textDim,
+    },
+    actionEmpty: {
+        fontSize: typography.sizeMd,
+        color: colors.success,
+        padding: `${spacing.xs}px ${spacing.md}px`,
+        background: colors.successBg,
+        borderRadius: borderRadius.sm,
+    },
+    actionBtn: {
+        marginTop: spacing.xs,
+        padding: `${spacing.sm}px ${spacing.xl}px`,
+        background: colors.primary,
+        border: 'none',
+        color: colors.bgDarkest,
+        fontSize: typography.sizeMd,
+        fontWeight: typography.semibold,
+        cursor: 'pointer',
+        borderRadius: borderRadius.sm,
+        transition: `all ${transitions.fast}`,
     },
 };
 
