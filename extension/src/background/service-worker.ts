@@ -103,6 +103,12 @@ chrome.runtime.onMessage.addListener((message: Message, _sender, sendResponse) =
 });
 
 async function handleMessage(message: Message): Promise<MessageResponse> {
+    // Input validation helper
+    const validatePayload = (required: string[]): boolean => {
+        if (!message.payload) return required.length === 0;
+        return required.every(key => message.payload[key] !== undefined);
+    };
+
     switch (message.action) {
         case 'getTabs':
             return { success: true, data: await tabService.getAllTabs() };
@@ -114,10 +120,16 @@ async function handleMessage(message: Message): Promise<MessageResponse> {
             return { success: true, data: await tabService.getActiveTab() };
 
         case 'closeTab':
+            if (!validatePayload(['tabId']) || typeof message.payload.tabId !== 'number') {
+                return { success: false, error: 'Invalid tabId' };
+            }
             await tabService.closeTab(message.payload.tabId);
             return { success: true };
 
         case 'closeTabs':
+            if (!validatePayload(['tabIds']) || !Array.isArray(message.payload.tabIds)) {
+                return { success: false, error: 'Invalid tabIds array' };
+            }
             await tabService.closeTabs(message.payload.tabIds);
             return { success: true };
 

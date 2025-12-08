@@ -1,52 +1,52 @@
-// TabEater - Shared Theme Constants
-// Centralized styling for consistent UI across all components
+// TabEater - Minimalist Consumer-Grade Theme
+// Clean, professional design inspired by Linear, Notion, and Apple
 
 export const colors = {
-    // Primary palette - MGS phosphor green (desaturated)
-    primary: '#5fb878',
-    primaryLight: '#7fc790',
-    primaryDark: '#4a9d5f',
-    primaryBg: 'rgba(95, 184, 120, 0.08)',
-    primaryGlow: '0 0 8px rgba(95, 184, 120, 0.3), 0 0 12px rgba(95, 184, 120, 0.15)',
+    // Primary palette - Clean blue accent
+    primary: '#3b82f6',
+    primaryLight: '#60a5fa',
+    primaryDark: '#2563eb',
+    primaryBg: 'rgba(59, 130, 246, 0.08)',
+    primaryHover: 'rgba(59, 130, 246, 0.12)',
 
-    // Accent colors - Warmer phosphor
-    accent: '#6bc96e',
-    accentLight: '#88d68a',
-    accentBg: 'rgba(107, 201, 110, 0.08)',
-    accentGlow: '0 0 6px rgba(107, 201, 110, 0.25)',
+    // Accent colors
+    accent: '#8b5cf6',
+    accentLight: '#a78bfa',
+    accentBg: 'rgba(139, 92, 246, 0.08)',
 
-    // Background colors - softened for reduced eye strain
-    bgDarkest: '#121212',
-    bgDarker: '#1a1a1a',
-    bgDark: '#1d1d1d',
-    bgCard: '#212121',
-    bgCardHover: '#2a2a2a',
+    // Background colors - Solid, no transparency
+    bgDarkest: '#0a0a0a',
+    bgDarker: '#111111',
+    bgDark: '#161616',
+    bgCard: '#1a1a1a',
+    bgCardHover: '#1f1f1f',
     bgInput: '#1a1a1a',
+    bgElevated: '#222222',
 
-    // Border colors - MGS phosphor theme
-    borderDark: '#1a1a1a',
+    // Border colors - Clean and subtle
+    borderDark: '#1f1f1f',
     borderMedium: '#2a2a2a',
-    borderLight: '#3a3a3a',
-    borderPrimary: '#5fb878',
-    borderAccent: '#6bc96e',
-    borderCyber: 'rgba(95, 184, 120, 0.3)',
+    borderLight: '#333333',
+    borderFocus: '#3b82f6',
 
-    // Text colors
+    // Text colors - Clear hierarchy
     textPrimary: '#ffffff',
-    textSecondary: '#e0e0e0',
-    textMuted: '#c0c0c0',
-    textDim: '#888888',
-    textDimmer: '#666666',
-    textDimmest: '#444444',
+    textSecondary: '#e5e5e5',
+    textMuted: '#a3a3a3',
+    textDim: '#737373',
+    textDimmer: '#525252',
+    textDimmest: '#404040',
 
-    // Status colors
+    // Status colors - Softer tones
     success: '#22c55e',
     successBg: 'rgba(34, 197, 94, 0.1)',
+    successText: '#4ade80',
     warning: '#f59e0b',
     warningBg: 'rgba(245, 158, 11, 0.1)',
     warningText: '#fbbf24',
     error: '#ef4444',
     errorBg: 'rgba(239, 68, 68, 0.1)',
+    errorText: '#f87171',
     info: '#3b82f6',
     infoBg: 'rgba(59, 130, 246, 0.1)',
 
@@ -57,13 +57,9 @@ export const colors = {
     providerAnthropic: '#d4a574',
 
     // License colors
-    licensePro: '#00ff88',
+    licensePro: '#3b82f6',
     licenseTrial: '#f59e0b',
     licenseExpired: '#ef4444',
-
-    // Gradient colors
-    gradientStart: '#8b5cf6',
-    gradientEnd: '#06b6d4',
 };
 
 export const spacing = {
@@ -77,11 +73,11 @@ export const spacing = {
 };
 
 export const typography = {
-    // Unified font stack for better readability
-    fontFamily: "system-ui, -apple-system, 'Segoe UI', sans-serif",
-    fontMono: "'JetBrains Mono', 'SF Mono', 'Consolas', 'Monaco', monospace",
+    // Clean system font stack
+    fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', Roboto, sans-serif",
+    fontMono: "'SF Mono', 'Fira Code', 'Consolas', monospace",
 
-    // Font sizes - increased for better readability
+    // Font sizes - Refined scale
     sizeXs: 11,
     sizeSm: 12,
     sizeMd: 13,
@@ -90,7 +86,7 @@ export const typography = {
     sizeXl: 16,
     sizeXxl: 18,
     sizeDisplay: 20,
-    sizeHero: 28,
+    sizeHero: 24,
 
     // Font weights
     normal: 400,
@@ -98,42 +94,44 @@ export const typography = {
     semibold: 600,
     bold: 700,
 
-    // Letter spacing
-    letterTight: 0.5,
-    letterNormal: 1,
-    letterWide: 2,
-    letterWider: 3,
+    // Letter spacing - Minimal
+    letterTight: -0.2,
+    letterNormal: 0,
+    letterWide: 0.3,
 };
 
 export const borderRadius = {
-    sm: 2,
-    md: 4,
-    lg: 6,
-    xl: 8,
+    xs: 4,
+    sm: 6,
+    md: 8,
+    lg: 12,
+    xl: 16,
     full: 9999,
 };
 
+// Clean shadows - No glows
 export const shadows = {
-    sm: '0 1px 2px rgba(0, 0, 0, 0.3)',
-    md: '0 2px 4px rgba(0, 0, 0, 0.4)',
-    lg: '0 4px 8px rgba(0, 0, 0, 0.5)',
-    glow: '0 0 10px rgba(95, 184, 120, 0.25), 0 0 20px rgba(95, 184, 120, 0.1)',
-    glowSm: '0 0 6px rgba(95, 184, 120, 0.2)',
-    glowAccent: '0 0 10px rgba(107, 201, 110, 0.25)',
+    xs: '0 1px 2px rgba(0, 0, 0, 0.1)',
+    sm: '0 1px 3px rgba(0, 0, 0, 0.12)',
+    md: '0 4px 6px rgba(0, 0, 0, 0.15)',
+    lg: '0 10px 15px rgba(0, 0, 0, 0.2)',
+    xl: '0 20px 25px rgba(0, 0, 0, 0.25)',
+    focus: '0 0 0 2px rgba(59, 130, 246, 0.4)',
 };
 
 export const transitions = {
-    fast: '0.1s ease',
+    fast: '0.15s ease',
     normal: '0.2s ease',
     slow: '0.3s ease',
 };
 
+// No glass effects - solid backgrounds only
 export const effects = {
-    // Frosted glass backdrop effects
-    glassLight: 'blur(8px) saturate(180%)',
-    glassMedium: 'blur(12px) saturate(180%)',
-    glassHeavy: 'blur(16px) saturate(180%)',
-    glassSubtle: 'blur(4px) saturate(150%)',
+    // Keeping for backwards compatibility but not used
+    glassLight: 'none',
+    glassMedium: 'none',
+    glassHeavy: 'none',
+    glassSubtle: 'none',
 };
 
 // Common button base styles
@@ -142,8 +140,7 @@ export const buttonBase: React.CSSProperties = {
     border: 'none',
     borderRadius: borderRadius.sm,
     fontFamily: typography.fontFamily,
-    fontWeight: typography.semibold,
-    letterSpacing: typography.letterNormal,
+    fontWeight: typography.medium,
     transition: `all ${transitions.fast}`,
     outline: 'none',
 };
@@ -151,20 +148,20 @@ export const buttonBase: React.CSSProperties = {
 // Common input base styles
 export const inputBase: React.CSSProperties = {
     fontFamily: typography.fontFamily,
-    fontSize: typography.sizeLg,
+    fontSize: typography.sizeBase,
     color: colors.textPrimary,
     background: colors.bgInput,
     border: `1px solid ${colors.borderLight}`,
-    borderRadius: borderRadius.md,
+    borderRadius: borderRadius.sm,
     outline: 'none',
     transition: `border-color ${transitions.fast}`,
     boxSizing: 'border-box' as const,
 };
 
-// Favicon fallback SVG data URI
+// Simple favicon fallback
 export const faviconFallback = `data:image/svg+xml,${encodeURIComponent(`
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="${colors.textDimmest}">
-  <rect x="2" y="2" width="12" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/>
+  <rect x="2" y="2" width="12" height="12" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/>
   <circle cx="8" cy="8" r="2" fill="currentColor"/>
 </svg>
 `)}`;
@@ -191,66 +188,3 @@ export const commonStyles = {
         justifyContent: 'space-between' as const,
     },
 };
-
-// CSS classes for corner brackets (to be injected into document)
-export const cornerBracketsCSS = `
-    .corner-brackets {
-        position: relative;
-    }
-
-    .corner-brackets::before,
-    .corner-brackets::after {
-        content: '';
-        position: absolute;
-        width: 10px;
-        height: 10px;
-        border-color: ${colors.primary};
-        border-style: solid;
-        border-width: 0;
-        pointer-events: none;
-    }
-
-    .corner-brackets::before {
-        top: 0;
-        left: 0;
-        border-top-width: 1.5px;
-        border-left-width: 1.5px;
-    }
-
-    .corner-brackets::after {
-        top: 0;
-        right: 0;
-        border-top-width: 1.5px;
-        border-right-width: 1.5px;
-    }
-
-    .corner-brackets-bottom::before {
-        content: '';
-        position: absolute;
-        bottom: 0;
-        left: 0;
-        width: 10px;
-        height: 10px;
-        border-color: ${colors.primary};
-        border-style: solid;
-        border-width: 0;
-        border-bottom-width: 1.5px;
-        border-left-width: 1.5px;
-        pointer-events: none;
-    }
-
-    .corner-brackets-bottom::after {
-        content: '';
-        position: absolute;
-        bottom: 0;
-        right: 0;
-        width: 10px;
-        height: 10px;
-        border-color: ${colors.primary};
-        border-style: solid;
-        border-width: 0;
-        border-bottom-width: 1.5px;
-        border-right-width: 1.5px;
-        pointer-events: none;
-    }
-`;
