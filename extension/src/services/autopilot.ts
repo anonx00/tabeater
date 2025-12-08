@@ -83,7 +83,22 @@ class AutoPilotService {
         await this.loadSettings();
         const tabs = await tabService.getAllTabs();
         const duplicateGroups = tabService.findDuplicates(tabs);
-        const duplicateIds = new Set(duplicateGroups.flat().map(t => t.id));
+
+        // FIX: Only mark duplicates EXCEPT the first/active one (keep one tab per group)
+        const duplicateIds = new Set<number>();
+        duplicateGroups.forEach(group => {
+            // Sort to keep the active tab or the first one found
+            const sortedGroup = [...group].sort((a, b) => {
+                if (a.active) return -1;
+                if (b.active) return 1;
+                return 0;
+            });
+
+            // Add all EXCEPT the first one to the duplicateIds set (these will be closed)
+            for (let i = 1; i < sortedGroup.length; i++) {
+                duplicateIds.add(sortedGroup[i].id);
+            }
+        });
 
         // Get tab health info for each tab
         const tabHealths: TabHealth[] = await Promise.all(
@@ -331,7 +346,8 @@ Give 2-3 actionable recommendations for better tab hygiene. Be concise.`;
         };
     }
 
-    private categorizeTab(tab: TabInfo): string {
+    // Made public for auto-grouping feature
+    categorizeTab(tab: TabInfo): string {
         const url = tab.url.toLowerCase();
         const title = tab.title.toLowerCase();
 
