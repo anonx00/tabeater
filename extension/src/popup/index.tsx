@@ -82,15 +82,15 @@ const Popup = () => {
     const [statusMessage, setStatusMessage] = useState<string>('');
     const [hoveredTab, setHoveredTab] = useState<number | null>(null);
     const [undoAction, setUndoAction] = useState<{ message: string; action: () => void } | null>(null);
-    const [memoryUsageMB, setMemoryUsageMB] = useState<number>(0);
-    const [memoryReport, setMemoryReport] = useState<MemoryReport | null>(null);
     const [grouping, setGrouping] = useState<boolean>(false);
+    const [focusScore, setFocusScore] = useState<number | null>(null);
+    const [quickReport, setQuickReport] = useState<AutoPilotReport | null>(null);
 
     useEffect(() => {
         loadTabs();
         checkProvider();
         checkLicense();
-        updateMemoryUsage();
+        loadQuickReport();
     }, []);
 
     const sendMessage = useCallback(async (action: string, payload?: any) => {
@@ -112,11 +112,12 @@ const Popup = () => {
         if (response.success) setLicense(response.data);
     }, [sendMessage]);
 
-    const updateMemoryUsage = useCallback(async () => {
-        const response = await sendMessage('getMemoryReport');
+    // Quick focus score calculation (works for all users)
+    const loadQuickReport = useCallback(async () => {
+        const response = await sendMessage('getQuickFocusScore');
         if (response.success) {
-            setMemoryUsageMB(response.data.totalMB);
-            setMemoryReport(response.data);
+            setFocusScore(response.data.focusScore);
+            setQuickReport(response.data.report);
         }
     }, [sendMessage]);
 
@@ -266,10 +267,28 @@ const Popup = () => {
                     )}
                 </div>
                 <div style={styles.headerRight}>
-                    {/* Minimal memory indicator */}
-                    <div style={styles.memoryPill}>
-                        <span style={styles.memoryText}>{Math.round(memoryUsageMB)} MB</span>
-                    </div>
+                    {/* Focus Score indicator */}
+                    {focusScore !== null && (
+                        <div style={{
+                            ...styles.focusScorePill,
+                            background: focusScore >= 80 ? colors.successBg :
+                                       focusScore >= 60 ? colors.primaryBg :
+                                       focusScore >= 40 ? colors.warningBg : colors.errorBg,
+                            borderColor: focusScore >= 80 ? colors.success :
+                                        focusScore >= 60 ? colors.primary :
+                                        focusScore >= 40 ? colors.warning : colors.error,
+                        }}>
+                            <span style={{
+                                ...styles.focusScoreText,
+                                color: focusScore >= 80 ? colors.success :
+                                      focusScore >= 60 ? colors.primary :
+                                      focusScore >= 40 ? colors.warning : colors.error,
+                            }}>
+                                {focusScore}
+                            </span>
+                            <span style={styles.focusScoreLabel}>Focus</span>
+                        </div>
+                    )}
                     <button
                         style={styles.iconBtn}
                         onClick={async () => {
@@ -306,41 +325,127 @@ const Popup = () => {
                 <div style={styles.statusBar}>{statusMessage}</div>
             )}
 
-            {/* Quick Actions Bar */}
-            <div style={styles.actionsBar}>
-                <button
-                    style={{
-                        ...styles.actionBarBtn,
-                        ...(license?.paid ? styles.actionBarBtnPrimary : {}),
-                    }}
-                    onClick={runActions}
-                    disabled={loading}
-                >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
-                    </svg>
-                    Actions
-                </button>
-                <button
-                    style={styles.actionBarBtn}
-                    onClick={smartOrganize}
-                    disabled={loading || grouping}
-                >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
-                    </svg>
-                    {grouping ? 'Grouping...' : 'Group'}
-                </button>
-                <button
-                    style={styles.actionBarBtn}
-                    onClick={showAnalytics}
-                    disabled={loading}
-                >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M18 20V10M12 20V4M6 20v-6"/>
-                    </svg>
-                    Stats
-                </button>
+            {/* Smart Hero Action Button */}
+            <div style={styles.heroActionSection}>
+                {(() => {
+                    // Determine the smart action based on current state
+                    const hasCleanupNeeded = quickReport && (
+                        quickReport.recommendations.closeSuggestions.length > 0 ||
+                        quickReport.duplicateCount > 0
+                    );
+                    const hasGroupingNeeded = quickReport &&
+                        quickReport.recommendations.groupSuggestions.length > 0;
+                    const isClean = quickReport && !hasCleanupNeeded && !hasGroupingNeeded;
+
+                    if (loading || grouping) {
+                        return (
+                            <button style={styles.heroButton} disabled>
+                                <div style={styles.heroSpinner} />
+                                <span>{grouping ? 'Organizing...' : 'Analyzing...'}</span>
+                            </button>
+                        );
+                    }
+
+                    if (isClean) {
+                        return (
+                            <button
+                                style={{...styles.heroButton, ...styles.heroButtonSuccess}}
+                                onClick={showAnalytics}
+                            >
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <circle cx="12" cy="12" r="10"/>
+                                    <path d="M8 12l2 2 4-4"/>
+                                </svg>
+                                <span>All Clear</span>
+                                <span style={styles.heroSubtext}>View stats</span>
+                            </button>
+                        );
+                    }
+
+                    if (hasCleanupNeeded) {
+                        const count = (quickReport?.recommendations.closeSuggestions.length || 0) +
+                                     (quickReport?.duplicateCount || 0);
+                        return (
+                            <button
+                                style={styles.heroButton}
+                                onClick={license?.paid ? runActions : () => setView('upgrade')}
+                            >
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+                                </svg>
+                                <span>Tidy Up</span>
+                                <span style={styles.heroSubtext}>{count} items to clean</span>
+                            </button>
+                        );
+                    }
+
+                    if (hasGroupingNeeded) {
+                        const groupCount = quickReport?.recommendations.groupSuggestions.length || 0;
+                        return (
+                            <button
+                                style={styles.heroButton}
+                                onClick={smartOrganize}
+                            >
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                                </svg>
+                                <span>Organize</span>
+                                <span style={styles.heroSubtext}>{groupCount} groups suggested</span>
+                            </button>
+                        );
+                    }
+
+                    // Default: analyze
+                    return (
+                        <button
+                            style={styles.heroButton}
+                            onClick={license?.paid ? runActions : smartOrganize}
+                        >
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <circle cx="12" cy="12" r="10"/>
+                                <line x1="12" y1="8" x2="12" y2="12"/>
+                                <line x1="12" y1="16" x2="12.01" y2="16"/>
+                            </svg>
+                            <span>Analyze Tabs</span>
+                            <span style={styles.heroSubtext}>{tabs.length} tabs open</span>
+                        </button>
+                    );
+                })()}
+
+                {/* Secondary actions */}
+                <div style={styles.secondaryActions}>
+                    <button
+                        style={styles.secondaryBtn}
+                        onClick={smartOrganize}
+                        disabled={loading || grouping}
+                        title="Smart Group"
+                    >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                        </svg>
+                    </button>
+                    <button
+                        style={styles.secondaryBtn}
+                        onClick={findDuplicates}
+                        disabled={loading}
+                        title="Find Duplicates"
+                    >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <rect x="8" y="8" width="12" height="12" rx="2"/>
+                            <path d="M4 16V6a2 2 0 0 1 2-2h10"/>
+                        </svg>
+                    </button>
+                    <button
+                        style={styles.secondaryBtn}
+                        onClick={showAnalytics}
+                        disabled={loading}
+                        title="View Stats"
+                    >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M18 20V10M12 20V4M6 20v-6"/>
+                        </svg>
+                    </button>
+                </div>
             </div>
 
             {/* Setup Prompt */}
@@ -783,13 +888,19 @@ const styles: { [key: string]: React.CSSProperties } = {
         padding: '2px 6px',
         borderRadius: borderRadius.xs,
     },
-    memoryPill: {
-        background: colors.bgCard,
-        border: `1px solid ${colors.borderMedium}`,
+    focusScorePill: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: spacing.xs,
+        border: '1px solid',
         borderRadius: borderRadius.full,
         padding: '4px 10px',
     },
-    memoryText: {
+    focusScoreText: {
+        fontSize: typography.sizeSm,
+        fontWeight: typography.semibold,
+    },
+    focusScoreLabel: {
         fontSize: typography.sizeXs,
         color: colors.textDim,
     },
@@ -813,33 +924,65 @@ const styles: { [key: string]: React.CSSProperties } = {
         fontSize: typography.sizeSm,
         borderBottom: `1px solid ${colors.borderMedium}`,
     },
-    actionsBar: {
+    heroActionSection: {
         display: 'flex',
+        flexDirection: 'column',
         gap: spacing.sm,
-        padding: `${spacing.sm}px ${spacing.lg}px`,
+        padding: spacing.lg,
         background: colors.bgDark,
         borderBottom: `1px solid ${colors.borderMedium}`,
     },
-    actionBarBtn: {
-        flex: 1,
+    heroButton: {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: spacing.xs,
-        padding: `${spacing.sm}px ${spacing.md}px`,
+        gap: spacing.sm,
+        padding: `${spacing.md}px ${spacing.lg}px`,
+        background: colors.primary,
+        border: 'none',
+        borderRadius: borderRadius.md,
+        color: '#fff',
+        fontSize: typography.sizeLg,
+        fontWeight: typography.semibold,
+        cursor: 'pointer',
+        transition: transitions.fast,
+        flexWrap: 'wrap',
+    },
+    heroButtonSuccess: {
+        background: colors.success,
+    },
+    heroSubtext: {
+        width: '100%',
+        fontSize: typography.sizeXs,
+        fontWeight: typography.normal,
+        opacity: 0.8,
+        marginTop: -2,
+    },
+    heroSpinner: {
+        width: 18,
+        height: 18,
+        border: '2px solid rgba(255,255,255,0.3)',
+        borderTopColor: '#fff',
+        borderRadius: '50%',
+        animation: 'spin 0.8s linear infinite',
+    },
+    secondaryActions: {
+        display: 'flex',
+        justifyContent: 'center',
+        gap: spacing.sm,
+    },
+    secondaryBtn: {
+        width: 40,
+        height: 36,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
         background: colors.bgCard,
         border: `1px solid ${colors.borderMedium}`,
         borderRadius: borderRadius.sm,
         color: colors.textMuted,
-        fontSize: typography.sizeSm,
-        fontWeight: typography.medium,
         cursor: 'pointer',
         transition: transitions.fast,
-    },
-    actionBarBtnPrimary: {
-        background: colors.primaryBg,
-        borderColor: colors.primary,
-        color: colors.primary,
     },
     setupBanner: {
         display: 'flex',

@@ -41,22 +41,33 @@ export interface AutoPilotReport {
     aiInsights?: string;
 }
 
+// AutoPilot operation modes
+export type AutoPilotMode = 'manual' | 'auto-cleanup' | 'fly-mode';
+
 export interface AutoPilotSettings {
+    // Mode: manual (user clicks), auto-cleanup (closes stale/dupes), fly-mode (full auto)
+    mode: AutoPilotMode;
     staleDaysThreshold: number;
     autoCloseStale: boolean;
     autoGroupByCategory: boolean;
     memoryThresholdMB: number;
     excludePinned: boolean;
     excludeActive: boolean;
+    // Fly mode specific settings
+    flyModeDebounceMs: number; // Wait time after tab load before processing
+    showNotifications: boolean; // Show toast notifications for auto actions
 }
 
 const DEFAULT_SETTINGS: AutoPilotSettings = {
+    mode: 'manual',
     staleDaysThreshold: 7,
     autoCloseStale: false,
     autoGroupByCategory: false,
     memoryThresholdMB: 500,
     excludePinned: true,
     excludeActive: true,
+    flyModeDebounceMs: 5000, // 5 seconds after tab loads
+    showNotifications: true,
 };
 
 class AutoPilotService {
@@ -507,6 +518,89 @@ Give 2-3 actionable recommendations for better tab hygiene. Be concise.`;
         }
 
         return { report, actions };
+    }
+
+    // Fly Mode: Check if a newly loaded tab is a duplicate
+    async checkDuplicate(tab: TabInfo): Promise<{ isDuplicate: boolean; existingTabId?: number }> {
+        const allTabs = await tabService.getAllTabs();
+        const sameUrlTabs = allTabs.filter(t => t.url === tab.url && t.id !== tab.id);
+
+        if (sameUrlTabs.length > 0) {
+            // Keep the older tab (lower ID) or the active one
+            const existingTab = sameUrlTabs.find(t => t.active) || sameUrlTabs[0];
+            return { isDuplicate: true, existingTabId: existingTab.id };
+        }
+
+        return { isDuplicate: false };
+    }
+
+    // Fly Mode: Process a newly loaded tab
+    async processNewTab(tab: TabInfo): Promise<{
+        action: 'none' | 'closed-duplicate' | 'grouped';
+        message?: string;
+    }> {
+        await this.loadSettings();
+
+        // Only process in fly-mode or auto-cleanup mode
+        if (this.settings.mode === 'manual') {
+            return { action: 'none' };
+        }
+
+        // Skip pinned/active if configured
+        if (this.settings.excludePinned && tab.pinned) {
+            return { action: 'none' };
+        }
+        if (this.settings.excludeActive && tab.active) {
+            return { action: 'none' };
+        }
+
+        // Check for duplicates (works in both auto-cleanup and fly-mode)
+        const dupCheck = await this.checkDuplicate(tab);
+        if (dupCheck.isDuplicate) {
+            // Close the new tab (the duplicate)
+            await tabService.closeTab(tab.id);
+            return {
+                action: 'closed-duplicate',
+                message: `Closed duplicate: ${tab.title.slice(0, 30)}...`
+            };
+        }
+
+        // Auto-grouping only in fly-mode
+        if (this.settings.mode === 'fly-mode') {
+            const category = this.categorizeTab(tab);
+            if (category && category !== 'Other') {
+                // Find existing group with this category
+                try {
+                    const groups = await chrome.tabGroups.query({ title: category, windowId: tab.windowId });
+                    if (groups.length > 0) {
+                        await chrome.tabs.group({ tabIds: tab.id, groupId: groups[0].id });
+                        return {
+                            action: 'grouped',
+                            message: `Added to ${category} group`
+                        };
+                    }
+                } catch {
+                    // Silently fail - grouping is optional
+                }
+            }
+        }
+
+        return { action: 'none' };
+    }
+
+    // Get the current autopilot mode
+    getMode(): AutoPilotMode {
+        return this.settings.mode;
+    }
+
+    // Check if fly mode is active
+    isFlyModeActive(): boolean {
+        return this.settings.mode === 'fly-mode';
+    }
+
+    // Check if auto-cleanup is active
+    isAutoCleanupActive(): boolean {
+        return this.settings.mode === 'auto-cleanup' || this.settings.mode === 'fly-mode';
     }
 }
 

@@ -20,12 +20,17 @@ interface NanoStatus {
     message: string;
 }
 
+type AutoPilotMode = 'manual' | 'auto-cleanup' | 'fly-mode';
+
 interface AutoPilotSettings {
+    mode: AutoPilotMode;
     staleDaysThreshold: number;
     autoCloseStale: boolean;
     autoGroupByCategory: boolean;
     excludePinned: boolean;
     excludeActive: boolean;
+    flyModeDebounceMs: number;
+    showNotifications: boolean;
 }
 
 const PROVIDER_INFO = {
@@ -67,21 +72,20 @@ const Options = () => {
     const [nanoStatus, setNanoStatus] = useState<NanoStatus | null>(null);
     const [checkingNano, setCheckingNano] = useState(false);
     const [autoPilotSettings, setAutoPilotSettings] = useState<AutoPilotSettings>({
+        mode: 'manual',
         staleDaysThreshold: 7,
         autoCloseStale: false,
         autoGroupByCategory: false,
         excludePinned: true,
         excludeActive: true,
+        flyModeDebounceMs: 5000,
+        showNotifications: true,
     });
     const [autoPilotSaved, setAutoPilotSaved] = useState(false);
     const [hoveredProvider, setHoveredProvider] = useState<string | null>(null);
     const [showApiKey, setShowApiKey] = useState(false);
     const [confirmDelete, setConfirmDelete] = useState(false);
-    const [showEmailVerify, setShowEmailVerify] = useState(false);
-    const [verifyEmail, setVerifyEmail] = useState('');
-    const [verifyError, setVerifyError] = useState('');
-    const [verifyLoading, setVerifyLoading] = useState(false);
-    const [cleanMode, setCleanMode] = useState(false);
+    const [cleanMode, setCleanMode] = useState(true); // Default ON for consumer-friendly experience
 
     useEffect(() => {
         loadConfig();
@@ -93,9 +97,8 @@ const Options = () => {
 
     const loadDisplaySettings = async () => {
         const stored = await chrome.storage.local.get(['cleanMode']);
-        if (stored.cleanMode !== undefined) {
-            setCleanMode(stored.cleanMode);
-        }
+        // Default to true (clean mode ON) if not set
+        setCleanMode(stored.cleanMode !== false);
     };
 
     const toggleCleanMode = async () => {
@@ -119,32 +122,6 @@ const Options = () => {
         if (response.success) {
             setLicense(response.data);
         }
-    };
-
-    const verifyByEmail = async () => {
-        if (!verifyEmail.trim()) {
-            setVerifyError('Please enter your payment email');
-            return;
-        }
-        setVerifyLoading(true);
-        setVerifyError('');
-        try {
-            const response = await chrome.runtime.sendMessage({
-                action: 'verifyByEmail',
-                payload: { email: verifyEmail.trim() }
-            });
-            if (response.success && response.data.verified) {
-                await loadLicense();
-                setShowEmailVerify(false);
-                setVerifyEmail('');
-                setVerifyError('');
-            } else {
-                setVerifyError('No payment found for this email');
-            }
-        } catch {
-            setVerifyError('Failed to verify. Please try again.');
-        }
-        setVerifyLoading(false);
     };
 
     const checkProvider = async () => {
@@ -329,87 +306,25 @@ const Options = () => {
                             Refresh
                         </button>
                     </div>
-                    {/* Email Verification for Cross-Device Purchases */}
+                    {/* Purchase recovery - contact support */}
                     {license && !license.paid && (
                         <div style={{ marginTop: spacing.md }}>
-                            {!showEmailVerify ? (
-                                <button
-                                    style={{
-                                        ...styles.compactBtn,
-                                        width: '100%',
-                                        justifyContent: 'center',
-                                        background: colors.bgCard,
-                                        color: colors.textMuted,
-                                        fontSize: typography.sizeSm,
-                                    }}
-                                    onClick={() => setShowEmailVerify(true)}
-                                >
-                                    Already paid? Verify by email
-                                </button>
-                            ) : (
-                                <div style={{
-                                    background: colors.bgCard,
-                                    padding: spacing.md,
-                                    borderRadius: borderRadius.lg,
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    gap: spacing.sm,
-                                }}>
-                                    <span style={{ color: colors.textMuted, fontSize: typography.sizeSm }}>
-                                        Enter the email you used for payment:
-                                    </span>
-                                    <input
-                                        type="email"
-                                        placeholder="your@email.com"
-                                        value={verifyEmail}
-                                        onChange={(e) => setVerifyEmail(e.target.value)}
-                                        onKeyDown={(e) => e.key === 'Enter' && verifyByEmail()}
-                                        style={{
-                                            padding: `${spacing.sm}px ${spacing.md}px`,
-                                            background: colors.bgInput,
-                                            border: `1px solid ${colors.borderLight}`,
-                                            borderRadius: borderRadius.md,
-                                            color: colors.textPrimary,
-                                            fontSize: typography.sizeMd,
-                                            outline: 'none',
-                                        }}
-                                    />
-                                    {verifyError && (
-                                        <span style={{ color: colors.error, fontSize: typography.sizeSm }}>
-                                            {verifyError}
-                                        </span>
-                                    )}
-                                    <div style={{ display: 'flex', gap: spacing.sm }}>
-                                        <button
-                                            style={{
-                                                ...styles.compactBtn,
-                                                flex: 1,
-                                                justifyContent: 'center',
-                                                background: colors.primary,
-                                                color: colors.bgDarkest,
-                                            }}
-                                            onClick={verifyByEmail}
-                                            disabled={verifyLoading}
-                                        >
-                                            {verifyLoading ? 'Verifying...' : 'Verify Payment'}
-                                        </button>
-                                        <button
-                                            style={{
-                                                ...styles.compactBtn,
-                                                flex: 1,
-                                                justifyContent: 'center',
-                                            }}
-                                            onClick={() => {
-                                                setShowEmailVerify(false);
-                                                setVerifyError('');
-                                                setVerifyEmail('');
-                                            }}
-                                        >
-                                            Cancel
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
+                            <div style={{
+                                background: colors.bgCard,
+                                padding: spacing.md,
+                                borderRadius: borderRadius.lg,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: spacing.sm,
+                            }}>
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={colors.textDim} strokeWidth="2">
+                                    <circle cx="12" cy="12" r="10"/>
+                                    <path d="M12 16v-4M12 8h.01"/>
+                                </svg>
+                                <span style={{ color: colors.textDim, fontSize: typography.sizeSm }}>
+                                    Already purchased? Click Refresh above. If your license doesn't appear, contact support.
+                                </span>
+                            </div>
                         </div>
                     )}
                 </section>
@@ -432,8 +347,8 @@ const Options = () => {
                     </div>
                 </section>
 
-                {/* Local AI (Gemini Nano) - Compact */}
-                {activeProvider !== 'nano' && (
+                {/* Local AI (Gemini Nano) - Only show if browser supports it or is active */}
+                {(activeProvider === 'nano' || nanoStatus?.status === 'ready' || nanoStatus?.status === 'downloading') && (
                     <section style={styles.section}>
                         <div style={styles.sectionHeader}>
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={colors.primary} strokeWidth="2">
@@ -441,35 +356,20 @@ const Options = () => {
                                 <rect x="9" y="9" width="6" height="6" />
                             </svg>
                             <h2 style={styles.sectionTitle}>Local AI</h2>
-                            <span style={styles.optionalBadge}>Optional</span>
+                            <span style={styles.recommendedBadge}>Free & Private</span>
                         </div>
                         <div style={styles.compactCard}>
                             <div style={styles.compactRow}>
                                 <div style={styles.compactInfo}>
                                     <span style={styles.compactLabel}>Gemini Nano</span>
-                                    <span style={styles.compactDesc}>Free, private, runs on device</span>
+                                    <span style={styles.compactDesc}>Runs on device, no API key needed</span>
                                 </div>
                                 <div style={styles.compactActions}>
                                     <span style={{ color: getNanoStatusColor(), fontSize: typography.sizeMd }}>
                                         {getNanoStatusLabel()}
                                     </span>
-                                    <button
-                                        style={styles.compactBtn}
-                                        onClick={checkNanoStatus}
-                                        disabled={checkingNano}
-                                    >
-                                        {checkingNano ? '...' : 'Check'}
-                                    </button>
                                 </div>
                             </div>
-                            <details style={styles.nanoDetails}>
-                                <summary style={styles.nanoSummary}>Setup instructions</summary>
-                                <div style={styles.nanoSteps}>
-                                    <p>1. Enable <code style={styles.code}>chrome://flags/#optimization-guide-on-device-model</code></p>
-                                    <p>2. Enable <code style={styles.code}>chrome://flags/#prompt-api-for-gemini-nano</code></p>
-                                    <p>3. Relaunch Chrome and wait for download</p>
-                                </div>
-                            </details>
                         </div>
                     </section>
                 )}
@@ -643,6 +543,59 @@ const Options = () => {
                         <span style={styles.proBadge}>PRO</span>
                     </div>
                     <div style={styles.card}>
+                        {/* Mode Selector */}
+                        <div style={styles.formGroup}>
+                            <label style={styles.label}>Operation Mode</label>
+                            <div style={styles.modeGrid}>
+                                <button
+                                    style={{
+                                        ...styles.modeBtn,
+                                        ...(autoPilotSettings.mode === 'manual' ? styles.modeBtnActive : {}),
+                                    }}
+                                    onClick={() => updateAutoPilotSetting('mode', 'manual')}
+                                >
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                                        <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                                    </svg>
+                                    <span style={styles.modeBtnTitle}>Manual</span>
+                                    <span style={styles.modeBtnDesc}>Click to analyze & clean</span>
+                                </button>
+                                <button
+                                    style={{
+                                        ...styles.modeBtn,
+                                        ...(autoPilotSettings.mode === 'auto-cleanup' ? styles.modeBtnActive : {}),
+                                    }}
+                                    onClick={() => updateAutoPilotSetting('mode', 'auto-cleanup')}
+                                >
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                        <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                                    </svg>
+                                    <span style={styles.modeBtnTitle}>Auto Cleanup</span>
+                                    <span style={styles.modeBtnDesc}>Auto-close duplicates</span>
+                                </button>
+                                <button
+                                    style={{
+                                        ...styles.modeBtn,
+                                        ...(autoPilotSettings.mode === 'fly-mode' ? styles.modeBtnActive : {}),
+                                    }}
+                                    onClick={() => updateAutoPilotSetting('mode', 'fly-mode')}
+                                >
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                        <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
+                                    </svg>
+                                    <span style={styles.modeBtnTitle}>Fly Mode</span>
+                                    <span style={styles.modeBtnDesc}>Full auto + grouping</span>
+                                </button>
+                            </div>
+                            {autoPilotSettings.mode === 'fly-mode' && (
+                                <p style={{ color: colors.warning, fontSize: typography.sizeSm, marginTop: spacing.sm }}>
+                                    Fly Mode automatically closes duplicates and groups new tabs. Use with caution.
+                                </p>
+                            )}
+                        </div>
+
+                        <div style={styles.divider} />
 
                         <div style={styles.settingRow}>
                             <div style={styles.settingInfo}>
@@ -673,7 +626,7 @@ const Options = () => {
                                     onChange={(e) => updateAutoPilotSetting('excludePinned', e.target.checked)}
                                     style={styles.checkbox}
                                 />
-                                <span>Exclude pinned tabs from suggestions</span>
+                                <span>Exclude pinned tabs</span>
                             </label>
                         </div>
 
@@ -689,31 +642,15 @@ const Options = () => {
                             </label>
                         </div>
 
-                        <div style={styles.divider} />
-
-                        <p style={styles.experimentalNote}>Auto-actions (use with caution)</p>
-
                         <div style={styles.checkboxRow}>
                             <label style={styles.checkboxLabel}>
                                 <input
                                     type="checkbox"
-                                    checked={autoPilotSettings.autoCloseStale}
-                                    onChange={(e) => updateAutoPilotSetting('autoCloseStale', e.target.checked)}
+                                    checked={autoPilotSettings.showNotifications}
+                                    onChange={(e) => updateAutoPilotSetting('showNotifications', e.target.checked)}
                                     style={styles.checkbox}
                                 />
-                                <span>Auto-close stale and duplicate tabs</span>
-                            </label>
-                        </div>
-
-                        <div style={styles.checkboxRow}>
-                            <label style={styles.checkboxLabel}>
-                                <input
-                                    type="checkbox"
-                                    checked={autoPilotSettings.autoGroupByCategory}
-                                    onChange={(e) => updateAutoPilotSetting('autoGroupByCategory', e.target.checked)}
-                                    style={styles.checkbox}
-                                />
-                                <span>Auto-group tabs by category</span>
+                                <span>Show notifications for auto actions</span>
                             </label>
                         </div>
 
@@ -737,22 +674,22 @@ const Options = () => {
                             <circle cx="12" cy="12" r="3" />
                             <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
                         </svg>
-                        <h2 style={styles.sectionTitle}>Display & Accessibility</h2>
+                        <h2 style={styles.sectionTitle}>Display</h2>
                     </div>
                     <div style={styles.card}>
                         <div style={styles.checkboxRow}>
                             <label style={styles.checkboxLabel}>
                                 <input
                                     type="checkbox"
-                                    checked={cleanMode}
+                                    checked={!cleanMode}
                                     onChange={toggleCleanMode}
                                     style={styles.checkbox}
                                 />
-                                <span>Clean Mode (High Contrast)</span>
+                                <span>Retro Mode (CRT scanline effects)</span>
                             </label>
                         </div>
                         <p style={{ color: colors.textDim, fontSize: typography.sizeSm, marginTop: spacing.sm, marginLeft: spacing.xl }}>
-                            Disables scanline effects and increases text brightness for better readability
+                            Enable classic CRT monitor effects for a tactical aesthetic
                         </p>
                     </div>
                 </section>
@@ -1009,6 +946,39 @@ const styles: { [key: string]: React.CSSProperties } = {
         display: 'grid',
         gridTemplateColumns: 'repeat(3, 1fr)',
         gap: spacing.md,
+    },
+    modeGrid: {
+        display: 'grid',
+        gridTemplateColumns: 'repeat(3, 1fr)',
+        gap: spacing.md,
+    },
+    modeBtn: {
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: spacing.xs,
+        padding: spacing.lg,
+        background: colors.bgDarker,
+        border: `2px solid ${colors.borderLight}`,
+        borderRadius: borderRadius.lg,
+        cursor: 'pointer',
+        transition: `all ${transitions.fast}`,
+        color: colors.textMuted,
+    },
+    modeBtnActive: {
+        background: colors.primaryBg,
+        borderColor: colors.primary,
+        color: colors.primary,
+    },
+    modeBtnTitle: {
+        fontSize: typography.sizeLg,
+        fontWeight: typography.semibold,
+        marginTop: spacing.xs,
+    },
+    modeBtnDesc: {
+        fontSize: typography.sizeXs,
+        color: colors.textDimmest,
+        textAlign: 'center',
     },
     providerBtn: {
         display: 'flex',
