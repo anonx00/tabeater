@@ -134,20 +134,13 @@ class AutoPilotService {
             .sort((a, b) => (b.memoryMB || 0) - (a.memoryMB || 0))
             .slice(0, 5);
 
-        // Generate group suggestions using AI (with fallback to categories)
+        // Generate group suggestions using AI only (no fallback - AI is the core feature)
         let groupSuggestions: { name: string; tabIds: number[] }[] = [];
         try {
             groupSuggestions = await this.generateAIGroupSuggestions(tabs);
-        } catch {
-            // Fallback to category-based grouping if AI fails
-            for (const [category, healthTabs] of Object.entries(categoryGroups)) {
-                if (healthTabs.length >= 2 && category !== 'Other') {
-                    groupSuggestions.push({
-                        name: category,
-                        tabIds: healthTabs.map(th => th.tabId)
-                    });
-                }
-            }
+        } catch (err) {
+            // AI failed - log but don't use fallback (user needs to configure AI)
+            console.warn('[AutoPilot] AI grouping failed:', err);
         }
 
         // Calculate totals
@@ -620,27 +613,59 @@ Give 2-3 actionable recommendations for better tab hygiene. Be concise.`;
             };
         }
 
-        // Auto-grouping only in fly-mode
+        // Auto-grouping only in fly-mode - use AI to find best group
         if (this.settings.mode === 'fly-mode') {
-            const category = this.categorizeTab(tab);
-            if (category && category !== 'Other') {
-                // Find existing group with this category
-                try {
-                    const groups = await chrome.tabGroups.query({ title: category, windowId: tab.windowId });
-                    if (groups.length > 0) {
-                        await chrome.tabs.group({ tabIds: tab.id, groupId: groups[0].id });
-                        return {
-                            action: 'grouped',
-                            message: `Added to ${category} group`
-                        };
-                    }
-                } catch {
-                    // Silently fail - grouping is optional
+            try {
+                const bestGroup = await this.findBestGroupForTab(tab);
+                if (bestGroup) {
+                    await chrome.tabs.group({ tabIds: tab.id, groupId: bestGroup.id });
+                    return {
+                        action: 'grouped',
+                        message: `Added to ${bestGroup.title} group`
+                    };
                 }
+            } catch (err) {
+                console.warn('[AutoPilot] AI grouping for new tab failed:', err);
             }
         }
 
         return { action: 'none' };
+    }
+
+    // AI-powered: Find the best existing group for a new tab
+    private async findBestGroupForTab(tab: TabInfo): Promise<chrome.tabGroups.TabGroup | null> {
+        // Get existing tab groups in this window
+        const groups = await chrome.tabGroups.query({ windowId: tab.windowId });
+        if (groups.length === 0) return null;
+
+        // Get group names
+        const groupNames = groups.map(g => g.title || 'Unnamed').join(', ');
+
+        // Ask AI which group fits best
+        const response = await aiService.prompt(
+            `Which group should this tab belong to? Return ONLY the group name or "none".
+
+Tab: ${tab.title} (${new URL(tab.url).hostname})
+
+Available groups: ${groupNames}
+
+Rules:
+- Match by PURPOSE not just domain
+- AI tabs go to AI group
+- Dev/code tabs go to Dev group
+- Cloud consoles go to Cloud group
+- Return exact group name or "none" if no match`
+        );
+
+        const suggestedGroup = response.trim().toLowerCase();
+        if (suggestedGroup === 'none') return null;
+
+        // Find matching group (case-insensitive)
+        return groups.find(g =>
+            g.title?.toLowerCase() === suggestedGroup ||
+            g.title?.toLowerCase().includes(suggestedGroup) ||
+            suggestedGroup.includes(g.title?.toLowerCase() || '')
+        ) || null;
     }
 
     // Get the current autopilot mode
