@@ -86,6 +86,10 @@ const Options = () => {
     const [showApiKey, setShowApiKey] = useState(false);
     const [confirmDelete, setConfirmDelete] = useState(false);
     const [cleanMode, setCleanMode] = useState(true); // Default ON for consumer-friendly experience
+    const [showEmailVerify, setShowEmailVerify] = useState(false);
+    const [verifyEmail, setVerifyEmail] = useState('');
+    const [verifyError, setVerifyError] = useState('');
+    const [verifyLoading, setVerifyLoading] = useState(false);
 
     useEffect(() => {
         loadConfig();
@@ -122,6 +126,36 @@ const Options = () => {
         if (response.success) {
             setLicense(response.data);
         }
+    };
+
+    const verifyByEmail = async () => {
+        if (!verifyEmail.trim()) {
+            setVerifyError('Please enter your payment email');
+            return;
+        }
+        setVerifyLoading(true);
+        setVerifyError('');
+        try {
+            const response = await chrome.runtime.sendMessage({
+                action: 'verifyByEmail',
+                payload: { email: verifyEmail.trim().toLowerCase() }
+            });
+            if (response.success && response.data.verified) {
+                await loadLicense();
+                setShowEmailVerify(false);
+                setVerifyEmail('');
+                setVerifyError('');
+            } else if (response.data?.error === 'DEVICE_LIMIT') {
+                setVerifyError('Device limit reached for this purchase. Contact support.');
+            } else if (response.data?.error === 'NOT_FOUND') {
+                setVerifyError('No purchase found for this email');
+            } else {
+                setVerifyError(response.data?.message || 'Verification failed');
+            }
+        } catch {
+            setVerifyError('Failed to verify. Please try again.');
+        }
+        setVerifyLoading(false);
     };
 
     const checkProvider = async () => {
@@ -306,25 +340,100 @@ const Options = () => {
                             Refresh
                         </button>
                     </div>
-                    {/* Purchase recovery - contact support */}
+                    {/* Purchase recovery - email verification */}
                     {license && !license.paid && (
                         <div style={{ marginTop: spacing.md }}>
-                            <div style={{
-                                background: colors.bgCard,
-                                padding: spacing.md,
-                                borderRadius: borderRadius.lg,
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: spacing.sm,
-                            }}>
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={colors.textDim} strokeWidth="2">
-                                    <circle cx="12" cy="12" r="10"/>
-                                    <path d="M12 16v-4M12 8h.01"/>
-                                </svg>
-                                <span style={{ color: colors.textDim, fontSize: typography.sizeSm }}>
-                                    Already purchased? Click Refresh above. If your license doesn't appear, contact support.
-                                </span>
-                            </div>
+                            {!showEmailVerify ? (
+                                <button
+                                    style={{
+                                        ...styles.compactBtn,
+                                        width: '100%',
+                                        justifyContent: 'center',
+                                        background: colors.bgCard,
+                                        color: colors.textMuted,
+                                        fontSize: typography.sizeSm,
+                                        padding: `${spacing.sm}px ${spacing.md}px`,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: spacing.sm,
+                                    }}
+                                    onClick={() => setShowEmailVerify(true)}
+                                >
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                        <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                                        <polyline points="22,6 12,13 2,6"/>
+                                    </svg>
+                                    Already paid? Verify by email
+                                </button>
+                            ) : (
+                                <div style={{
+                                    background: colors.bgCard,
+                                    padding: spacing.md,
+                                    borderRadius: borderRadius.lg,
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: spacing.sm,
+                                }}>
+                                    <span style={{ color: colors.textMuted, fontSize: typography.sizeSm }}>
+                                        Enter the email you used for payment:
+                                    </span>
+                                    <input
+                                        type="email"
+                                        placeholder="your@email.com"
+                                        value={verifyEmail}
+                                        onChange={(e) => setVerifyEmail(e.target.value)}
+                                        onKeyDown={(e) => e.key === 'Enter' && verifyByEmail()}
+                                        style={{
+                                            padding: `${spacing.sm}px ${spacing.md}px`,
+                                            background: colors.bgInput,
+                                            border: `1px solid ${colors.borderLight}`,
+                                            borderRadius: borderRadius.md,
+                                            color: colors.textPrimary,
+                                            fontSize: typography.sizeMd,
+                                            outline: 'none',
+                                        }}
+                                    />
+                                    <span style={{ color: colors.textDimmest, fontSize: typography.sizeXs }}>
+                                        Each purchase can be activated on up to 3 devices
+                                    </span>
+                                    {verifyError && (
+                                        <span style={{ color: colors.error, fontSize: typography.sizeSm }}>
+                                            {verifyError}
+                                        </span>
+                                    )}
+                                    <div style={{ display: 'flex', gap: spacing.sm }}>
+                                        <button
+                                            style={{
+                                                ...styles.compactBtn,
+                                                flex: 1,
+                                                justifyContent: 'center',
+                                                background: colors.primary,
+                                                color: '#fff',
+                                                padding: `${spacing.sm}px ${spacing.md}px`,
+                                            }}
+                                            onClick={verifyByEmail}
+                                            disabled={verifyLoading}
+                                        >
+                                            {verifyLoading ? 'Verifying...' : 'Verify'}
+                                        </button>
+                                        <button
+                                            style={{
+                                                ...styles.compactBtn,
+                                                flex: 1,
+                                                justifyContent: 'center',
+                                                padding: `${spacing.sm}px ${spacing.md}px`,
+                                            }}
+                                            onClick={() => {
+                                                setShowEmailVerify(false);
+                                                setVerifyError('');
+                                                setVerifyEmail('');
+                                            }}
+                                        >
+                                            Cancel
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
                 </section>
