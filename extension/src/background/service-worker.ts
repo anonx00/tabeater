@@ -277,6 +277,13 @@ async function handleMessage(message: Message): Promise<MessageResponse> {
             const checkoutUrl = await licenseService.getCheckoutUrl();
             return { success: true, data: { url: checkoutUrl } };
 
+        case 'verifyByEmail':
+            if (!message.payload?.email) {
+                return { success: false, error: 'Email is required' };
+            }
+            const verifyResult = await licenseService.verifyByEmail(message.payload.email);
+            return { success: true, data: verifyResult };
+
         // Auto Pilot actions (PRO features)
         case 'autoPilotAnalyze':
             // Check if user has PRO license
