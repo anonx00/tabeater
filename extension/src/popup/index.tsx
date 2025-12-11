@@ -459,7 +459,7 @@ const Popup = () => {
                     </div>
                     <div style={styles.setupContent}>
                         <div style={styles.setupTitle}>Enable AI features</div>
-                        <div style={styles.setupDesc}>Set up Gemini Nano (free & private) or a cloud provider</div>
+                        <div style={styles.setupDesc}>Connect an AI provider to unlock smart tab organization</div>
                     </div>
                     <button style={styles.setupBtn} onClick={() => chrome.runtime.openOptionsPage()}>
                         Set up

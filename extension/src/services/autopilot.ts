@@ -134,14 +134,19 @@ class AutoPilotService {
             .sort((a, b) => (b.memoryMB || 0) - (a.memoryMB || 0))
             .slice(0, 5);
 
-        // Generate group suggestions based on categories
-        const groupSuggestions: { name: string; tabIds: number[] }[] = [];
-        for (const [category, healthTabs] of Object.entries(categoryGroups)) {
-            if (healthTabs.length >= 2 && category !== 'Other') {
-                groupSuggestions.push({
-                    name: category,
-                    tabIds: healthTabs.map(th => th.tabId)
-                });
+        // Generate group suggestions using AI (with fallback to categories)
+        let groupSuggestions: { name: string; tabIds: number[] }[] = [];
+        try {
+            groupSuggestions = await this.generateAIGroupSuggestions(tabs);
+        } catch {
+            // Fallback to category-based grouping if AI fails
+            for (const [category, healthTabs] of Object.entries(categoryGroups)) {
+                if (healthTabs.length >= 2 && category !== 'Other') {
+                    groupSuggestions.push({
+                        name: category,
+                        tabIds: healthTabs.map(th => th.tabId)
+                    });
+                }
             }
         }
 
@@ -279,6 +284,56 @@ class AutoPilotService {
             healthLabel,
             insights
         };
+    }
+
+    private async generateAIGroupSuggestions(tabs: TabInfo[]): Promise<{ name: string; tabIds: number[] }[]> {
+        if (tabs.length < 2) return [];
+
+        // Prepare tab data for AI
+        const tabList = tabs.map(t => {
+            try {
+                return `${t.id}|${t.title.slice(0, 50)}|${new URL(t.url).hostname}`;
+            } catch {
+                return `${t.id}|${t.title.slice(0, 50)}|unknown`;
+            }
+        }).join('\n');
+
+        const response = await aiService.prompt(
+            `Group these browser tabs by PURPOSE and CONTEXT. Return ONLY a JSON array.
+
+Tabs (id|title|domain):
+${tabList}
+
+Rules:
+- Group by what user is DOING, not just domain
+- AI tools (ChatGPT, Claude, Gemini, Grok) = "AI"
+- Cloud services (GCP, AWS, Azure, Vercel) = "Cloud"
+- Streaming (Netflix, YouTube, Spotify) = "Media"
+- Dev (GitHub, localhost, docs, Stack Overflow) = "Dev"
+- Social (Twitter/X, Reddit, LinkedIn) = "Social"
+- Only groups with 2+ tabs
+- Max 6 groups, 1-2 word names
+- Skip ungroupable tabs
+
+Return JSON: [{"name":"GroupName","ids":[1,2,3]}]`
+        );
+
+        // Parse AI response
+        const jsonMatch = response.match(/\[[\s\S]*\]/);
+        if (!jsonMatch) return [];
+
+        const groups = JSON.parse(jsonMatch[0]) as { name: string; ids: number[] }[];
+
+        // Validate and filter
+        const validTabIds = new Set(tabs.map(t => t.id));
+        return groups
+            .filter(g => g.name && g.ids && g.ids.length >= 2)
+            .map(g => ({
+                name: g.name,
+                tabIds: g.ids.filter(id => validTabIds.has(id))
+            }))
+            .filter(g => g.tabIds.length >= 2)
+            .slice(0, 6);
     }
 
     async analyzeWithAI(): Promise<AutoPilotReport> {
