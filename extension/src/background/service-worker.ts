@@ -40,49 +40,121 @@ chrome.runtime.onStartup.addListener(async () => {
     await ensureServicesInitialized();
 });
 
-// Auto-group new tabs when they finish loading (Auto Pilot feature)
+// Debounce map for fly mode processing
+const flyModeDebounceMap = new Map<number, ReturnType<typeof setTimeout>>();
+
+// Auto Pilot: Process new tabs when they finish loading
 chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
     // Only act when the page is fully loaded and has a url
     if (changeInfo.status === 'complete' && tab.url && !tab.url.startsWith('chrome://')) {
         try {
             await ensureServicesInitialized();
 
-            // Load settings to check if auto-grouping is enabled
+            // Load settings to check mode
             const settings = await autoPilotService.loadSettings();
-            if (!settings.autoGroupByCategory) return;
 
-            // Skip if tab is already in a group
-            if (tab.groupId !== undefined && tab.groupId !== -1) return;
+            // Skip if in manual mode
+            if (settings.mode === 'manual') return;
 
-            // Categorize the tab
-            const category = autoPilotService.categorizeTab({
-                id: tabId,
-                title: tab.title || '',
-                url: tab.url,
-                favIconUrl: tab.favIconUrl,
-                active: tab.active,
-                pinned: tab.pinned,
-                groupId: tab.groupId ?? -1,
-                windowId: tab.windowId
-            });
+            // Auto-processing requires PRO license
+            const licenseStatus = await licenseService.getStatus();
+            if (!licenseStatus.paid) return;
 
-            // Only group if it's not "Other" category
-            if (category && category !== 'Other') {
-                // Find existing group for this category in the same window
-                const groups = await chrome.tabGroups.query({ title: category, windowId: tab.windowId });
-
-                if (groups.length > 0) {
-                    // Move to existing group
-                    await chrome.tabs.group({ tabIds: tabId, groupId: groups[0].id });
+            // Skip if tab is already in a group (for grouping logic)
+            if (tab.groupId !== undefined && tab.groupId !== -1) {
+                // Still check for duplicates even if grouped
+                if (settings.mode === 'auto-cleanup' || settings.mode === 'fly-mode') {
+                    // Check for duplicate immediately
+                    const tabInfo = {
+                        id: tabId,
+                        title: tab.title || '',
+                        url: tab.url,
+                        favIconUrl: tab.favIconUrl,
+                        active: tab.active,
+                        pinned: tab.pinned,
+                        groupId: tab.groupId ?? -1,
+                        windowId: tab.windowId
+                    };
+                    const dupCheck = await autoPilotService.checkDuplicate(tabInfo);
+                    if (dupCheck.isDuplicate) {
+                        await chrome.tabs.remove(tabId);
+                        // Show notification if enabled
+                        if (settings.showNotifications) {
+                            await showAutoPilotNotification(`Closed duplicate tab`);
+                        }
+                    }
                 }
-                // Note: We don't create new groups for single tabs, only add to existing ones
+                return;
             }
+
+            // Clear any existing debounce for this tab
+            if (flyModeDebounceMap.has(tabId)) {
+                clearTimeout(flyModeDebounceMap.get(tabId)!);
+            }
+
+            // Debounce processing to avoid rapid-fire on redirects
+            const debounceMs = settings.flyModeDebounceMs || 5000;
+            const timeoutId = setTimeout(async () => {
+                flyModeDebounceMap.delete(tabId);
+
+                try {
+                    // Re-fetch the tab to get latest state
+                    const currentTab = await chrome.tabs.get(tabId);
+                    if (!currentTab || currentTab.url?.startsWith('chrome://')) return;
+
+                    const tabInfo = {
+                        id: tabId,
+                        title: currentTab.title || '',
+                        url: currentTab.url || '',
+                        favIconUrl: currentTab.favIconUrl,
+                        active: currentTab.active,
+                        pinned: currentTab.pinned,
+                        groupId: currentTab.groupId ?? -1,
+                        windowId: currentTab.windowId
+                    };
+
+                    const result = await autoPilotService.processNewTab(tabInfo);
+
+                    // Show notification if action was taken and notifications are enabled
+                    if (result.action !== 'none' && settings.showNotifications && result.message) {
+                        await showAutoPilotNotification(result.message);
+                    }
+                } catch (err) {
+                    // Tab might have been closed, ignore
+                    console.debug('Fly mode processing failed:', err);
+                }
+            }, debounceMs);
+
+            flyModeDebounceMap.set(tabId, timeoutId);
         } catch (err) {
-            // Silently fail - auto-grouping is a convenience feature
-            console.debug('Auto-group failed:', err);
+            // Silently fail - auto-processing is a convenience feature
+            console.debug('Auto-pilot failed:', err);
         }
     }
 });
+
+// Clean up debounce timers when tabs are closed
+chrome.tabs.onRemoved.addListener((tabId) => {
+    if (flyModeDebounceMap.has(tabId)) {
+        clearTimeout(flyModeDebounceMap.get(tabId)!);
+        flyModeDebounceMap.delete(tabId);
+    }
+});
+
+// Show a notification for auto-pilot actions (uses chrome badge for now)
+async function showAutoPilotNotification(message: string) {
+    // Set badge text briefly to indicate action
+    await chrome.action.setBadgeText({ text: '!' });
+    await chrome.action.setBadgeBackgroundColor({ color: '#3b82f6' });
+
+    // Clear badge after 3 seconds
+    setTimeout(async () => {
+        await chrome.action.setBadgeText({ text: '' });
+    }, 3000);
+
+    // Also log for debugging
+    console.log('[AutoPilot]', message);
+}
 
 // Handle keyboard shortcuts
 chrome.commands.onCommand.addListener(async (command) => {
@@ -151,6 +223,17 @@ async function handleMessage(message: Message): Promise<MessageResponse> {
             const allTabs = await tabService.getAllTabs();
             return { success: true, data: tabService.groupByDomain(allTabs) };
 
+        // Quick Focus Score (free for all users - no AI, just analysis)
+        case 'getQuickFocusScore':
+            const quickReport = await autoPilotService.analyze();
+            return {
+                success: true,
+                data: {
+                    focusScore: quickReport.analytics?.healthScore || 50,
+                    report: quickReport
+                }
+            };
+
         case 'summarizeTab':
             return await summarizeTab(message.payload.tabId);
 
@@ -193,10 +276,6 @@ async function handleMessage(message: Message): Promise<MessageResponse> {
         case 'getCheckoutUrl':
             const checkoutUrl = await licenseService.getCheckoutUrl();
             return { success: true, data: { url: checkoutUrl } };
-
-        case 'verifyByEmail':
-            const verifyResult = await licenseService.verifyByEmail(message.payload?.email);
-            return { success: true, data: verifyResult };
 
         // Auto Pilot actions (PRO features)
         case 'autoPilotAnalyze':

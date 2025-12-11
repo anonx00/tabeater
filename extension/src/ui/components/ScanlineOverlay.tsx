@@ -10,14 +10,16 @@ interface ScanlineOverlayProps {
  * Can be disabled via props or the cleanMode setting in storage
  */
 export const ScanlineOverlay: React.FC<ScanlineOverlayProps> = ({ disabled: propDisabled }) => {
-    const [isDisabled, setIsDisabled] = useState(propDisabled ?? false);
+    // Default to disabled (clean mode ON by default for consumer-friendly experience)
+    const [isDisabled, setIsDisabled] = useState(propDisabled ?? true);
 
     useEffect(() => {
-        // Check storage for clean mode setting
+        // Check storage for clean mode setting (default is true = scanlines OFF)
         chrome.storage.local.get(['cleanMode'], (result) => {
-            if (result.cleanMode === true) {
-                setIsDisabled(true);
-            }
+            // cleanMode true = scanlines disabled, cleanMode false = scanlines enabled
+            // Default to true (disabled) if not set
+            const cleanModeEnabled = result.cleanMode !== false;
+            setIsDisabled(cleanModeEnabled);
         });
 
         // Listen for changes

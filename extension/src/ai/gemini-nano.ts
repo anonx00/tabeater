@@ -39,21 +39,7 @@ export class GeminiNanoService {
         try {
             return JSON.parse(this.cleanJson(response));
         } catch (e) {
-            console.error('Tactical Parse Error:', e);
-            return {};
-        }
-    }
-
-    async prioritizeTabs(tabs: TabData[]): Promise<Record<number, { priority: string; reason: string }>> {
-        if (!this.session) await this.initSession();
-
-        const prompt = PROMPTS.PRIORITIZE.replace('${tabs}', formatTabsForPrompt(tabs));
-        const response = await this.session!.prompt(prompt);
-
-        try {
-            return JSON.parse(this.cleanJson(response));
-        } catch (e) {
-            console.error('Tactical Parse Error:', e);
+            console.error('Parse Error:', e);
             return {};
         }
     }

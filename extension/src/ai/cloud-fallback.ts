@@ -8,11 +8,6 @@ export class CloudFallbackService {
         return this.callCloudFunction('categorize', prompt);
     }
 
-    async prioritizeTabs(tabs: TabData[]): Promise<Record<number, { priority: string; reason: string }>> {
-        const prompt = PROMPTS.PRIORITIZE.replace('${tabs}', formatTabsForPrompt(tabs));
-        return this.callCloudFunction('prioritize', prompt);
-    }
-
     async summarizeContent(content: string): Promise<string> {
         const prompt = PROMPTS.SUMMARIZE.replace('${content}', content);
         return this.callCloudFunction('summarize', prompt);

@@ -5,8 +5,6 @@ import browser from 'webextension-polyfill';
 
 interface TabAnalysis {
     category?: string;
-    priority?: string;
-    reason?: string;
     lastAnalyzed?: number;
 }
 
@@ -29,7 +27,6 @@ export class TabManager {
         if (tabsToAnalyze.length === 0) return;
 
         let categories: Record<number, string> = {};
-        let priorities: Record<number, { priority: string; reason: string }> = {};
 
         const BATCH_SIZE = 20;
 
@@ -39,30 +36,21 @@ export class TabManager {
 
             try {
                 let batchCategories = {};
-                let batchPriorities = {};
 
                 // Try Gemini Nano first
                 if (await this.nanoService.isAvailable()) {
-                    [batchCategories, batchPriorities] = await Promise.all([
-                        this.nanoService.categorizeTabs(batch),
-                        this.nanoService.prioritizeTabs(batch)
-                    ]);
+                    batchCategories = await this.nanoService.categorizeTabs(batch);
                 } else {
                     throw new Error('Nano unavailable');
                 }
 
                 Object.assign(categories, batchCategories);
-                Object.assign(priorities, batchPriorities);
 
             } catch {
                 try {
                     // Fallback to Cloud
-                    const [cloudCats, cloudPrios] = await Promise.all([
-                        this.cloudService.categorizeTabs(batch),
-                        this.cloudService.prioritizeTabs(batch)
-                    ]);
+                    const cloudCats = await this.cloudService.categorizeTabs(batch);
                     Object.assign(categories, cloudCats);
-                    Object.assign(priorities, cloudPrios);
                 } catch {
                     // Continue to next batch instead of aborting entirely
                 }
@@ -73,8 +61,6 @@ export class TabManager {
         tabsToAnalyze.forEach(tab => {
             this.analysisCache[tab.id] = {
                 category: categories[tab.id] || 'UNCATEGORIZED',
-                priority: priorities[tab.id]?.priority || 'UNKNOWN',
-                reason: priorities[tab.id]?.reason || 'No intelligence available',
                 lastAnalyzed: Date.now()
             };
         });
