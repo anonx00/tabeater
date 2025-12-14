@@ -299,7 +299,15 @@ async function handleMessage(message: Message): Promise<MessageResponse> {
                 return { success: false, error: 'Email is required' };
             }
             const verifyResult = await licenseService.verifyByEmail(message.payload.email);
-            return { success: true, data: verifyResult };
+            return { success: verifyResult.verified, data: verifyResult, error: verifyResult.message };
+
+        case 'isDeviceAuthorized':
+            const authResult = await licenseService.isDeviceAuthorized();
+            return { success: authResult.authorized, data: authResult };
+
+        case 'getVerifiedEmail':
+            const verifiedEmail = await licenseService.getVerifiedEmail();
+            return { success: true, data: { email: verifiedEmail } };
 
         // Auto Pilot actions (PRO features)
         case 'autoPilotAnalyze':

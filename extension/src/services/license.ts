@@ -243,14 +243,21 @@ class LicenseService {
 
     /**
      * Verify payment by email - for users who paid on a different device
+     * Security: Server validates email ownership and device limit
      */
-    async verifyByEmail(email: string): Promise<{ verified: boolean; status: string }> {
+    async verifyByEmail(email: string): Promise<{ verified: boolean; status: string; message?: string }> {
         if (DEV_MODE) {
             return { verified: true, status: 'dev_mode' };
         }
 
         if (!this.licenseKey) {
             await this.initialize();
+        }
+
+        // Basic email validation (prevent abuse)
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!email || !emailRegex.test(email.trim())) {
+            return { verified: false, status: 'invalid_email', message: 'Please enter a valid email address' };
         }
 
         try {
@@ -261,23 +268,65 @@ class LicenseService {
                     'X-License-Key': this.licenseKey!,
                     'X-Device-Id': this.deviceId!
                 },
-                body: JSON.stringify({ email })
+                body: JSON.stringify({
+                    email: email.trim().toLowerCase(),
+                    deviceId: this.deviceId,
+                    timestamp: Date.now()
+                })
             });
 
             if (!response.ok) {
-                return { verified: false, status: 'error' };
+                const errorData = await response.json().catch(() => ({}));
+                return {
+                    verified: false,
+                    status: 'error',
+                    message: errorData.message || 'Verification failed'
+                };
             }
 
             const result = await response.json();
 
             if (result.verified && result.status === 'activated') {
+                // Store verified email for future reference
+                await chrome.storage.sync.set({ verifiedEmail: email.trim().toLowerCase() });
                 this.clearCache();
             }
 
             return result;
         } catch {
-            return { verified: false, status: 'network_error' };
+            return { verified: false, status: 'network_error', message: 'Network error. Please try again.' };
         }
+    }
+
+    /**
+     * Check if current device is authorized for pro features
+     * Security: Validates device ID matches stored license
+     */
+    async isDeviceAuthorized(): Promise<{ authorized: boolean; reason?: string }> {
+        if (DEV_MODE) {
+            return { authorized: true };
+        }
+
+        const status = await this.getStatus(true);
+
+        if (!status.paid) {
+            return { authorized: false, reason: 'No active license' };
+        }
+
+        // Check if device limit exceeded
+        if (status.devicesUsed && status.maxDevices && status.devicesUsed > status.maxDevices) {
+            return { authorized: false, reason: 'Device limit exceeded' };
+        }
+
+        return { authorized: true };
+    }
+
+    /**
+     * Get stored verified email
+     */
+    async getVerifiedEmail(): Promise<string | null> {
+        const stored = await chrome.storage.sync.get(['verifiedEmail']);
+        return stored.verifiedEmail || null;
     }
 
     async checkAndUse(): Promise<UseResponse> {
