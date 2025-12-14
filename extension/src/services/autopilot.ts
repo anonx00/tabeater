@@ -762,12 +762,20 @@ Give 2-3 actionable recommendations for better tab hygiene. Be concise.`;
         const groups = await chrome.tabGroups.query({ windowId: tab.windowId });
         if (groups.length === 0) return null;
 
-        // Get group names
-        const groupNames = groups.map(g => g.title || 'Unnamed').join(', ');
+        // Check if we can make an AI call (rate limiting)
+        const canUseAI = await aiService.canMakeCall();
+        if (!canUseAI.allowed) {
+            console.log(`[AutoPilot] AI limit reached: ${canUseAI.reason}`);
+            return null; // Skip grouping when limit reached
+        }
 
-        // Ask AI which group fits best
-        const response = await aiService.prompt(
-            `Which group should this tab belong to? Return ONLY the group name or "none".
+        try {
+            // Get group names
+            const groupNames = groups.map(g => g.title || 'Unnamed').join(', ');
+
+            // Ask AI which group fits best
+            const response = await aiService.prompt(
+                `Which group should this tab belong to? Return ONLY the group name or "none".
 
 Tab: ${tab.title} (${new URL(tab.url).hostname})
 
@@ -779,17 +787,21 @@ Rules:
 - Dev/code tabs go to Dev group
 - Cloud consoles go to Cloud group
 - Return exact group name or "none" if no match`
-        );
+            );
 
-        const suggestedGroup = response.trim().toLowerCase();
-        if (suggestedGroup === 'none') return null;
+            const suggestedGroup = response.trim().toLowerCase();
+            if (suggestedGroup === 'none') return null;
 
-        // Find matching group (case-insensitive)
-        return groups.find(g =>
-            g.title?.toLowerCase() === suggestedGroup ||
-            g.title?.toLowerCase().includes(suggestedGroup) ||
-            suggestedGroup.includes(g.title?.toLowerCase() || '')
-        ) || null;
+            // Find matching group (case-insensitive)
+            return groups.find(g =>
+                g.title?.toLowerCase() === suggestedGroup ||
+                g.title?.toLowerCase().includes(suggestedGroup) ||
+                suggestedGroup.includes(g.title?.toLowerCase() || '')
+            ) || null;
+        } catch (err) {
+            console.warn('[AutoPilot] AI grouping failed:', err);
+            return null;
+        }
     }
 
     // Get the current autopilot mode

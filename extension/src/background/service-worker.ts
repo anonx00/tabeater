@@ -270,6 +270,9 @@ async function handleMessage(message: Message): Promise<MessageResponse> {
             const response = await aiService.prompt(message.payload.prompt);
             return { success: true, data: { response } };
 
+        case 'getAPIUsageStats':
+            return { success: true, data: aiService.getUsageStats() };
+
         case 'getLicenseStatus':
             const status = await licenseService.getStatus(message.payload?.forceRefresh);
             return { success: true, data: status };

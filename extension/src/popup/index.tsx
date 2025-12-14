@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
-import { colors, spacing, typography, borderRadius, transitions, shadows, scanlineOverlay } from '../shared/theme';
+import { colors, spacing, typography, borderRadius, transitions, shadows } from '../shared/theme';
 import { UndoToast } from '../ui/components/UndoToast';
 import { EmptyState } from '../ui/components/EmptyState';
 
@@ -61,22 +61,17 @@ interface AutoPilotReport {
 
 type View = 'tabs' | 'duplicates' | 'upgrade' | 'actions' | 'analytics';
 
-// Glitch Tab Logo
-const GlitchLogo: React.FC<{ size?: number }> = ({ size = 24 }) => (
+// Minimal Logo
+const Logo: React.FC<{ size?: number }> = ({ size = 24 }) => (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-        <rect width="24" height="24" fill={colors.voidBlack}/>
-        <path d="M3 18V7C3 6.5 3.5 6 4 6H8L10 4H20C20.5 4 21 4.5 21 5V18C21 18.5 20.5 19 20 19H4C3.5 19 3 18.5 3 18Z"
-              fill="none" stroke={colors.phosphorGreen} strokeWidth="1.5"/>
-        <rect x="18" y="6" width="2" height="2" fill={colors.voidBlack}/>
-        <rect x="17" y="8" width="3" height="3" fill={colors.voidBlack}/>
-        <rect x="18" y="11" width="2" height="2" fill={colors.voidBlack}/>
-        <rect x="7" y="10" width="3" height="3" fill={colors.phosphorGreen}/>
-        <line x1="3" y1="15" x2="17" y2="15" stroke={colors.phosphorGreen} strokeWidth="0.5" opacity="0.4"/>
-        <line x1="3" y1="17" x2="17" y2="17" stroke={colors.phosphorGreen} strokeWidth="0.5" opacity="0.4"/>
+        <path d="M3 18V7C3 6 4 5 5 5H9L11 3H19C20 3 21 4 21 5V18C21 19 20 20 19 20H5C4 20 3 19 3 18Z"
+              fill="none" stroke={colors.textSecondary} strokeWidth="1.5"/>
+        <path d="M21 8L18 8V11L21 11V14L18 14" stroke={colors.textSecondary} strokeWidth="1.5"/>
+        <circle cx="9" cy="12" r="3" fill={colors.accentCyan} opacity="0.8"/>
     </svg>
 );
 
-const faviconFallback = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="${colors.textDim}"><rect x="2" y="2" width="12" height="12" rx="0" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="6" y="6" width="4" height="4" fill="currentColor"/></svg>`)}`;
+const faviconFallback = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="${colors.textDim}"><rect x="2" y="2" width="12" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="8" r="2" fill="currentColor"/></svg>`)}`;
 
 const Popup = () => {
     const [tabs, setTabs] = useState<TabInfo[]>([]);
@@ -259,16 +254,16 @@ const Popup = () => {
             {/* Header */}
             <header style={s.header}>
                 <div style={s.headerLeft}>
-                    <GlitchLogo size={28} />
-                    <span style={s.logoText}>TAB_EATER</span>
+                    <Logo size={24} />
+                    <div style={s.brandWrap}>
+                        <span style={s.logoText}>TABEATER</span>
+                        <span style={s.logoSub}>// SYSTEM</span>
+                    </div>
                     {license?.paid && <span style={s.proBadge}>PRO</span>}
-                    {license?.status === 'trial' && !license.paid && (
-                        <span style={s.trialBadge}>{license.usageRemaining}/2</span>
-                    )}
                 </div>
                 <div style={s.headerRight}>
                     {focusScore !== null && (
-                        <div style={{ ...s.scorePill, borderColor: getScoreColor(focusScore) }}>
+                        <div style={s.scorePill}>
                             <span style={{ ...s.scoreValue, color: getScoreColor(focusScore) }}>{focusScore}</span>
                         </div>
                     )}
@@ -278,22 +273,22 @@ const Popup = () => {
                             if (win.id) { await chrome.sidePanel.open({ windowId: win.id }); window.close(); }
                         } catch { /* ignore */ }
                     }} title="Open Sidebar">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <rect x="3" y="3" width="18" height="18"/><line x1="9" y1="3" x2="9" y2="21"/>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                            <rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/>
                         </svg>
                     </button>
                     <button style={s.iconBtn} onClick={() => chrome.runtime.openOptionsPage()} title="Settings">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                             <circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/>
                         </svg>
                     </button>
                 </div>
             </header>
 
-            {/* Status */}
+            {/* Status - subtle */}
             {statusMessage && <div style={s.statusBar}>{statusMessage}</div>}
 
-            {/* Hero Action */}
+            {/* Hero Action - refined */}
             <div style={s.heroSection}>
                 {(() => {
                     const hasCleanupNeeded = quickReport && (quickReport.recommendations.closeSuggestions.length > 0 || quickReport.duplicateCount > 0);
@@ -304,17 +299,18 @@ const Popup = () => {
                         return (
                             <button style={s.heroBtn} disabled>
                                 <div style={s.spinner} />
-                                <span>{grouping ? 'ORGANIZING...' : 'ANALYZING...'}</span>
+                                <span className="mgs-text">{grouping ? 'ORGANIZING' : 'ANALYZING'}</span>
                             </button>
                         );
                     }
 
                     if (isClean) {
                         return (
-                            <button style={{ ...s.heroBtn, background: colors.phosphorGreen }} onClick={showAnalytics}>
-                                <span>&#10003;</span>
-                                <span>ALL_CLEAR</span>
-                                <span style={s.heroSub}>View stats</span>
+                            <button style={{ ...s.heroBtn, ...s.heroBtnSuccess }} onClick={showAnalytics}>
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <path d="M20 6L9 17l-5-5"/>
+                                </svg>
+                                <span className="mgs-text">SYSTEM CLEAR</span>
                             </button>
                         );
                     }
@@ -322,10 +318,9 @@ const Popup = () => {
                     if (hasCleanupNeeded) {
                         const count = (quickReport?.recommendations.closeSuggestions.length || 0) + (quickReport?.duplicateCount || 0);
                         return (
-                            <button style={{ ...s.heroBtn, background: colors.signalAmber }} onClick={license?.paid ? runActions : () => setView('upgrade')}>
-                                <span>&#9888;</span>
-                                <span>TIDY_UP</span>
-                                <span style={s.heroSub}>{count} items to clean</span>
+                            <button style={{ ...s.heroBtn, ...s.heroBtnWarning }} onClick={license?.paid ? runActions : () => setView('upgrade')}>
+                                <span style={s.heroBadge}>{count}</span>
+                                <span className="mgs-text">OPTIMIZE</span>
                             </button>
                         );
                     }
@@ -333,73 +328,73 @@ const Popup = () => {
                     if (hasGroupingNeeded) {
                         return (
                             <button style={s.heroBtn} onClick={smartOrganize}>
-                                <span>&#9632;</span>
-                                <span>ORGANIZE</span>
-                                <span style={s.heroSub}>{quickReport?.recommendations.groupSuggestions.length} groups</span>
+                                <span style={s.heroBadge}>{quickReport?.recommendations.groupSuggestions.length}</span>
+                                <span className="mgs-text">ORGANIZE</span>
                             </button>
                         );
                     }
 
                     return (
                         <button style={s.heroBtn} onClick={license?.paid ? runActions : smartOrganize}>
-                            <span>&#9654;</span>
-                            <span>ANALYZE</span>
-                            <span style={s.heroSub}>{tabs.length} tabs</span>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>
+                            </svg>
+                            <span className="mgs-text">SCAN</span>
+                            <span style={s.heroCount}>{tabs.length}</span>
                         </button>
                     );
                 })()}
 
-                <div style={s.secondaryBtns}>
-                    <button style={s.secBtn} onClick={smartOrganize} disabled={loading || grouping} title="Smart Group">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <div style={s.actionRow}>
+                    <button style={s.actionBtn} onClick={smartOrganize} disabled={loading || grouping} title="Smart Group">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                             <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
                         </svg>
+                        <span>Group</span>
                     </button>
-                    <button style={s.secBtn} onClick={findDuplicates} disabled={loading} title="Duplicates">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <rect x="8" y="8" width="12" height="12"/><path d="M4 16V6a2 2 0 0 1 2-2h10"/>
+                    <button style={s.actionBtn} onClick={findDuplicates} disabled={loading} title="Duplicates">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                            <rect x="8" y="8" width="12" height="12" rx="2"/><path d="M4 16V6a2 2 0 0 1 2-2h10"/>
                         </svg>
+                        <span>Dupes</span>
                     </button>
-                    <button style={s.secBtn} onClick={showAnalytics} disabled={loading} title="Stats">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <button style={s.actionBtn} onClick={showAnalytics} disabled={loading} title="Analytics">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                             <path d="M18 20V10M12 20V4M6 20v-6"/>
                         </svg>
+                        <span>Stats</span>
                     </button>
                 </div>
             </div>
 
-            {/* Setup Banner */}
+            {/* Setup Banner - subtle */}
             {provider === 'none' && view === 'tabs' && (
                 <div style={s.setupBanner}>
-                    <span style={s.setupIcon}>&#9888;</span>
-                    <div style={s.setupText}>
-                        <div style={s.setupTitle}>ENABLE_AI</div>
-                        <div style={s.setupDesc}>Connect provider for smart features</div>
+                    <div style={s.setupContent}>
+                        <span style={s.setupTitle}>AI not configured</span>
+                        <span style={s.setupDesc}>Connect a provider for smart features</span>
                     </div>
-                    <button style={s.setupBtn} onClick={() => chrome.runtime.openOptionsPage()}>SETUP</button>
+                    <button style={s.setupBtn} onClick={() => chrome.runtime.openOptionsPage()}>Setup</button>
                 </div>
             )}
 
-            {/* Search */}
+            {/* Search - minimal */}
             {view === 'tabs' && (
                 <div style={s.searchWrap}>
-                    <div style={s.searchBox}>
-                        <span style={s.searchIcon}>&#9906;</span>
-                        <input
-                            type="text"
-                            placeholder="Search tabs..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            style={s.searchInput}
-                        />
-                        {searchQuery && (
-                            <button style={s.searchClear} onClick={() => setSearchQuery('')}>&#10005;</button>
-                        )}
-                    </div>
+                    <input
+                        type="text"
+                        placeholder="Search tabs..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        style={s.searchInput}
+                    />
+                    {searchQuery && (
+                        <button style={s.searchClear} onClick={() => setSearchQuery('')}>×</button>
+                    )}
                 </div>
             )}
 
-            {/* Tab List */}
+            {/* Tab List - clean */}
             {view === 'tabs' && (
                 <div style={s.tabList}>
                     {filteredTabs.length === 0 ? (
@@ -418,7 +413,7 @@ const Popup = () => {
                                     <div style={s.tabUrl}>{getHostname(tab.url)}</div>
                                 </div>
                                 <button style={{ ...s.closeBtn, opacity: hoveredTab === tab.id ? 1 : 0 }} onClick={(e) => { e.stopPropagation(); closeTab(tab.id); }}>
-                                    &#10005;
+                                    ×
                                 </button>
                             </div>
                         ))
@@ -430,31 +425,33 @@ const Popup = () => {
             {view === 'duplicates' && (
                 <div style={s.panel}>
                     <div style={s.panelHeader}>
-                        <span style={s.panelTitle}>DUPLICATES</span>
+                        <span style={s.panelTitle}>Duplicates</span>
                         {duplicates.length > 0 && (
-                            <button style={s.dangerBtn} onClick={closeDuplicates}>CLOSE_ALL</button>
+                            <button style={s.panelAction} onClick={closeDuplicates}>Close All</button>
                         )}
                     </div>
                     <div style={s.panelContent}>
                         {duplicates.length === 0 ? (
                             <div style={s.emptyState}>
-                                <span style={s.emptyIcon}>&#10003;</span>
-                                <div style={s.emptyTitle}>NO_DUPLICATES</div>
+                                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke={colors.phosphorGreen} strokeWidth="1.5">
+                                    <path d="M20 6L9 17l-5-5"/>
+                                </svg>
+                                <div style={s.emptyTitle}>No duplicates</div>
                                 <div style={s.emptyDesc}>All tabs are unique</div>
                             </div>
                         ) : (
                             duplicates.map((group, i) => (
-                                <div key={i} style={s.dupeItem}>
+                                <div key={i} style={s.listItem}>
                                     <img src={group[0]?.favIconUrl || faviconFallback} style={s.favicon} alt="" />
-                                    <div style={s.dupeInfo}>
-                                        <div style={s.dupeTitle}>{group[0]?.title}</div>
-                                        <div style={s.dupeCount}>{group.length} copies</div>
+                                    <div style={s.listInfo}>
+                                        <div style={s.listTitle}>{group[0]?.title}</div>
+                                        <div style={s.listMeta}>{group.length} copies</div>
                                     </div>
                                 </div>
                             ))
                         )}
                     </div>
-                    <button style={s.backBtn} onClick={() => setView('tabs')}>&#8592; BACK</button>
+                    <button style={s.backBtn} onClick={() => setView('tabs')}>← Back</button>
                 </div>
             )}
 
@@ -462,72 +459,58 @@ const Popup = () => {
             {view === 'actions' && (
                 <div style={s.panel}>
                     <div style={s.panelHeader}>
-                        <span style={s.panelTitle}>ACTIONS</span>
+                        <span style={s.panelTitle}>Actions</span>
                     </div>
                     <div style={s.panelContent}>
                         {loading ? (
                             <div style={s.loadingState}>
                                 <div style={s.spinner} />
-                                <span>ANALYZING...</span>
+                                <span>Analyzing...</span>
                             </div>
                         ) : isAllClear ? (
                             <div style={s.emptyState}>
-                                <span style={{ ...s.emptyIcon, color: colors.phosphorGreen }}>&#10003;</span>
-                                <div style={s.emptyTitle}>ALL_CLEAR</div>
-                                <div style={s.emptyDesc}>Tabs are organized</div>
+                                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke={colors.phosphorGreen} strokeWidth="1.5">
+                                    <path d="M20 6L9 17l-5-5"/>
+                                </svg>
+                                <div style={s.emptyTitle}>All clear</div>
+                                <div style={s.emptyDesc}>Tabs are optimized</div>
                             </div>
                         ) : autoPilotReport ? (
                             <div style={s.actionCards}>
-                                <div style={s.actionCard}>
-                                    <div style={s.actionHeader}>
-                                        <span style={{ ...s.actionIcon, color: colors.criticalRed }}>&#9632;</span>
-                                        <div style={s.actionInfo}>
-                                            <div style={s.actionTitle}>CLEANUP</div>
-                                            <div style={s.actionDesc}>
-                                                {autoPilotReport.recommendations.closeSuggestions.length > 0
-                                                    ? `${autoPilotReport.recommendations.closeSuggestions.length} tabs`
-                                                    : 'Nothing'}
-                                            </div>
+                                {autoPilotReport.recommendations.closeSuggestions.length > 0 && (
+                                    <div style={s.actionCard}>
+                                        <div style={s.cardHeader}>
+                                            <span style={s.cardTitle}>Cleanup</span>
+                                            <span style={s.cardBadge}>{autoPilotReport.recommendations.closeSuggestions.length}</span>
                                         </div>
+                                        <p style={s.cardDesc}>Stale and duplicate tabs to close</p>
+                                        <button style={s.cardBtn} onClick={executeCleanup}>Clean</button>
                                     </div>
-                                    {autoPilotReport.recommendations.closeSuggestions.length > 0 && (
-                                        <button style={s.actionBtn} onClick={executeCleanup}>CLEAN</button>
-                                    )}
-                                </div>
-                                <div style={s.actionCard}>
-                                    <div style={s.actionHeader}>
-                                        <span style={{ ...s.actionIcon, color: colors.info }}>&#9650;</span>
-                                        <div style={s.actionInfo}>
-                                            <div style={s.actionTitle}>ORGANIZE</div>
-                                            <div style={s.actionDesc}>
-                                                {autoPilotReport.recommendations.groupSuggestions.length > 0
-                                                    ? `${autoPilotReport.recommendations.groupSuggestions.length} groups`
-                                                    : 'Organized'}
-                                            </div>
+                                )}
+                                {autoPilotReport.recommendations.groupSuggestions.length > 0 && (
+                                    <div style={s.actionCard}>
+                                        <div style={s.cardHeader}>
+                                            <span style={s.cardTitle}>Organize</span>
+                                            <span style={s.cardBadge}>{autoPilotReport.recommendations.groupSuggestions.length}</span>
                                         </div>
+                                        <p style={s.cardDesc}>Suggested tab groups</p>
+                                        <button style={s.cardBtn} onClick={executeGrouping}>Group</button>
                                     </div>
-                                    {autoPilotReport.recommendations.groupSuggestions.length > 0 && (
-                                        <button style={s.actionBtn} onClick={executeGrouping}>GROUP</button>
-                                    )}
-                                </div>
-                                <div style={s.actionCard}>
-                                    <div style={s.actionHeader}>
-                                        <span style={{ ...s.actionIcon, color: colors.signalAmber }}>&#9679;</span>
-                                        <div style={s.actionInfo}>
-                                            <div style={s.actionTitle}>DUPLICATES</div>
-                                            <div style={s.actionDesc}>
-                                                {autoPilotReport.duplicateCount > 0 ? `${autoPilotReport.duplicateCount} found` : 'None'}
-                                            </div>
+                                )}
+                                {autoPilotReport.duplicateCount > 0 && (
+                                    <div style={s.actionCard}>
+                                        <div style={s.cardHeader}>
+                                            <span style={s.cardTitle}>Duplicates</span>
+                                            <span style={s.cardBadge}>{autoPilotReport.duplicateCount}</span>
                                         </div>
+                                        <p style={s.cardDesc}>Duplicate tabs found</p>
+                                        <button style={s.cardBtn} onClick={findDuplicates}>Review</button>
                                     </div>
-                                    {autoPilotReport.duplicateCount > 0 && (
-                                        <button style={s.actionBtn} onClick={findDuplicates}>REVIEW</button>
-                                    )}
-                                </div>
+                                )}
                             </div>
                         ) : null}
                     </div>
-                    <button style={s.backBtn} onClick={() => setView('tabs')}>&#8592; BACK</button>
+                    <button style={s.backBtn} onClick={() => setView('tabs')}>← Back</button>
                 </div>
             )}
 
@@ -535,58 +518,61 @@ const Popup = () => {
             {view === 'analytics' && (
                 <div style={s.panel}>
                     <div style={s.panelHeader}>
-                        <span style={s.panelTitle}>ANALYTICS</span>
+                        <span style={s.panelTitle}>Analytics</span>
                     </div>
                     <div style={s.panelContent}>
                         {loading ? (
                             <div style={s.loadingState}>
                                 <div style={s.spinner} />
-                                <span>ANALYZING...</span>
+                                <span>Analyzing...</span>
                             </div>
                         ) : autoPilotReport?.analytics ? (
                             <>
-                                <div style={s.healthCard}>
-                                    <svg width="80" height="80" viewBox="0 0 80 80">
-                                        <circle cx="40" cy="40" r="35" fill="none" stroke={colors.borderIdle} strokeWidth="4"/>
-                                        <circle
-                                            cx="40" cy="40" r="35" fill="none"
-                                            stroke={getScoreColor(autoPilotReport.analytics.healthScore)}
-                                            strokeWidth="4"
-                                            strokeDasharray={`${(autoPilotReport.analytics.healthScore / 100) * 220} 220`}
-                                            transform="rotate(-90 40 40)"
-                                        />
-                                    </svg>
-                                    <div style={s.healthValue}>
-                                        <span style={{ color: getScoreColor(autoPilotReport.analytics.healthScore), fontSize: 24, fontFamily: typography.fontMono }}>
-                                            {autoPilotReport.analytics.healthScore}
-                                        </span>
+                                <div style={s.scoreCard}>
+                                    <div style={s.scoreRing}>
+                                        <svg width="100" height="100" viewBox="0 0 100 100">
+                                            <circle cx="50" cy="50" r="42" fill="none" stroke={colors.borderIdle} strokeWidth="6"/>
+                                            <circle
+                                                cx="50" cy="50" r="42" fill="none"
+                                                stroke={getScoreColor(autoPilotReport.analytics.healthScore)}
+                                                strokeWidth="6"
+                                                strokeLinecap="round"
+                                                strokeDasharray={`${(autoPilotReport.analytics.healthScore / 100) * 264} 264`}
+                                                transform="rotate(-90 50 50)"
+                                            />
+                                        </svg>
+                                        <div style={s.scoreInner}>
+                                            <span style={{ ...s.scoreNum, color: getScoreColor(autoPilotReport.analytics.healthScore) }}>
+                                                {autoPilotReport.analytics.healthScore}
+                                            </span>
+                                        </div>
                                     </div>
-                                    <div style={{ ...s.healthLabel, color: getScoreColor(autoPilotReport.analytics.healthScore) }}>
-                                        {autoPilotReport.analytics.healthLabel.toUpperCase().replace(' ', '_')}
-                                    </div>
+                                    <span style={{ ...s.scoreLabel, color: getScoreColor(autoPilotReport.analytics.healthScore) }}>
+                                        {autoPilotReport.analytics.healthLabel}
+                                    </span>
                                 </div>
                                 <div style={s.statsGrid}>
-                                    <div style={s.statBox}>
-                                        <div style={s.statValue}>{autoPilotReport.totalTabs}</div>
-                                        <div style={s.statLabel}>TABS</div>
+                                    <div style={s.statItem}>
+                                        <span style={s.statValue}>{autoPilotReport.totalTabs}</span>
+                                        <span style={s.statLabel}>Tabs</span>
                                     </div>
-                                    <div style={s.statBox}>
-                                        <div style={s.statValue}>{autoPilotReport.analytics.avgTabAge}d</div>
-                                        <div style={s.statLabel}>AVG_AGE</div>
+                                    <div style={s.statItem}>
+                                        <span style={s.statValue}>{autoPilotReport.analytics.avgTabAge}d</span>
+                                        <span style={s.statLabel}>Avg Age</span>
                                     </div>
-                                    <div style={s.statBox}>
-                                        <div style={s.statValue}>{autoPilotReport.staleCount}</div>
-                                        <div style={s.statLabel}>STALE</div>
+                                    <div style={s.statItem}>
+                                        <span style={s.statValue}>{autoPilotReport.staleCount}</span>
+                                        <span style={s.statLabel}>Stale</span>
                                     </div>
-                                    <div style={s.statBox}>
-                                        <div style={s.statValue}>{autoPilotReport.duplicateCount}</div>
-                                        <div style={s.statLabel}>DUPES</div>
+                                    <div style={s.statItem}>
+                                        <span style={s.statValue}>{autoPilotReport.duplicateCount}</span>
+                                        <span style={s.statLabel}>Dupes</span>
                                     </div>
                                 </div>
                             </>
                         ) : null}
                     </div>
-                    <button style={s.backBtn} onClick={() => setView('tabs')}>&#8592; BACK</button>
+                    <button style={s.backBtn} onClick={() => setView('tabs')}>← Back</button>
                 </div>
             )}
 
@@ -594,21 +580,23 @@ const Popup = () => {
             {view === 'upgrade' && (
                 <div style={s.panel}>
                     <div style={s.upgradeContent}>
-                        <div style={s.upgradeIcon}>&#9733;</div>
-                        <div style={s.upgradeTitle}>UPGRADE_TO_PRO</div>
-                        <div style={s.upgradePrice}>A$6 <span style={s.upgradePriceNote}>ONE_TIME</span></div>
+                        <div style={s.upgradeHeader}>
+                            <span style={s.upgradeTitle}>Upgrade to Pro</span>
+                            <span style={s.upgradePrice}>A$6</span>
+                            <span style={s.upgradePriceNote}>one-time</span>
+                        </div>
                         <ul style={s.upgradeFeatures}>
-                            <li>&#10003; Unlimited AI scans</li>
-                            <li>&#10003; Auto Pilot mode</li>
-                            <li>&#10003; Smart grouping</li>
-                            <li>&#10003; Priority support</li>
+                            <li>Unlimited AI scans</li>
+                            <li>Auto Pilot mode</li>
+                            <li>Smart grouping</li>
+                            <li>Priority support</li>
                         </ul>
                         <button style={s.upgradeBtn} onClick={handleUpgrade} disabled={loading}>
-                            {loading ? 'LOADING...' : 'GET_PRO'}
+                            {loading ? 'Loading...' : 'Get Pro'}
                         </button>
-                        <button style={s.refreshBtn} onClick={checkLicense}>ALREADY_PURCHASED? REFRESH</button>
+                        <button style={s.refreshLink} onClick={checkLicense}>Already purchased? Refresh</button>
                     </div>
-                    <button style={s.backBtn} onClick={() => setView('tabs')}>&#8592; BACK</button>
+                    <button style={s.backBtn} onClick={() => setView('tabs')}>← Back</button>
                 </div>
             )}
 
@@ -620,14 +608,11 @@ const Popup = () => {
                     onDismiss={() => setUndoAction(null)}
                 />
             )}
-
-            {/* Scanlines */}
-            <div style={s.scanlines} />
         </div>
     );
 };
 
-// Styles
+// Styles - Premium Minimal
 const s: { [key: string]: React.CSSProperties } = {
     container: {
         width: 380,
@@ -639,7 +624,6 @@ const s: { [key: string]: React.CSSProperties } = {
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
-        position: 'relative',
     },
     header: {
         display: 'flex',
@@ -659,37 +643,41 @@ const s: { [key: string]: React.CSSProperties } = {
         alignItems: 'center',
         gap: spacing.xs,
     },
+    brandWrap: {
+        display: 'flex',
+        flexDirection: 'column',
+    },
     logoText: {
         fontFamily: typography.fontMono,
-        fontSize: typography.sizeSm,
+        fontSize: 12,
         fontWeight: typography.bold,
-        color: colors.phosphorGreen,
+        color: colors.textPrimary,
+        letterSpacing: '0.15em',
+    },
+    logoSub: {
+        fontFamily: typography.fontMono,
+        fontSize: 8,
+        color: colors.textDim,
         letterSpacing: '0.1em',
     },
     proBadge: {
         fontFamily: typography.fontMono,
-        fontSize: 9,
+        fontSize: 8,
         fontWeight: typography.bold,
         color: colors.voidBlack,
-        background: colors.phosphorGreen,
-        padding: '2px 4px',
-        letterSpacing: '0.05em',
-    },
-    trialBadge: {
-        fontFamily: typography.fontMono,
-        fontSize: 9,
-        color: colors.signalAmber,
-        border: `1px solid ${colors.signalAmber}`,
-        padding: '2px 4px',
-        letterSpacing: '0.05em',
+        background: colors.accentCyan,
+        padding: '2px 5px',
+        borderRadius: 2,
+        marginLeft: spacing.xs,
     },
     scorePill: {
-        border: '1px solid',
-        padding: '2px 8px',
+        padding: '3px 8px',
+        background: colors.surfaceDark,
+        borderRadius: borderRadius.sm,
     },
     scoreValue: {
         fontFamily: typography.fontMono,
-        fontSize: typography.sizeSm,
+        fontSize: 12,
         fontWeight: typography.bold,
     },
     iconBtn: {
@@ -697,7 +685,8 @@ const s: { [key: string]: React.CSSProperties } = {
         height: 28,
         background: 'transparent',
         border: `1px solid ${colors.borderIdle}`,
-        color: colors.textDim,
+        borderRadius: borderRadius.sm,
+        color: colors.textMuted,
         cursor: 'pointer',
         display: 'flex',
         alignItems: 'center',
@@ -705,65 +694,87 @@ const s: { [key: string]: React.CSSProperties } = {
         transition: transitions.fast,
     },
     statusBar: {
-        background: colors.panelGrey,
-        color: colors.phosphorGreen,
+        background: colors.surfaceDark,
+        color: colors.textSecondary,
         padding: `${spacing.sm}px ${spacing.lg}px`,
         fontFamily: typography.fontMono,
-        fontSize: typography.sizeXs,
+        fontSize: 10,
         letterSpacing: '0.05em',
         borderBottom: `1px solid ${colors.borderIdle}`,
     },
     heroSection: {
-        display: 'flex',
-        flexDirection: 'column',
-        gap: spacing.sm,
         padding: spacing.lg,
         background: colors.panelGrey,
         borderBottom: `1px solid ${colors.borderIdle}`,
     },
     heroBtn: {
+        width: '100%',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         gap: spacing.sm,
-        padding: spacing.md,
-        background: colors.phosphorGreen,
-        border: 'none',
-        color: colors.voidBlack,
+        padding: `${spacing.md}px ${spacing.lg}px`,
+        background: colors.surfaceLight,
+        border: `1px solid ${colors.borderIdle}`,
+        borderRadius: borderRadius.md,
+        color: colors.textPrimary,
         fontFamily: typography.fontMono,
-        fontSize: typography.sizeSm,
-        fontWeight: typography.bold,
+        fontSize: 12,
+        fontWeight: typography.semibold,
         letterSpacing: '0.1em',
         cursor: 'pointer',
-        flexWrap: 'wrap',
+        transition: transitions.normal,
     },
-    heroSub: {
-        width: '100%',
-        fontSize: typography.sizeXs,
-        fontWeight: typography.normal,
-        opacity: 0.8,
+    heroBtnSuccess: {
+        background: 'rgba(0, 255, 136, 0.1)',
+        borderColor: 'rgba(0, 255, 136, 0.3)',
+        color: colors.phosphorGreen,
+    },
+    heroBtnWarning: {
+        background: 'rgba(255, 170, 0, 0.08)',
+        borderColor: 'rgba(255, 170, 0, 0.25)',
+        color: colors.signalAmber,
+    },
+    heroBadge: {
+        fontFamily: typography.fontMono,
+        fontSize: 11,
+        fontWeight: typography.bold,
+        padding: '2px 6px',
+        background: 'rgba(255, 255, 255, 0.1)',
+        borderRadius: 3,
+    },
+    heroCount: {
+        fontFamily: typography.fontMono,
+        fontSize: 10,
+        color: colors.textMuted,
+        marginLeft: spacing.xs,
     },
     spinner: {
-        width: 16,
-        height: 16,
-        border: `2px solid ${colors.voidBlack}`,
-        borderTopColor: 'transparent',
+        width: 14,
+        height: 14,
+        border: `2px solid ${colors.borderIdle}`,
+        borderTopColor: colors.accentCyan,
+        borderRadius: '50%',
         animation: 'spin 0.8s linear infinite',
     },
-    secondaryBtns: {
+    actionRow: {
         display: 'flex',
-        justifyContent: 'center',
         gap: spacing.sm,
+        marginTop: spacing.sm,
     },
-    secBtn: {
-        width: 36,
-        height: 32,
+    actionBtn: {
+        flex: 1,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
+        gap: 6,
+        padding: `${spacing.sm}px`,
         background: 'transparent',
         border: `1px solid ${colors.borderIdle}`,
-        color: colors.textDim,
+        borderRadius: borderRadius.sm,
+        color: colors.textMuted,
+        fontFamily: typography.fontFamily,
+        fontSize: 11,
         cursor: 'pointer',
         transition: transitions.fast,
     },
@@ -771,53 +782,41 @@ const s: { [key: string]: React.CSSProperties } = {
         display: 'flex',
         alignItems: 'center',
         gap: spacing.md,
-        padding: spacing.lg,
-        background: colors.warningBg,
-        borderBottom: `1px solid ${colors.signalAmber}`,
+        padding: `${spacing.sm}px ${spacing.lg}px`,
+        background: colors.surfaceDark,
+        borderBottom: `1px solid ${colors.borderIdle}`,
     },
-    setupIcon: {
-        color: colors.signalAmber,
-        fontSize: 18,
-    },
-    setupText: {
+    setupContent: {
         flex: 1,
     },
     setupTitle: {
+        display: 'block',
         fontFamily: typography.fontMono,
-        fontSize: typography.sizeSm,
-        color: colors.signalAmber,
-        letterSpacing: '0.05em',
+        fontSize: 11,
+        color: colors.textSecondary,
     },
     setupDesc: {
-        fontSize: typography.sizeXs,
+        display: 'block',
+        fontSize: 10,
         color: colors.textDim,
         marginTop: 2,
     },
     setupBtn: {
         padding: `${spacing.xs}px ${spacing.md}px`,
-        background: colors.signalAmber,
-        border: 'none',
-        color: colors.voidBlack,
+        background: 'transparent',
+        border: `1px solid ${colors.borderIdle}`,
+        borderRadius: borderRadius.sm,
+        color: colors.textMuted,
         fontFamily: typography.fontMono,
-        fontSize: typography.sizeXs,
-        fontWeight: typography.bold,
+        fontSize: 10,
         cursor: 'pointer',
     },
     searchWrap: {
-        padding: `${spacing.sm}px ${spacing.lg}px`,
-        background: colors.panelGrey,
-    },
-    searchBox: {
         display: 'flex',
         alignItems: 'center',
-        gap: spacing.sm,
-        background: colors.voidBlack,
-        border: `1px solid ${colors.borderIdle}`,
-        padding: `${spacing.sm}px ${spacing.md}px`,
-    },
-    searchIcon: {
-        color: colors.textDim,
-        fontSize: 12,
+        padding: `${spacing.sm}px ${spacing.lg}px`,
+        background: colors.surfaceDark,
+        borderBottom: `1px solid ${colors.borderIdle}`,
     },
     searchInput: {
         flex: 1,
@@ -825,7 +824,7 @@ const s: { [key: string]: React.CSSProperties } = {
         border: 'none',
         outline: 'none',
         color: colors.textPrimary,
-        fontSize: typography.sizeSm,
+        fontSize: 13,
         fontFamily: typography.fontFamily,
     },
     searchClear: {
@@ -833,7 +832,8 @@ const s: { [key: string]: React.CSSProperties } = {
         border: 'none',
         color: colors.textDim,
         cursor: 'pointer',
-        fontSize: 12,
+        fontSize: 16,
+        padding: 4,
     },
     tabList: {
         flex: 1,
@@ -849,15 +849,16 @@ const s: { [key: string]: React.CSSProperties } = {
         borderBottom: `1px solid ${colors.borderIdle}`,
     },
     tabItemHover: {
-        background: colors.panelGrey,
+        background: colors.surfaceDark,
     },
     tabItemActive: {
-        borderLeft: `2px solid ${colors.phosphorGreen}`,
+        borderLeft: `2px solid ${colors.accentCyan}`,
         paddingLeft: spacing.lg - 2,
     },
     favicon: {
         width: 16,
         height: 16,
+        borderRadius: 2,
         flexShrink: 0,
     },
     tabInfo: {
@@ -865,14 +866,14 @@ const s: { [key: string]: React.CSSProperties } = {
         minWidth: 0,
     },
     tabTitle: {
-        fontSize: typography.sizeSm,
+        fontSize: 13,
         color: colors.textSecondary,
         whiteSpace: 'nowrap',
         overflow: 'hidden',
         textOverflow: 'ellipsis',
     },
     tabUrl: {
-        fontSize: typography.sizeXs,
+        fontSize: 11,
         color: colors.textDim,
         marginTop: 1,
         whiteSpace: 'nowrap',
@@ -886,7 +887,7 @@ const s: { [key: string]: React.CSSProperties } = {
         border: 'none',
         color: colors.textDim,
         cursor: 'pointer',
-        fontSize: 12,
+        fontSize: 14,
         transition: transitions.fast,
     },
     panel: {
@@ -905,10 +906,20 @@ const s: { [key: string]: React.CSSProperties } = {
     },
     panelTitle: {
         fontFamily: typography.fontMono,
-        fontSize: typography.sizeSm,
-        fontWeight: typography.bold,
+        fontSize: 12,
+        fontWeight: typography.semibold,
         color: colors.textPrimary,
         letterSpacing: '0.05em',
+    },
+    panelAction: {
+        padding: `${spacing.xs}px ${spacing.sm}px`,
+        background: 'transparent',
+        border: `1px solid ${colors.criticalRed}`,
+        borderRadius: borderRadius.sm,
+        color: colors.criticalRed,
+        fontFamily: typography.fontMono,
+        fontSize: 10,
+        cursor: 'pointer',
     },
     panelContent: {
         flex: 1,
@@ -925,18 +936,9 @@ const s: { [key: string]: React.CSSProperties } = {
         marginTop: 0,
         background: 'transparent',
         border: `1px solid ${colors.borderIdle}`,
+        borderRadius: borderRadius.sm,
         color: colors.textMuted,
-        fontFamily: typography.fontMono,
-        fontSize: typography.sizeSm,
-        cursor: 'pointer',
-    },
-    dangerBtn: {
-        padding: `${spacing.xs}px ${spacing.md}px`,
-        background: colors.errorBg,
-        border: `1px solid ${colors.criticalRed}`,
-        color: colors.criticalRed,
-        fontFamily: typography.fontMono,
-        fontSize: typography.sizeXs,
+        fontSize: 12,
         cursor: 'pointer',
     },
     emptyState: {
@@ -947,46 +949,40 @@ const s: { [key: string]: React.CSSProperties } = {
         padding: spacing.xxxl,
         textAlign: 'center',
     },
-    emptyIcon: {
-        fontSize: 32,
-        color: colors.phosphorGreen,
-        marginBottom: spacing.md,
-    },
     emptyTitle: {
         fontFamily: typography.fontMono,
-        fontSize: typography.sizeSm,
-        fontWeight: typography.bold,
-        color: colors.textPrimary,
-        letterSpacing: '0.05em',
+        fontSize: 12,
+        color: colors.textSecondary,
+        marginTop: spacing.md,
     },
     emptyDesc: {
-        fontSize: typography.sizeXs,
+        fontSize: 11,
         color: colors.textDim,
         marginTop: spacing.xs,
     },
-    dupeItem: {
+    listItem: {
         display: 'flex',
         alignItems: 'center',
         gap: spacing.md,
         padding: spacing.md,
-        background: colors.panelGrey,
-        border: `1px solid ${colors.borderIdle}`,
+        background: colors.surfaceDark,
+        borderRadius: borderRadius.sm,
         marginBottom: spacing.sm,
     },
-    dupeInfo: {
+    listInfo: {
         flex: 1,
         minWidth: 0,
     },
-    dupeTitle: {
-        fontSize: typography.sizeSm,
+    listTitle: {
+        fontSize: 12,
         color: colors.textSecondary,
         whiteSpace: 'nowrap',
         overflow: 'hidden',
         textOverflow: 'ellipsis',
     },
-    dupeCount: {
+    listMeta: {
         fontFamily: typography.fontMono,
-        fontSize: typography.sizeXs,
+        fontSize: 10,
         color: colors.signalAmber,
         marginTop: 2,
     },
@@ -997,9 +993,8 @@ const s: { [key: string]: React.CSSProperties } = {
         justifyContent: 'center',
         padding: spacing.xxxl,
         gap: spacing.md,
-        color: colors.textDim,
-        fontFamily: typography.fontMono,
-        fontSize: typography.sizeSm,
+        color: colors.textMuted,
+        fontSize: 12,
     },
     actionCards: {
         display: 'flex',
@@ -1007,55 +1002,58 @@ const s: { [key: string]: React.CSSProperties } = {
         gap: spacing.sm,
     },
     actionCard: {
-        display: 'flex',
-        flexDirection: 'column',
-        gap: spacing.md,
-        padding: spacing.lg,
-        background: colors.panelGrey,
+        padding: spacing.md,
+        background: colors.surfaceDark,
+        borderRadius: borderRadius.sm,
         border: `1px solid ${colors.borderIdle}`,
     },
-    actionHeader: {
+    cardHeader: {
         display: 'flex',
         alignItems: 'center',
-        gap: spacing.md,
+        justifyContent: 'space-between',
+        marginBottom: spacing.xs,
     },
-    actionIcon: {
-        fontSize: 16,
-    },
-    actionInfo: {
-        flex: 1,
-    },
-    actionTitle: {
+    cardTitle: {
         fontFamily: typography.fontMono,
-        fontSize: typography.sizeSm,
-        fontWeight: typography.bold,
+        fontSize: 11,
+        fontWeight: typography.semibold,
         color: colors.textPrimary,
-        letterSpacing: '0.05em',
     },
-    actionDesc: {
-        fontSize: typography.sizeXs,
-        color: colors.textDim,
-        marginTop: 2,
-    },
-    actionBtn: {
-        padding: `${spacing.sm}px ${spacing.md}px`,
-        background: colors.phosphorGreen,
-        border: 'none',
-        color: colors.voidBlack,
+    cardBadge: {
         fontFamily: typography.fontMono,
-        fontSize: typography.sizeXs,
-        fontWeight: typography.bold,
-        cursor: 'pointer',
-        alignSelf: 'flex-start',
+        fontSize: 10,
+        color: colors.accentCyan,
+        background: 'rgba(0, 212, 255, 0.1)',
+        padding: '2px 6px',
+        borderRadius: 3,
     },
-    healthCard: {
+    cardDesc: {
+        fontSize: 11,
+        color: colors.textDim,
+        marginBottom: spacing.sm,
+    },
+    cardBtn: {
+        padding: `${spacing.xs}px ${spacing.md}px`,
+        background: 'transparent',
+        border: `1px solid ${colors.borderIdle}`,
+        borderRadius: borderRadius.sm,
+        color: colors.textSecondary,
+        fontFamily: typography.fontMono,
+        fontSize: 10,
+        cursor: 'pointer',
+    },
+    scoreCard: {
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        position: 'relative',
         marginBottom: spacing.xl,
     },
-    healthValue: {
+    scoreRing: {
+        position: 'relative',
+        width: 100,
+        height: 100,
+    },
+    scoreInner: {
         position: 'absolute',
         top: 0,
         left: 0,
@@ -1065,36 +1063,42 @@ const s: { [key: string]: React.CSSProperties } = {
         alignItems: 'center',
         justifyContent: 'center',
     },
-    healthLabel: {
+    scoreNum: {
         fontFamily: typography.fontMono,
-        fontSize: typography.sizeXs,
+        fontSize: 28,
         fontWeight: typography.bold,
+    },
+    scoreLabel: {
+        fontFamily: typography.fontMono,
+        fontSize: 10,
+        fontWeight: typography.semibold,
         marginTop: spacing.sm,
-        letterSpacing: '0.05em',
+        letterSpacing: '0.1em',
     },
     statsGrid: {
         display: 'grid',
         gridTemplateColumns: 'repeat(4, 1fr)',
         gap: spacing.sm,
     },
-    statBox: {
-        background: colors.panelGrey,
-        border: `1px solid ${colors.borderIdle}`,
+    statItem: {
+        background: colors.surfaceDark,
+        borderRadius: borderRadius.sm,
         padding: spacing.md,
         textAlign: 'center',
     },
     statValue: {
+        display: 'block',
         fontFamily: typography.fontMono,
-        fontSize: typography.sizeLg,
+        fontSize: 16,
         fontWeight: typography.bold,
-        color: colors.phosphorGreen,
+        color: colors.textPrimary,
     },
     statLabel: {
-        fontFamily: typography.fontMono,
-        fontSize: typography.sizeXs,
+        display: 'block',
+        fontSize: 9,
         color: colors.textDim,
         marginTop: 2,
-        letterSpacing: '0.05em',
+        textTransform: 'uppercase',
     },
     upgradeContent: {
         flex: 1,
@@ -1105,71 +1109,58 @@ const s: { [key: string]: React.CSSProperties } = {
         padding: spacing.xxl,
         textAlign: 'center',
     },
-    upgradeIcon: {
-        fontSize: 32,
-        color: colors.phosphorGreen,
-        marginBottom: spacing.md,
+    upgradeHeader: {
+        marginBottom: spacing.lg,
     },
     upgradeTitle: {
+        display: 'block',
         fontFamily: typography.fontMono,
-        fontSize: typography.sizeLg,
-        fontWeight: typography.bold,
+        fontSize: 14,
+        fontWeight: typography.semibold,
         color: colors.textPrimary,
-        letterSpacing: '0.1em',
+        marginBottom: spacing.sm,
     },
     upgradePrice: {
         fontFamily: typography.fontMono,
-        fontSize: 28,
+        fontSize: 32,
         fontWeight: typography.bold,
         color: colors.textPrimary,
-        marginTop: spacing.sm,
     },
     upgradePriceNote: {
-        fontSize: typography.sizeSm,
-        fontWeight: typography.normal,
+        display: 'block',
+        fontSize: 11,
         color: colors.textDim,
+        marginTop: 2,
     },
     upgradeFeatures: {
         listStyle: 'none',
         padding: 0,
-        margin: `${spacing.lg}px 0`,
+        margin: `${spacing.md}px 0 ${spacing.lg}px`,
         textAlign: 'left',
-        fontFamily: typography.fontMono,
-        fontSize: typography.sizeSm,
-        color: colors.textMuted,
+        fontSize: 12,
+        color: colors.textSecondary,
         lineHeight: 2,
     },
     upgradeBtn: {
         width: '100%',
         padding: spacing.md,
-        background: colors.phosphorGreen,
+        background: colors.accentCyan,
         border: 'none',
+        borderRadius: borderRadius.sm,
         color: colors.voidBlack,
         fontFamily: typography.fontMono,
-        fontSize: typography.sizeSm,
+        fontSize: 12,
         fontWeight: typography.bold,
-        letterSpacing: '0.1em',
         cursor: 'pointer',
         marginBottom: spacing.sm,
     },
-    refreshBtn: {
+    refreshLink: {
         background: 'transparent',
         border: 'none',
         color: colors.textDim,
-        fontFamily: typography.fontMono,
-        fontSize: typography.sizeXs,
+        fontSize: 11,
         cursor: 'pointer',
         padding: spacing.sm,
-    },
-    scanlines: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        pointerEvents: 'none',
-        background: scanlineOverlay,
-        opacity: 0.3,
     },
 };
 
@@ -1183,17 +1174,33 @@ styleSheet.textContent = `
         to { transform: rotate(360deg); }
     }
 
+    @keyframes mgs-flicker {
+        0%, 100% { opacity: 1; }
+        92% { opacity: 1; }
+        93% { opacity: 0.8; }
+        94% { opacity: 1; }
+        96% { opacity: 0.9; }
+        97% { opacity: 1; }
+    }
+
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
     input::placeholder { color: ${colors.textDim}; }
 
-    button:hover:not(:disabled) { border-color: ${colors.borderHover} !important; }
+    button:hover:not(:disabled) {
+        border-color: ${colors.borderHover} !important;
+        color: ${colors.textSecondary} !important;
+    }
     button:active:not(:disabled) { opacity: 0.8; }
     button:disabled { opacity: 0.5; cursor: not-allowed; }
 
+    .mgs-text {
+        animation: mgs-flicker 8s infinite;
+    }
+
     ::-webkit-scrollbar { width: 4px; }
     ::-webkit-scrollbar-track { background: ${colors.voidBlack}; }
-    ::-webkit-scrollbar-thumb { background: ${colors.borderIdle}; }
+    ::-webkit-scrollbar-thumb { background: ${colors.borderIdle}; border-radius: 2px; }
     ::-webkit-scrollbar-thumb:hover { background: ${colors.borderHover}; }
 `;
 document.head.appendChild(styleSheet);
