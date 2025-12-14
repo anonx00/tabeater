@@ -3,6 +3,7 @@ import { tabService, TabInfo } from '../services/tabs';
 import { licenseService } from '../services/license';
 import { autoPilotService } from '../services/autopilot';
 import { memoryService } from '../services/memory.service';
+import { TabManager } from './tab-manager';
 
 interface Message {
     action: string;
@@ -330,6 +331,16 @@ async function handleMessage(message: Message): Promise<MessageResponse> {
             const groupResult = await autoPilotService.executeGrouping(message.payload.groups);
             return { success: true, data: groupResult };
 
+        // Contextual Tab Grouping - groups based on page content analysis
+        case 'contextualGroup':
+            // Check if user has PRO license
+            const contextualStatus = await licenseService.getStatus();
+            if (!contextualStatus.paid) {
+                return { success: false, error: 'TRIAL_EXPIRED: Contextual grouping requires Pro license' };
+            }
+            const contextualResult = await contextualGroupTabs();
+            return contextualResult;
+
         case 'getAutoPilotSettings':
             const settings = await autoPilotService.loadSettings();
             return { success: true, data: settings };
@@ -631,6 +642,36 @@ Return JSON array:
         };
     } catch (err: any) {
         return { success: false, error: err.message };
+    }
+}
+
+// Contextual Tab Grouping - analyzes page content for smarter grouping
+const tabManager = new TabManager();
+
+async function contextualGroupTabs(): Promise<MessageResponse> {
+    try {
+        const result = await tabManager.applyContextualGroups();
+
+        if (result.success && result.groups.length > 0) {
+            return {
+                success: true,
+                data: {
+                    groups: result.groups,
+                    message: `Created ${result.groups.length} contextual groups: ${result.groups.join(', ')}`
+                }
+            };
+        } else {
+            return {
+                success: true,
+                data: {
+                    groups: [],
+                    message: 'No contextual groups could be created (need at least 2 related tabs)'
+                }
+            };
+        }
+    } catch (err: any) {
+        console.error('Contextual grouping failed:', err);
+        return { success: false, error: err.message || 'Contextual grouping failed' };
     }
 }
 
