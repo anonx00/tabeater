@@ -44,16 +44,32 @@ interface NanoStatus {
 interface APIUsageStats {
     totalCalls: number;
     todayCalls: number;
+    hourCalls: number;
     lastCallDate: string;
+    lastCallHour: number;
     estimatedCost: number; // in cents
 }
+
+// Rate limits for fly mode auto-grouping
+const RATE_LIMITS = {
+    maxPerHour: 30,       // Max 30 calls per hour
+    maxPerDay: 100,       // Max 100 calls per day
+    warningThreshold: 0.8 // Warn at 80% of limit
+};
 
 class AIService {
     private session: AISession | null = null;
     private provider: AIProvider = 'none';
     private config: AIConfig = {};
     private nanoStatus: NanoStatus = { available: false, status: 'not_available', message: 'Not checked' };
-    private usageStats: APIUsageStats = { totalCalls: 0, todayCalls: 0, lastCallDate: '', estimatedCost: 0 };
+    private usageStats: APIUsageStats = {
+        totalCalls: 0,
+        todayCalls: 0,
+        hourCalls: 0,
+        lastCallDate: '',
+        lastCallHour: -1,
+        estimatedCost: 0
+    };
 
     async initialize(): Promise<AIProvider> {
         const stored = await chrome.storage.local.get(['aiConfig', 'apiUsageStats']);
@@ -61,14 +77,10 @@ class AIService {
             this.config = stored.aiConfig;
         }
         if (stored.apiUsageStats) {
-            this.usageStats = stored.apiUsageStats;
-            // Reset daily counter if it's a new day
-            const today = new Date().toISOString().split('T')[0];
-            if (this.usageStats.lastCallDate !== today) {
-                this.usageStats.todayCalls = 0;
-                this.usageStats.lastCallDate = today;
-            }
+            this.usageStats = { ...this.usageStats, ...stored.apiUsageStats };
         }
+        // Reset counters if needed
+        this.resetCountersIfNeeded();
 
         if (await this.initializeNano()) {
             this.provider = 'nano';
@@ -235,18 +247,73 @@ class AIService {
         return this.nanoStatus;
     }
 
-    // Track API usage (cost estimates in cents per call)
-    private async trackAPIUsage(provider: string): Promise<void> {
-        const today = new Date().toISOString().split('T')[0];
+    // Reset counters if day/hour changed
+    private resetCountersIfNeeded(): void {
+        const now = new Date();
+        const today = now.toISOString().split('T')[0];
+        const currentHour = now.getHours();
 
         // Reset daily counter if new day
         if (this.usageStats.lastCallDate !== today) {
             this.usageStats.todayCalls = 0;
+            this.usageStats.hourCalls = 0;
             this.usageStats.lastCallDate = today;
+            this.usageStats.lastCallHour = currentHour;
         }
+
+        // Reset hourly counter if new hour
+        if (this.usageStats.lastCallHour !== currentHour) {
+            this.usageStats.hourCalls = 0;
+            this.usageStats.lastCallHour = currentHour;
+        }
+    }
+
+    // Check if we can make an API call (rate limiting)
+    async canMakeCall(): Promise<{ allowed: boolean; reason?: string; warning?: string }> {
+        this.resetCountersIfNeeded();
+
+        // Nano is free - no limits
+        if (this.provider === 'nano') {
+            return { allowed: true };
+        }
+
+        // Check hourly limit
+        if (this.usageStats.hourCalls >= RATE_LIMITS.maxPerHour) {
+            return {
+                allowed: false,
+                reason: `Hourly limit reached (${RATE_LIMITS.maxPerHour}/hr). Resets at the next hour.`
+            };
+        }
+
+        // Check daily limit
+        if (this.usageStats.todayCalls >= RATE_LIMITS.maxPerDay) {
+            return {
+                allowed: false,
+                reason: `Daily limit reached (${RATE_LIMITS.maxPerDay}/day). Resets at midnight.`
+            };
+        }
+
+        // Warning if approaching limits
+        const hourlyUsage = this.usageStats.hourCalls / RATE_LIMITS.maxPerHour;
+        const dailyUsage = this.usageStats.todayCalls / RATE_LIMITS.maxPerDay;
+
+        if (hourlyUsage >= RATE_LIMITS.warningThreshold || dailyUsage >= RATE_LIMITS.warningThreshold) {
+            return {
+                allowed: true,
+                warning: `API usage high: ${this.usageStats.hourCalls}/${RATE_LIMITS.maxPerHour} this hour, ${this.usageStats.todayCalls}/${RATE_LIMITS.maxPerDay} today`
+            };
+        }
+
+        return { allowed: true };
+    }
+
+    // Track API usage (cost estimates in cents per call)
+    private async trackAPIUsage(provider: string): Promise<void> {
+        this.resetCountersIfNeeded();
 
         this.usageStats.totalCalls++;
         this.usageStats.todayCalls++;
+        this.usageStats.hourCalls++;
 
         // Estimate cost per call (in cents) - rough estimates for typical usage
         // Nano is free, cloud providers vary
@@ -262,9 +329,16 @@ class AIService {
         await chrome.storage.local.set({ apiUsageStats: this.usageStats });
     }
 
-    // Get API usage stats
-    getUsageStats(): APIUsageStats {
-        return { ...this.usageStats };
+    // Get API usage stats with limits info
+    getUsageStats(): APIUsageStats & { limits: typeof RATE_LIMITS; nearLimit: boolean } {
+        this.resetCountersIfNeeded();
+        const hourlyUsage = this.usageStats.hourCalls / RATE_LIMITS.maxPerHour;
+        const dailyUsage = this.usageStats.todayCalls / RATE_LIMITS.maxPerDay;
+        return {
+            ...this.usageStats,
+            limits: RATE_LIMITS,
+            nearLimit: hourlyUsage >= RATE_LIMITS.warningThreshold || dailyUsage >= RATE_LIMITS.warningThreshold
+        };
     }
 
     async prompt(text: string): Promise<string> {

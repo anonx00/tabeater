@@ -141,6 +141,7 @@ const OptionsPage: React.FC = () => {
     const [trialInfo, setTrialInfo] = useState<{ daysRemaining: number; startDate: string; endDate: string } | null>(null);
     const [deviceInfo, setDeviceInfo] = useState<{ devices: { deviceId: string; lastActive: string; current: boolean }[]; maxDevices: number } | null>(null);
     const [showDevices, setShowDevices] = useState(false);
+    const [apiUsage, setApiUsage] = useState<{ totalCalls: number; todayCalls: number; hourCalls: number; estimatedCost: number; limits: { maxPerHour: number; maxPerDay: number }; nearLimit: boolean } | null>(null);
     const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     // Load data
@@ -148,6 +149,7 @@ const OptionsPage: React.FC = () => {
         loadConfig();
         loadLicense();
         loadAutoPilotSettings();
+        loadApiUsage();
         loadTrialInfo();
     }, []);
 
@@ -214,6 +216,11 @@ const OptionsPage: React.FC = () => {
     const loadDeviceInfo = async () => {
         const response = await chrome.runtime.sendMessage({ action: 'getDevices' });
         if (response.success && response.data) setDeviceInfo(response.data);
+    };
+
+    const loadApiUsage = async () => {
+        const response = await chrome.runtime.sendMessage({ action: 'getAPIUsageStats' });
+        if (response.success) setApiUsage(response.data);
     };
 
     const removeDevice = async (deviceId: string) => {
@@ -558,6 +565,39 @@ const OptionsPage: React.FC = () => {
                                 </button>
                             </div>
                         </div>
+
+                        {/* API Usage Stats */}
+                        {apiUsage && activeProvider !== 'nano' && (
+                            <div style={s.usageSection}>
+                                <div style={s.usageHeader}>
+                                    <span style={s.usageTitle}>API_USAGE</span>
+                                    {apiUsage.nearLimit && (
+                                        <span style={s.usageWarning}>APPROACHING LIMIT</span>
+                                    )}
+                                </div>
+                                <div style={s.usageGrid}>
+                                    <div style={s.usageItem}>
+                                        <span style={s.usageValue}>{apiUsage.hourCalls}</span>
+                                        <span style={s.usageLabel}>/{apiUsage.limits.maxPerHour} hr</span>
+                                    </div>
+                                    <div style={s.usageItem}>
+                                        <span style={s.usageValue}>{apiUsage.todayCalls}</span>
+                                        <span style={s.usageLabel}>/{apiUsage.limits.maxPerDay} day</span>
+                                    </div>
+                                    <div style={s.usageItem}>
+                                        <span style={s.usageValue}>{apiUsage.totalCalls}</span>
+                                        <span style={s.usageLabel}>total</span>
+                                    </div>
+                                    <div style={s.usageItem}>
+                                        <span style={s.usageValue}>${(apiUsage.estimatedCost / 100).toFixed(2)}</span>
+                                        <span style={s.usageLabel}>est. cost</span>
+                                    </div>
+                                </div>
+                                <div style={s.usageNote}>
+                                    Fly mode uses AI to group tabs. Limits reset hourly/daily.
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
 
@@ -1121,6 +1161,64 @@ const s: { [key: string]: React.CSSProperties } = {
     toggleOn: {
         borderColor: colors.phosphorGreen,
         color: colors.phosphorGreen,
+    },
+    usageSection: {
+        marginTop: spacing.xxl,
+        padding: spacing.lg,
+        background: colors.panelGrey,
+        border: `1px solid ${colors.borderIdle}`,
+        borderRadius: borderRadius.sm,
+    },
+    usageHeader: {
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: spacing.md,
+    },
+    usageTitle: {
+        fontFamily: typography.fontMono,
+        fontSize: typography.sizeSm,
+        color: colors.textPrimary,
+        letterSpacing: '0.05em',
+    },
+    usageWarning: {
+        fontFamily: typography.fontMono,
+        fontSize: 9,
+        color: colors.signalAmber,
+        background: 'rgba(255, 170, 0, 0.1)',
+        padding: '2px 6px',
+        borderRadius: 2,
+    },
+    usageGrid: {
+        display: 'grid',
+        gridTemplateColumns: 'repeat(4, 1fr)',
+        gap: spacing.sm,
+    },
+    usageItem: {
+        textAlign: 'center',
+        padding: spacing.sm,
+        background: colors.voidBlack,
+        borderRadius: borderRadius.sm,
+    },
+    usageValue: {
+        display: 'block',
+        fontFamily: typography.fontMono,
+        fontSize: typography.sizeLg,
+        fontWeight: typography.bold,
+        color: colors.textPrimary,
+    },
+    usageLabel: {
+        display: 'block',
+        fontFamily: typography.fontMono,
+        fontSize: 9,
+        color: colors.textDim,
+        marginTop: 2,
+    },
+    usageNote: {
+        marginTop: spacing.md,
+        fontSize: typography.sizeXs,
+        color: colors.textDim,
+        textAlign: 'center',
     },
     licenseActive: {
         padding: spacing.xxxl,

@@ -756,69 +756,52 @@ Give 2-3 actionable recommendations for better tab hygiene. Be concise.`;
         return colorMap[category] || 'grey';
     }
 
-    // Find the best existing group for a new tab (NO AI - pattern matching only)
+    // AI-powered: Find the best existing group for a new tab
     private async findBestGroupForTab(tab: TabInfo): Promise<chrome.tabGroups.TabGroup | null> {
         // Get existing tab groups in this window
         const groups = await chrome.tabGroups.query({ windowId: tab.windowId });
         if (groups.length === 0) return null;
 
-        // Get the tab's category using pattern matching (FREE - no API call)
-        const category = this.categorizeTab(tab);
+        // Check if we can make an AI call (rate limiting)
+        const canUseAI = await aiService.canMakeCall();
+        if (!canUseAI.allowed) {
+            console.log(`[AutoPilot] AI limit reached: ${canUseAI.reason}`);
+            return null; // Skip grouping when limit reached
+        }
 
-        // If "Other" category, try domain-based matching
-        if (category === 'Other') {
-            try {
-                const domain = new URL(tab.url).hostname.replace('www.', '').split('.')[0];
-                // Try to find a group that matches the domain name
-                const domainMatch = groups.find(g => {
-                    const groupName = g.title?.toLowerCase() || '';
-                    return groupName.includes(domain) || domain.includes(groupName);
-                });
-                if (domainMatch) return domainMatch;
-            } catch {
-                // URL parsing failed, skip domain matching
-            }
+        try {
+            // Get group names
+            const groupNames = groups.map(g => g.title || 'Unnamed').join(', ');
+
+            // Ask AI which group fits best
+            const response = await aiService.prompt(
+                `Which group should this tab belong to? Return ONLY the group name or "none".
+
+Tab: ${tab.title} (${new URL(tab.url).hostname})
+
+Available groups: ${groupNames}
+
+Rules:
+- Match by PURPOSE not just domain
+- AI tabs go to AI group
+- Dev/code tabs go to Dev group
+- Cloud consoles go to Cloud group
+- Return exact group name or "none" if no match`
+            );
+
+            const suggestedGroup = response.trim().toLowerCase();
+            if (suggestedGroup === 'none') return null;
+
+            // Find matching group (case-insensitive)
+            return groups.find(g =>
+                g.title?.toLowerCase() === suggestedGroup ||
+                g.title?.toLowerCase().includes(suggestedGroup) ||
+                suggestedGroup.includes(g.title?.toLowerCase() || '')
+            ) || null;
+        } catch (err) {
+            console.warn('[AutoPilot] AI grouping failed:', err);
             return null;
         }
-
-        // Try to match category to existing group names (case-insensitive)
-        const categoryLower = category.toLowerCase();
-
-        // Direct category match
-        const directMatch = groups.find(g => {
-            const groupName = g.title?.toLowerCase() || '';
-            return groupName === categoryLower ||
-                   groupName.includes(categoryLower) ||
-                   categoryLower.includes(groupName);
-        });
-
-        if (directMatch) return directMatch;
-
-        // Category aliases for flexible matching
-        const categoryAliases: { [key: string]: string[] } = {
-            'ai': ['ai', 'chat', 'assistant', 'gpt', 'claude', 'llm'],
-            'dev': ['dev', 'code', 'programming', 'github', 'development'],
-            'cloud': ['cloud', 'aws', 'azure', 'gcp', 'hosting'],
-            'social': ['social', 'twitter', 'facebook', 'reddit'],
-            'communication': ['comm', 'email', 'mail', 'slack', 'teams'],
-            'entertainment': ['entertainment', 'video', 'music', 'streaming', 'youtube'],
-            'news': ['news', 'reading', 'articles'],
-            'productivity': ['productivity', 'docs', 'work', 'office'],
-            'shopping': ['shopping', 'shop', 'store', 'buy'],
-            'finance': ['finance', 'money', 'bank', 'payment'],
-            'search': ['search', 'google']
-        };
-
-        const aliases = categoryAliases[categoryLower] || [categoryLower];
-
-        for (const group of groups) {
-            const groupName = group.title?.toLowerCase() || '';
-            if (aliases.some(alias => groupName.includes(alias) || alias.includes(groupName))) {
-                return group;
-            }
-        }
-
-        return null;
     }
 
     // Get the current autopilot mode
