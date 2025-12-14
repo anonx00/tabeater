@@ -467,37 +467,37 @@ const OptionsPage: React.FC = () => {
                         </div>
 
                         {/* 3-Stage Danger Slider */}
-                        <div style={{ ...s.sliderContainer, borderColor: autoPilotSettings.mode === 'fly-mode' ? colors.criticalRed : colors.borderIdle }}>
+                        <div style={{ ...s.sliderContainer, borderColor: autoPilotSettings.mode === 'fly-mode' ? colors.accentCyan : colors.borderIdle }}>
                             <div style={s.sliderTrack}>
                                 <button
-                                    style={{ ...s.sliderStop, ...(autoPilotSettings.mode === 'manual' ? s.sliderStopActive : {}), borderColor: colors.phosphorGreen, color: autoPilotSettings.mode === 'manual' ? colors.phosphorGreen : colors.textDim }}
+                                    style={{ ...s.sliderStop, ...(autoPilotSettings.mode === 'manual' ? s.sliderStopActive : {}), borderColor: colors.textMuted, color: autoPilotSettings.mode === 'manual' ? colors.textPrimary : colors.textDim }}
                                     onClick={() => handleModeChange('manual')}
                                 >
-                                    <span style={s.stopIcon}>&#9632;</span>
-                                    <span style={s.stopLabel}>MANUAL</span>
+                                    <span style={s.stopIcon}>◼</span>
+                                    <span style={s.stopLabel}>Manual</span>
                                     <span style={s.stopDesc}>AI suggests, you confirm</span>
                                 </button>
                                 <button
                                     style={{ ...s.sliderStop, ...(autoPilotSettings.mode === 'auto-cleanup' ? s.sliderStopActive : {}), borderColor: colors.signalAmber, color: autoPilotSettings.mode === 'auto-cleanup' ? colors.signalAmber : colors.textDim }}
                                     onClick={() => handleModeChange('auto-cleanup')}
                                 >
-                                    <span style={s.stopIcon}>&#9650;</span>
-                                    <span style={s.stopLabel}>AUTO_CLOSE</span>
+                                    <span style={s.stopIcon}>▲</span>
+                                    <span style={s.stopLabel}>Auto-Close</span>
                                     <span style={s.stopDesc}>Auto-closes duplicates</span>
                                 </button>
                                 <button
-                                    style={{ ...s.sliderStop, ...(autoPilotSettings.mode === 'fly-mode' ? s.sliderStopActive : {}), borderColor: colors.criticalRed, color: autoPilotSettings.mode === 'fly-mode' ? colors.criticalRed : colors.textDim }}
+                                    style={{ ...s.sliderStop, ...(autoPilotSettings.mode === 'fly-mode' ? s.sliderStopActive : {}), borderColor: colors.accentCyan, color: autoPilotSettings.mode === 'fly-mode' ? colors.accentCyan : colors.textDim }}
                                     onClick={() => handleModeChange('fly-mode')}
                                 >
-                                    <span style={s.stopIcon}>&#9660;</span>
-                                    <span style={s.stopLabel}>FLY_MODE</span>
+                                    <span style={s.stopIcon}>◆</span>
+                                    <span style={s.stopLabel}>Fly Mode</span>
                                     <span style={s.stopDesc}>Full autonomy</span>
                                 </button>
                             </div>
 
                             {autoPilotSettings.mode === 'fly-mode' && (
                                 <div style={s.warningTicker}>
-                                    &#9888; WARNING: EXPERIMENTAL &#9888; WARNING: EXPERIMENTAL &#9888; WARNING: EXPERIMENTAL &#9888;
+                                    Experimental feature · Tabs may be auto-grouped and duplicates closed
                                 </div>
                             )}
                         </div>
@@ -747,16 +747,14 @@ const s: { [key: string]: React.CSSProperties } = {
     },
     brandLogoWrap: {
         flexShrink: 0,
-        filter: `drop-shadow(0 0 8px ${colors.phosphorGreen})`,
     },
     brandText: {},
     brandName: {
         fontFamily: typography.fontMono,
         fontSize: typography.sizeLg,
         fontWeight: typography.bold,
-        color: colors.phosphorGreen,
-        letterSpacing: '0.1em',
-        textShadow: `0 0 10px ${colors.phosphorGreen}`,
+        color: colors.textPrimary,
+        letterSpacing: '0.15em',
     },
     brandTagline: {
         fontFamily: typography.fontMono,
@@ -789,11 +787,12 @@ const s: { [key: string]: React.CSSProperties } = {
         transition: `all ${transitions.normal}`,
     },
     navItemActive: {
-        background: 'rgba(57, 255, 20, 0.03)',
-        color: colors.phosphorGreen,
+        background: 'rgba(0, 212, 255, 0.05)',
+        color: colors.accentCyan,
+        borderLeftColor: colors.accentCyan,
     },
     navStatus: {
-        color: colors.phosphorGreen,
+        color: colors.accentCyan,
         fontSize: 10,
     },
     navBadge: {
@@ -1066,16 +1065,14 @@ const s: { [key: string]: React.CSSProperties } = {
     },
     warningTicker: {
         marginTop: spacing.lg,
-        padding: spacing.sm,
-        background: colors.errorBg,
-        color: colors.criticalRed,
-        fontFamily: typography.fontMono,
+        padding: `${spacing.sm}px ${spacing.md}px`,
+        background: 'rgba(0, 212, 255, 0.05)',
+        border: `1px solid rgba(0, 212, 255, 0.2)`,
+        borderRadius: borderRadius.sm,
+        color: colors.textSecondary,
+        fontFamily: typography.fontFamily,
         fontSize: typography.sizeXs,
-        letterSpacing: '0.05em',
         textAlign: 'center',
-        whiteSpace: 'nowrap',
-        overflow: 'hidden',
-        animation: 'ticker 10s linear infinite',
     },
     settingsGrid: {
         display: 'flex',

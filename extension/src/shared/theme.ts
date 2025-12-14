@@ -1,73 +1,79 @@
-// TabEater - Cassette Futurism Design System
-// Inspired by 1980s sci-fi interfaces (Alien, Blade Runner)
-// Tactile, high-contrast aesthetic with modern usability
+// TabEater - Premium Minimal Design System
+// Refined cassette futurism with MGS-inspired aesthetics
+// Sophisticated, high-contrast with subtle accents
 
 export const colors = {
-    // Core Palette
-    voidBlack: '#050505',      // Deepest background layer
-    panelGrey: '#111111',       // Cards, sidebars, inputs
-    phosphorGreen: '#39FF14',   // Primary action, active states
-    signalAmber: '#FFB000',     // Warning state
-    criticalRed: '#FF0055',     // Destructive actions, errors
+    // Core Palette - Refined
+    voidBlack: '#0a0a0a',       // Softer deep black
+    panelGrey: '#131313',       // Elevated surface
+    phosphorGreen: '#00FF88',   // Softer, more premium green
+    signalAmber: '#FFAA00',     // Warm amber
+    criticalRed: '#FF3366',     // Softer red
 
-    // Extended Greys
-    borderIdle: '#333333',
-    borderHover: '#FFFFFF',
-    borderFocus: '#39FF14',
-    surfaceDark: '#0a0a0a',
+    // Premium Accents
+    accentCyan: '#00D4FF',      // MGS codec blue
+    accentPurple: '#9966FF',    // Premium purple
+    accentGold: '#FFD700',      // Status gold
+
+    // Extended Greys - Refined
+    borderIdle: '#2a2a2a',
+    borderHover: '#4a4a4a',
+    borderFocus: '#00FF88',
+    surfaceDark: '#0d0d0d',
     surfaceLight: '#1a1a1a',
+    surfaceMid: '#171717',
 
-    // Text Colors
+    // Text Colors - Premium Hierarchy
     textPrimary: '#FFFFFF',
-    textSecondary: '#CCCCCC',
-    textMuted: '#888888',
-    textDim: '#555555',
+    textSecondary: '#B0B0B0',
+    textMuted: '#707070',
+    textDim: '#404040',
 
-    // State Colors
-    success: '#39FF14',
-    successBg: 'rgba(57, 255, 20, 0.05)',
-    warning: '#FFB000',
-    warningBg: 'rgba(255, 176, 0, 0.08)',
-    error: '#FF0055',
-    errorBg: 'rgba(255, 0, 85, 0.08)',
-    info: '#00AAFF',
-    infoBg: 'rgba(0, 170, 255, 0.08)',
+    // State Colors - Refined
+    success: '#00FF88',
+    successBg: 'rgba(0, 255, 136, 0.04)',
+    warning: '#FFAA00',
+    warningBg: 'rgba(255, 170, 0, 0.04)',
+    error: '#FF3366',
+    errorBg: 'rgba(255, 51, 102, 0.04)',
+    info: '#00D4FF',
+    infoBg: 'rgba(0, 212, 255, 0.04)',
 
     // Legacy aliases for compatibility
-    primary: '#39FF14',
-    primaryLight: '#5FFF4F',
-    primaryDark: '#2ACC10',
-    primaryBg: 'rgba(57, 255, 20, 0.05)',
-    primaryHover: 'rgba(57, 255, 20, 0.1)',
-    accent: '#00AAFF',
-    accentLight: '#33BBFF',
-    accentBg: 'rgba(0, 170, 255, 0.08)',
-    bgDarkest: '#050505',
-    bgDarker: '#0a0a0a',
-    bgDark: '#111111',
-    bgCard: '#111111',
+    primary: '#00FF88',
+    primaryLight: '#33FF99',
+    primaryDark: '#00CC6F',
+    primaryBg: 'rgba(0, 255, 136, 0.04)',
+    primaryHover: 'rgba(0, 255, 136, 0.08)',
+    accent: '#00D4FF',
+    accentLight: '#33DDFF',
+    accentBg: 'rgba(0, 212, 255, 0.04)',
+    bgDarkest: '#0a0a0a',
+    bgDarker: '#0d0d0d',
+    bgDark: '#131313',
+    bgCard: '#131313',
     bgCardHover: '#1a1a1a',
-    bgInput: '#0a0a0a',
+    bgInput: '#0d0d0d',
     bgElevated: '#1a1a1a',
-    borderDark: '#222222',
-    borderMedium: '#333333',
-    borderLight: '#444444',
-    textDimmer: '#444444',
-    textDimmest: '#333333',
-    successText: '#39FF14',
-    warningText: '#FFB000',
-    errorText: '#FF0055',
+    borderDark: '#1a1a1a',
+    borderMedium: '#2a2a2a',
+    borderLight: '#3a3a3a',
+    textDimmer: '#383838',
+    textDimmest: '#282828',
+    successText: '#00FF88',
+    warningText: '#FFAA00',
+    errorText: '#FF3366',
 
     // Provider colors
-    providerNano: '#39FF14',
+    providerNano: '#00FF88',
     providerGemini: '#4285f4',
     providerOpenai: '#10a37f',
     providerAnthropic: '#d4a574',
 
     // License colors
-    licensePro: '#39FF14',
-    licenseTrial: '#FFB000',
-    licenseExpired: '#FF0055',
+    licensePro: '#00FF88',
+    licenseTrial: '#FFAA00',
+    licenseExpired: '#FF3366',
 };
 
 export const spacing = {
@@ -83,7 +89,7 @@ export const spacing = {
 
 export const typography = {
     // Monospace for headers and data
-    fontMono: "'JetBrains Mono', 'Space Mono', 'SF Mono', 'Fira Code', 'Consolas', monospace",
+    fontMono: "'JetBrains Mono', 'SF Mono', 'Fira Code', 'Consolas', monospace",
     // Sans-serif for body text
     fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
 
@@ -112,47 +118,52 @@ export const typography = {
 export const borderRadius = {
     none: 0,
     xs: 2,
-    sm: 2,
-    md: 2,
-    lg: 2,
-    xl: 2,
+    sm: 3,
+    md: 4,
+    lg: 6,
+    xl: 8,
     full: 9999,
 };
 
 export const shadows = {
     none: 'none',
-    xs: 'none',
-    sm: 'none',
-    md: 'none',
-    lg: 'none',
-    xl: 'none',
-    glow: '0 0 10px rgba(57, 255, 20, 0.3)',
-    glowAmber: '0 0 10px rgba(255, 176, 0, 0.3)',
-    glowRed: '0 0 10px rgba(255, 0, 85, 0.3)',
-    focus: '0 0 0 1px #39FF14',
-    // Premium phantom glow effects
-    phantomGreen: '0 0 10px rgba(57, 255, 20, 0.4), inset 0 0 5px rgba(57, 255, 20, 0.1)',
-    phantomAmber: '0 0 10px rgba(255, 176, 0, 0.4), inset 0 0 5px rgba(255, 176, 0, 0.1)',
-    phantomRed: '0 0 10px rgba(255, 0, 85, 0.4), inset 0 0 5px rgba(255, 0, 85, 0.1)',
-    phantomBlue: '0 0 10px rgba(66, 133, 244, 0.4), inset 0 0 5px rgba(66, 133, 244, 0.1)',
+    xs: '0 1px 2px rgba(0, 0, 0, 0.2)',
+    sm: '0 2px 4px rgba(0, 0, 0, 0.2)',
+    md: '0 4px 8px rgba(0, 0, 0, 0.2)',
+    lg: '0 8px 16px rgba(0, 0, 0, 0.2)',
+    xl: '0 12px 24px rgba(0, 0, 0, 0.2)',
+    glow: '0 0 12px rgba(0, 255, 136, 0.2)',
+    glowAmber: '0 0 12px rgba(255, 170, 0, 0.2)',
+    glowRed: '0 0 12px rgba(255, 51, 102, 0.2)',
+    glowCyan: '0 0 12px rgba(0, 212, 255, 0.2)',
+    focus: '0 0 0 1px rgba(0, 255, 136, 0.5)',
+    // Premium phantom glow effects - subtle
+    phantomGreen: '0 0 20px rgba(0, 255, 136, 0.15)',
+    phantomAmber: '0 0 20px rgba(255, 170, 0, 0.15)',
+    phantomRed: '0 0 20px rgba(255, 51, 102, 0.15)',
+    phantomBlue: '0 0 20px rgba(0, 212, 255, 0.15)',
+    phantomCyan: '0 0 20px rgba(0, 212, 255, 0.15)',
     // Hover lift effect
-    hoverLift: '0 4px 12px rgba(0, 0, 0, 0.4)',
-    cardHover: '0 4px 8px rgba(0, 0, 0, 0.3)',
+    hoverLift: '0 6px 16px rgba(0, 0, 0, 0.3)',
+    cardHover: '0 4px 12px rgba(0, 0, 0, 0.25)',
+    // Inner glow
+    innerGlow: 'inset 0 1px 0 rgba(255, 255, 255, 0.03)',
 };
 
 export const transitions = {
     fast: '0.1s ease',
-    normal: '0.15s ease',
-    slow: '0.25s ease',
+    normal: '0.2s ease',
+    slow: '0.3s ease',
+    smooth: '0.25s cubic-bezier(0.4, 0, 0.2, 1)',
 };
 
-// Scanline overlay effect
+// Subtle scanline overlay - very minimal
 export const scanlineOverlay = `repeating-linear-gradient(
     0deg,
-    rgba(0, 0, 0, 0.1) 0px,
-    rgba(0, 0, 0, 0.1) 1px,
+    rgba(0, 0, 0, 0.03) 0px,
+    rgba(0, 0, 0, 0.03) 1px,
     transparent 1px,
-    transparent 2px
+    transparent 3px
 )`;
 
 export const effects = {
@@ -171,7 +182,7 @@ export const buttonBase: React.CSSProperties = {
     fontWeight: typography.medium,
     textTransform: 'uppercase',
     letterSpacing: typography.letterWide,
-    transition: `all ${transitions.fast}`,
+    transition: `all ${transitions.normal}`,
     outline: 'none',
 };
 
@@ -189,8 +200,8 @@ export const inputBase: React.CSSProperties = {
 
 export const faviconFallback = `data:image/svg+xml,${encodeURIComponent(`
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="${colors.textDim}">
-  <rect x="2" y="2" width="12" height="12" rx="0" fill="none" stroke="currentColor" stroke-width="1.5"/>
-  <rect x="6" y="6" width="4" height="4" fill="currentColor"/>
+  <rect x="2" y="2" width="12" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/>
+  <circle cx="8" cy="8" r="2" fill="currentColor"/>
 </svg>
 `)}`;
 
