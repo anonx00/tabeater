@@ -255,9 +255,14 @@ const Popup = () => {
             <header style={styles.header}>
                 <div style={styles.headerLeft}>
                     <div style={styles.logoIcon}>
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                            <circle cx="12" cy="12" r="10"/>
-                            <path d="M8 12l2 2 4-4"/>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                            {/* Tab shape */}
+                            <path d="M4 18V8C4 7.448 4.448 7 5 7H9L11 5H19C19.552 5 20 5.448 20 6V18C20 18.552 19.552 19 19 19H5C4.448 19 4 18.552 4 18Z" fill="#1c1c22" stroke="#323240" strokeWidth="0.75"/>
+                            {/* Bite mark */}
+                            <rect x="15" y="5" width="4" height="3" fill="#f97316"/>
+                            <rect x="19" y="8" width="1.5" height="2.5" fill="#f97316" opacity="0.7"/>
+                            {/* Dot */}
+                            <circle cx="16" cy="14" r="2" fill="#f97316"/>
                         </svg>
                     </div>
                     <span style={styles.logoText}>TabEater</span>
@@ -858,14 +863,15 @@ const styles: { [key: string]: React.CSSProperties } = {
         gap: spacing.xs,
     },
     logoIcon: {
-        width: 28,
-        height: 28,
-        background: colors.primary,
-        color: '#fff',
+        width: 32,
+        height: 32,
+        background: colors.bgDarkest,
+        border: `1px solid ${colors.borderMedium}`,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        borderRadius: borderRadius.sm,
+        borderRadius: borderRadius.md,
+        boxShadow: shadows.glow,
     },
     logoText: {
         fontSize: typography.sizeLg,
