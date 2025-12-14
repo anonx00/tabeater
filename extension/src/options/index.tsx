@@ -305,36 +305,33 @@ const OptionsPage: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Navigation - Glowing left border for active */}
+                {/* Navigation */}
                 <nav style={s.nav}>
                     <button
                         className="nav-item"
                         style={{
                             ...s.navItem,
                             ...(activeNav === 'provider' ? s.navItemActive : {}),
-                            boxShadow: activeNav === 'provider' ? `inset 3px 0 0 ${colors.phosphorGreen}, ${shadows.phantomGreen}` : 'none',
+                            boxShadow: activeNav === 'provider' ? `inset 3px 0 0 ${colors.accentCyan}` : 'none',
                         }}
                         onClick={() => setActiveNav('provider')}
                     >
-                        <span>AI_PROVIDER</span>
-                        {activeProvider !== 'none' && <span style={s.navStatus} className="heartbeat">&#9679;</span>}
+                        <span>AI Provider</span>
+                        {activeProvider !== 'none' && <span style={s.navStatus}>●</span>}
                     </button>
                     <button
                         className="nav-item"
                         style={{
                             ...s.navItem,
                             ...(activeNav === 'autopilot' ? s.navItemActive : {}),
-                            boxShadow: activeNav === 'autopilot' ? `inset 3px 0 0 ${colors.phosphorGreen}, ${shadows.phantomGreen}` : 'none',
+                            boxShadow: activeNav === 'autopilot' ? `inset 3px 0 0 ${colors.accentCyan}` : 'none',
                         }}
                         onClick={() => setActiveNav('autopilot')}
                     >
-                        <span>AUTO_PILOT</span>
+                        <span>Auto-Pilot</span>
                         {autoPilotSettings.mode !== 'manual' && (
-                            <span
-                                style={{ ...s.navStatus, color: autoPilotSettings.mode === 'fly-mode' ? colors.criticalRed : colors.signalAmber }}
-                                className="heartbeat"
-                            >
-                                &#9679;
+                            <span style={{ ...s.navStatus, color: autoPilotSettings.mode === 'fly-mode' ? colors.accentCyan : colors.signalAmber }}>
+                                ●
                             </span>
                         )}
                     </button>
@@ -343,12 +340,12 @@ const OptionsPage: React.FC = () => {
                         style={{
                             ...s.navItem,
                             ...(activeNav === 'license' ? s.navItemActive : {}),
-                            boxShadow: activeNav === 'license' ? `inset 3px 0 0 ${colors.phosphorGreen}, ${shadows.phantomGreen}` : 'none',
+                            boxShadow: activeNav === 'license' ? `inset 3px 0 0 ${colors.accentCyan}` : 'none',
                         }}
                         onClick={() => setActiveNav('license')}
                     >
-                        <span>LICENSE</span>
-                        {license?.paid && <span style={{ ...s.navBadge, background: colors.phosphorGreen }}>PRO</span>}
+                        <span>License</span>
+                        {license?.paid && <span style={{ ...s.navBadge, background: colors.accentCyan }}>PRO</span>}
                     </button>
                 </nav>
 
@@ -386,7 +383,7 @@ const OptionsPage: React.FC = () => {
                 {activeNav === 'provider' && (
                     <div style={s.panel}>
                         <div style={s.panelHeader}>
-                            <h2 style={s.panelTitle}>SELECT_AI_PROVIDER</h2>
+                            <h2 style={s.panelTitle}>AI Provider</h2>
                             <div style={s.indicatorWrap}>
                                 <div style={getIndicatorStyle()} />
                                 <span style={s.indicatorLabel}>
@@ -469,8 +466,8 @@ const OptionsPage: React.FC = () => {
                 {activeNav === 'autopilot' && (
                     <div style={s.panel}>
                         <div style={s.panelHeader}>
-                            <h2 style={s.panelTitle}>AUTO_PILOT_CONFIG</h2>
-                            {!license?.paid && <span style={s.proBadge}>PRO</span>}
+                            <h2 style={s.panelTitle}>Auto-Pilot</h2>
+                            {!license?.paid && <span style={s.proLabel}>Pro feature</span>}
                         </div>
 
                         {/* 3-Stage Danger Slider */}
@@ -566,13 +563,13 @@ const OptionsPage: React.FC = () => {
                             </div>
                         </div>
 
-                        {/* API Usage Stats */}
-                        {apiUsage && activeProvider !== 'nano' && (
+                        {/* API Usage Stats - show for cloud providers */}
+                        {apiUsage && activeProvider !== 'none' && activeProvider !== 'nano' && (
                             <div style={s.usageSection}>
                                 <div style={s.usageHeader}>
-                                    <span style={s.usageTitle}>API_USAGE</span>
+                                    <span style={s.usageTitle}>API Usage</span>
                                     {apiUsage.nearLimit && (
-                                        <span style={s.usageWarning}>APPROACHING LIMIT</span>
+                                        <span style={s.usageWarning}>Approaching limit</span>
                                     )}
                                 </div>
                                 <div style={s.usageGrid}>
@@ -598,6 +595,19 @@ const OptionsPage: React.FC = () => {
                                 </div>
                             </div>
                         )}
+
+                        {/* Show usage stats for Nano too - just says it's free */}
+                        {activeProvider === 'nano' && (
+                            <div style={s.usageSection}>
+                                <div style={s.usageHeader}>
+                                    <span style={s.usageTitle}>API Usage</span>
+                                    <span style={{ ...s.usageWarning, background: 'rgba(0, 255, 136, 0.1)', color: colors.phosphorGreen }}>Unlimited</span>
+                                </div>
+                                <div style={s.usageNote}>
+                                    Using Gemini Nano (local AI) - no API costs, unlimited usage.
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
 
@@ -605,7 +615,7 @@ const OptionsPage: React.FC = () => {
                 {activeNav === 'license' && (
                     <div style={s.panel}>
                         <div style={s.panelHeader}>
-                            <h2 style={s.panelTitle}>LICENSE_STATUS</h2>
+                            <h2 style={s.panelTitle}>License</h2>
                         </div>
 
                         {license?.paid ? (
@@ -680,8 +690,7 @@ const OptionsPage: React.FC = () => {
 
                                 {trialInfo && trialInfo.daysRemaining === 0 && (
                                     <div style={s.trialExpired}>
-                                        <span style={s.expiredIcon}>&#9888;</span>
-                                        TRIAL_EXPIRED
+                                        Trial ended · Upgrade for full access
                                     </div>
                                 )}
 
@@ -922,6 +931,12 @@ const s: { [key: string]: React.CSSProperties } = {
         fontSize: 10,
         fontWeight: typography.bold,
         letterSpacing: '0.1em',
+    },
+    proLabel: {
+        fontFamily: typography.fontFamily,
+        fontSize: typography.sizeXs,
+        color: colors.textDim,
+        fontWeight: typography.normal,
     },
     providerGrid: {
         display: 'grid',
@@ -1419,18 +1434,14 @@ const s: { [key: string]: React.CSSProperties } = {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: spacing.sm,
-        padding: spacing.lg,
-        background: colors.errorBg,
-        border: `1px solid ${colors.criticalRed}`,
+        padding: `${spacing.md}px ${spacing.lg}px`,
+        background: 'rgba(255, 170, 0, 0.05)',
+        border: `1px solid rgba(255, 170, 0, 0.2)`,
+        borderRadius: borderRadius.sm,
         marginBottom: spacing.xl,
-        fontFamily: typography.fontMono,
-        fontSize: typography.sizeSm,
-        color: colors.criticalRed,
-        letterSpacing: '0.1em',
-    },
-    expiredIcon: {
-        fontSize: 16,
+        fontFamily: typography.fontFamily,
+        fontSize: typography.sizeXs,
+        color: colors.textSecondary,
     },
     // Device Management Styles
     licenseEmail: {
