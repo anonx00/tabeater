@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "description": "Tactical Tab Intelligence System - AI-powered Chrome extension",
   "scripts": {
-    "build": "webpack --mode production",
+    "icons": "node scripts/generate-icons.js",
+    "build": "npm run icons && webpack --mode production",
     "watch": "webpack --mode development --watch",
     "lint": "eslint . --ext .ts,.tsx",
     "test": "jest",
