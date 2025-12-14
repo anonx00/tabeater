@@ -247,29 +247,6 @@
 
         .scroll-indicator svg { width: 14px; height: 14px; opacity: 0.3; }
 
-        /* Stats Badge */
-        .stats-badge {
-            position: fixed;
-            top: 16px;
-            right: 16px;
-            background: rgba(0, 0, 0, 0.9);
-            backdrop-filter: blur(20px);
-            padding: 10px 16px;
-            border-radius: 10px;
-            border: 1px solid rgba(0, 255, 136, 0.15);
-            z-index: 100;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.7rem;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-        }
-
-        .stats-badge span {
-            color: var(--accent);
-            font-weight: 500;
-        }
-
         /* Status indicator */
         .status-indicator {
             position: fixed;
@@ -565,10 +542,6 @@
         <span>Core Active</span>
     </div>
 
-    <!-- Global click counter -->
-    <div class="stats-badge">
-        Interested: <span id="click-count">-</span>
-    </div>
 
     <div class="content">
         <section class="hero">
@@ -695,38 +668,24 @@
         </footer>
     </div>
 
-    <!-- Global Click Tracking -->
+    <!-- Google Analytics Click Tracking -->
     <script>
-        const NAMESPACE = 'tabeater';
-        const KEY = 'cta_clicks';
-        const API = `https://api.countapi.xyz`;
-
-        fetch(`${API}/get/${NAMESPACE}/${KEY}`)
-            .then(r => r.json())
-            .then(data => {
-                const el = document.getElementById('click-count');
-                if (el && data.value !== undefined) {
-                    el.textContent = data.value.toLocaleString();
-                }
-            })
-            .catch(() => {
-                fetch(`${API}/create?namespace=${NAMESPACE}&key=${KEY}&value=0`);
-            });
-
-        document.querySelectorAll('.cta-track').forEach(btn => {
-            btn.addEventListener('click', () => {
-                fetch(`${API}/hit/${NAMESPACE}/${KEY}`)
-                    .then(r => r.json())
-                    .then(data => {
-                        const el = document.getElementById('click-count');
-                        if (el && data.value !== undefined) {
-                            el.textContent = data.value.toLocaleString();
-                        }
-                    });
+        // Track CTA button clicks with GA4
+        document.querySelectorAll('.cta-track').forEach((btn, index) => {
+            btn.addEventListener('click', function(e) {
+                // Send event to Google Analytics 4
                 if (typeof gtag === 'function') {
                     gtag('event', 'cta_click', {
-                        'event_category': 'engagement',
-                        'event_label': 'chrome_web_store'
+                        'button_location': index === 0 ? 'hero' : 'footer',
+                        'button_text': this.textContent.trim(),
+                        'link_url': this.href
+                    });
+
+                    // Also track as a conversion event
+                    gtag('event', 'conversion', {
+                        'send_to': 'G-Y6MEHQB9CZ',
+                        'event_category': 'CTA',
+                        'event_label': 'Chrome Web Store Click'
                     });
                 }
             });
