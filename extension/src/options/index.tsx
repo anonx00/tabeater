@@ -35,6 +35,25 @@ const PROVIDERS = {
     anthropic: { name: 'CLAUDE', desc: 'Anthropic', color: '#d4a574', badge: 'PAID', models: ['claude-3-5-haiku-latest', 'claude-3-5-sonnet-latest'], default: 'claude-3-5-haiku-latest', url: 'https://console.anthropic.com/settings/keys' },
 };
 
+// Premium Provider Logo Components (SimpleIcons-based)
+const GeminiLogo: React.FC<{ size?: number; active?: boolean }> = ({ size = 48, active = false }) => (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill={active ? '#4285f4' : colors.textDim}>
+        <path d="M12 0C5.352 0 0 5.352 0 12s5.352 12 12 12 12-5.352 12-12S18.648 0 12 0zm0 2.4c5.304 0 9.6 4.296 9.6 9.6s-4.296 9.6-9.6 9.6S2.4 17.304 2.4 12 6.696 2.4 12 2.4zm0 1.44a8.16 8.16 0 1 0 0 16.32 8.16 8.16 0 0 0 0-16.32zm0 2.88c2.904 0 5.28 2.376 5.28 5.28s-2.376 5.28-5.28 5.28S6.72 14.904 6.72 12s2.376-5.28 5.28-5.28z"/>
+    </svg>
+);
+
+const OpenAILogo: React.FC<{ size?: number; active?: boolean }> = ({ size = 48, active = false }) => (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill={active ? '#10a37f' : colors.textDim}>
+        <path d="M22.2819 9.8211a5.9847 5.9847 0 0 0-.5157-4.9108 6.0462 6.0462 0 0 0-6.5098-2.9A6.0651 6.0651 0 0 0 4.9807 4.1818a5.9847 5.9847 0 0 0-3.9977 2.9 6.0462 6.0462 0 0 0 .7427 7.0966 5.98 5.98 0 0 0 .511 4.9107 6.051 6.051 0 0 0 6.5146 2.9001A5.9847 5.9847 0 0 0 13.2599 24a6.0557 6.0557 0 0 0 5.7718-4.2058 5.9894 5.9894 0 0 0 3.9977-2.9001 6.0557 6.0557 0 0 0-.7475-7.0729zm-9.022 12.6081a4.4755 4.4755 0 0 1-2.8764-1.0408l.1419-.0804 4.7783-2.7582a.7948.7948 0 0 0 .3927-.6813v-6.7369l2.02 1.1686a.071.071 0 0 1 .038.052v5.5826a4.504 4.504 0 0 1-4.4945 4.4944zm-9.6607-4.1254a4.4708 4.4708 0 0 1-.5346-3.0137l.142.0852 4.783 2.7582a.7712.7712 0 0 0 .7806 0l5.8428-3.3685v2.3324a.0804.0804 0 0 1-.0332.0615L9.74 19.9502a4.4992 4.4992 0 0 1-6.1408-1.6464zM2.3408 7.8956a4.485 4.485 0 0 1 2.3655-1.9728V11.6a.7664.7664 0 0 0 .3879.6765l5.8144 3.3543-2.0201 1.1685a.0757.0757 0 0 1-.071 0l-4.8303-2.7865A4.504 4.504 0 0 1 2.3408 7.8956zm16.5963 3.8558L13.1038 8.364 15.1192 7.2a.0757.0757 0 0 1 .071 0l4.8303 2.7913a4.4944 4.4944 0 0 1-.6765 8.1042v-5.6772a.79.79 0 0 0-.4066-.6813zm2.0107-3.0231l-.142-.0852-4.7735-2.7818a.7759.7759 0 0 0-.7854 0L9.409 9.2297V6.8974a.0662.0662 0 0 1 .0284-.0615l4.8303-2.7866a4.4992 4.4992 0 0 1 6.6802 4.66zM8.3065 12.863l-2.02-1.1638a.0804.0804 0 0 1-.038-.0567V6.0742a4.4992 4.4992 0 0 1 7.3757-3.4537l-.142.0805L8.704 5.459a.7948.7948 0 0 0-.3927.6813zm1.0976-2.3654l2.602-1.4998 2.6069 1.4998v2.9994l-2.5974 1.4997-2.6067-1.4997Z"/>
+    </svg>
+);
+
+const ClaudeLogo: React.FC<{ size?: number; active?: boolean }> = ({ size = 48, active = false }) => (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill={active ? '#d4a574' : colors.textDim}>
+        <path d="M4.709 15.955l4.72-2.647.08-.23-.08-.128H9.2l-.79-.048-2.698-.08-2.809-.112-.72-.048.048-.208.336-.192.368-.032 2.809.144 2.377.096 1.278.064-.336-.336-.945-1.04-1.663-1.68-1.727-1.888-.592-.672.16-.144.4.048.224.208 1.584 1.728 1.615 1.632 1.023 1.072-.032-.16-.16-1.136-.336-2.192-.4-2.72-.224-1.664.24-.112.304.128.128.288.192 1.712.32 2.017.352 2.16.176.992.048-.016.16-.128.16-.592.144-1.472.32-1.328.288-.608.128-.048.336.192.256-.064 1.263-.288 1.712-.4 1.376-.288-.48.64-1.055 1.391-.656.88-.64.815-.096.176.144.224.24.08.352-.08 1.407-.48 3.12-1.072.784-.256 1.055-.368.608-.192.128.064.048.208-.064.288-1.12.48-2.32.768-2.592.88-.592.176-.16.16.064.144.784.064 2.176.192 2.688.192.88.064.176.144v.224l-.32.192-.288.064-2.608-.176-2.593-.128-.816-.048.048.192.288.288.096.112 1.264 1.28 1.439 1.504.416.416-.032.24-.24.128-.24-.032-1.695-1.744-1.233-1.2-.336-.336-.128.176-.048.192.176 2.016.256 2.993.048.736-.24.144-.272-.096-.112-.4-.224-2.16-.208-2.16-.096-.816-.032-.24-.288.16-.224.176-.88.592-1.904 1.264-.704.464-.16-.032-.096-.256.064-.16.88-.64 1.343-.928-.255-.112-.992-.096-2.641-.192-2.848-.208-.656-.048.016-.208.32-.24.256-.032 2.048.144 3.265.24.464.016.08-.112.016-.176-.56-.528-2.096-2.017-.976-.912-.128-.208.064-.256.288-.144.224.144.224.192 1.68 1.632 1.488 1.424.224-.112.064-.224-.08-.544-.272-1.04-.624-2.369-.544-2.16-.064-.256.144-.192.336-.016.176.32.64 2.16.592 2.16.304 1.088.176.624.08.112.176-.016.192-.192.608-1.008.88-1.472.816-1.392.176-.32.24-.064.288.192-.032.288-.544.976-1.28 2.096-.56.976.16.064.192-.048 1.04-.224 2.72-.592 2.225-.48.544-.128.112.128.016.32-.176.24-.72.208-1.712.4-2.881.624-.816.16-.176.224.032.208.88.816 1.312 1.216 1.247 1.136.112.144-.016.224-.24.144-.192-.048-.224-.176L4.709 15.955z"/>
+    </svg>
+);
+
 // Glitch Tab Logo Component
 const GlitchLogo: React.FC<{ size?: number }> = ({ size = 32 }) => (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -49,6 +68,22 @@ const GlitchLogo: React.FC<{ size?: number }> = ({ size = 32 }) => (
         <line x1="3" y1="17" x2="17" y2="17" stroke={colors.phosphorGreen} strokeWidth="0.5" opacity="0.4"/>
     </svg>
 );
+
+// Provider Logo Renderer
+const ProviderLogo: React.FC<{ provider: CloudProvider; size?: number; active?: boolean }> = ({ provider, size = 48, active = false }) => {
+    switch (provider) {
+        case 'gemini': return <GeminiLogo size={size} active={active} />;
+        case 'openai': return <OpenAILogo size={size} active={active} />;
+        case 'anthropic': return <ClaudeLogo size={size} active={active} />;
+    }
+};
+
+// Masked API Key Display
+const MaskedApiKey: React.FC<{ apiKey: string }> = ({ apiKey }) => {
+    if (!apiKey) return <span style={{ color: colors.textDim }}>NOT_SET</span>;
+    const prefix = apiKey.slice(0, 4);
+    return <span style={{ fontFamily: typography.fontMono, color: colors.textMuted }}>{prefix}...•••</span>;
+};
 
 // Toast Component for Undo
 const UndoToast: React.FC<{ message: string; onUndo: () => void; onDismiss: () => void }> = ({ message, onUndo, onDismiss }) => {
@@ -217,47 +252,88 @@ const OptionsPage: React.FC = () => {
         <div style={s.page}>
             {/* Sidebar */}
             <aside style={s.sidebar}>
-                {/* Brand */}
+                {/* Brand - Glitch Logo Only */}
                 <div style={s.brand}>
-                    <GlitchLogo size={40} />
+                    <div style={s.brandLogoWrap}>
+                        <GlitchLogo size={48} />
+                    </div>
                     <div style={s.brandText}>
                         <div style={s.brandName}>TAB_EATER</div>
                         <div style={s.brandTagline}>// AUTOMATION_SYSTEM</div>
                     </div>
                 </div>
 
-                {/* Navigation */}
+                {/* Navigation - Glowing left border for active */}
                 <nav style={s.nav}>
-                    <button style={{ ...s.navItem, ...(activeNav === 'provider' ? s.navItemActive : {}) }} onClick={() => setActiveNav('provider')}>
-                        <span style={s.navIcon}>&#9632;</span>
+                    <button
+                        className="nav-item"
+                        style={{
+                            ...s.navItem,
+                            ...(activeNav === 'provider' ? s.navItemActive : {}),
+                            boxShadow: activeNav === 'provider' ? `inset 3px 0 0 ${colors.phosphorGreen}, ${shadows.phantomGreen}` : 'none',
+                        }}
+                        onClick={() => setActiveNav('provider')}
+                    >
                         <span>AI_PROVIDER</span>
-                        {activeProvider !== 'none' && <span style={s.navStatus}>&#9679;</span>}
+                        {activeProvider !== 'none' && <span style={s.navStatus} className="heartbeat">&#9679;</span>}
                     </button>
-                    <button style={{ ...s.navItem, ...(activeNav === 'autopilot' ? s.navItemActive : {}) }} onClick={() => setActiveNav('autopilot')}>
-                        <span style={s.navIcon}>&#9650;</span>
+                    <button
+                        className="nav-item"
+                        style={{
+                            ...s.navItem,
+                            ...(activeNav === 'autopilot' ? s.navItemActive : {}),
+                            boxShadow: activeNav === 'autopilot' ? `inset 3px 0 0 ${colors.phosphorGreen}, ${shadows.phantomGreen}` : 'none',
+                        }}
+                        onClick={() => setActiveNav('autopilot')}
+                    >
                         <span>AUTO_PILOT</span>
-                        {autoPilotSettings.mode !== 'manual' && <span style={{ ...s.navStatus, color: autoPilotSettings.mode === 'fly-mode' ? colors.criticalRed : colors.signalAmber }}>&#9679;</span>}
+                        {autoPilotSettings.mode !== 'manual' && (
+                            <span
+                                style={{ ...s.navStatus, color: autoPilotSettings.mode === 'fly-mode' ? colors.criticalRed : colors.signalAmber }}
+                                className="heartbeat"
+                            >
+                                &#9679;
+                            </span>
+                        )}
                     </button>
-                    <button style={{ ...s.navItem, ...(activeNav === 'license' ? s.navItemActive : {}) }} onClick={() => setActiveNav('license')}>
-                        <span style={s.navIcon}>&#9733;</span>
+                    <button
+                        className="nav-item"
+                        style={{
+                            ...s.navItem,
+                            ...(activeNav === 'license' ? s.navItemActive : {}),
+                            boxShadow: activeNav === 'license' ? `inset 3px 0 0 ${colors.phosphorGreen}, ${shadows.phantomGreen}` : 'none',
+                        }}
+                        onClick={() => setActiveNav('license')}
+                    >
                         <span>LICENSE</span>
                         {license?.paid && <span style={{ ...s.navBadge, background: colors.phosphorGreen }}>PRO</span>}
                     </button>
                 </nav>
 
-                {/* System Status */}
+                {/* System Status Footer with Heartbeat */}
                 <div style={s.systemStatus}>
-                    <div style={s.statusRow}>
-                        <span style={s.statusLabel}>CONNECTION</span>
-                        <span style={{ ...s.statusValue, color: activeProvider !== 'none' ? colors.phosphorGreen : colors.textDim }}>
-                            {activeProvider !== 'none' ? 'ONLINE' : 'OFFLINE'}
-                        </span>
+                    <div style={s.statusBar}>
+                        <div style={s.statusBarFill} className="heartbeat-bar" />
                     </div>
-                    <div style={s.statusRow}>
-                        <span style={s.statusLabel}>SYNC</span>
-                        <span style={{ ...s.statusValue, color: syncStatus === 'saved' ? colors.phosphorGreen : syncStatus === 'syncing' ? colors.signalAmber : colors.textDim }}>
-                            {syncStatus === 'saved' ? 'SAVED' : syncStatus === 'syncing' ? 'SYNCING...' : 'IDLE'}
-                        </span>
+                    <div style={s.statusGrid}>
+                        <div style={s.statusItem}>
+                            <span style={s.statusLabel}>CONN</span>
+                            <span style={{ ...s.statusValue, color: activeProvider !== 'none' ? colors.phosphorGreen : colors.textDim }}>
+                                {activeProvider !== 'none' ? '●' : '○'}
+                            </span>
+                        </div>
+                        <div style={s.statusItem}>
+                            <span style={s.statusLabel}>SYNC</span>
+                            <span style={{ ...s.statusValue, color: syncStatus === 'saved' ? colors.phosphorGreen : syncStatus === 'syncing' ? colors.signalAmber : colors.textDim }}>
+                                {syncStatus === 'saved' ? '●' : syncStatus === 'syncing' ? '◐' : '○'}
+                            </span>
+                        </div>
+                        <div style={s.statusItem}>
+                            <span style={s.statusLabel}>MODE</span>
+                            <span style={{ ...s.statusValue, color: autoPilotSettings.mode === 'fly-mode' ? colors.criticalRed : autoPilotSettings.mode === 'auto-cleanup' ? colors.signalAmber : colors.textDim }}>
+                                {autoPilotSettings.mode === 'fly-mode' ? 'FLY' : autoPilotSettings.mode === 'auto-cleanup' ? 'AUTO' : 'MAN'}
+                            </span>
+                        </div>
                     </div>
                 </div>
             </aside>
@@ -277,45 +353,60 @@ const OptionsPage: React.FC = () => {
                             </div>
                         </div>
 
-                        {/* Provider Cards */}
+                        {/* Provider Cards - Premium 4:5 ratio with centered logos */}
                         <div style={s.providerGrid}>
-                            {(Object.keys(PROVIDERS) as CloudProvider[]).map(p => (
-                                <button
-                                    key={p}
-                                    style={{
-                                        ...s.providerCard,
-                                        ...(cloudProvider === p ? s.providerCardActive : {}),
-                                        borderColor: cloudProvider === p ? colors.phosphorGreen : colors.borderIdle,
-                                    }}
-                                    onClick={() => { setCloudProvider(p); setModel(PROVIDERS[p].default); }}
-                                >
-                                    {cloudProvider === p && <span style={s.checkIcon}>&#10003;</span>}
-                                    <div style={{ ...s.providerIcon, background: cloudProvider === p ? PROVIDERS[p].color : colors.textDim }} />
-                                    <div style={s.providerName}>{PROVIDERS[p].name}</div>
-                                    <div style={s.providerDesc}>{PROVIDERS[p].desc}</div>
-                                    <span style={{ ...s.providerBadge, background: PROVIDERS[p].badge === 'FREE' ? colors.phosphorGreen : colors.textDim }}>
-                                        {PROVIDERS[p].badge}
-                                    </span>
-                                </button>
-                            ))}
+                            {(Object.keys(PROVIDERS) as CloudProvider[]).map(p => {
+                                const isActive = cloudProvider === p;
+                                return (
+                                    <button
+                                        key={p}
+                                        className={`provider-card ${isActive ? 'active' : ''}`}
+                                        style={{
+                                            ...s.providerCard,
+                                            ...(isActive ? s.providerCardActive : {}),
+                                            borderColor: isActive ? colors.phosphorGreen : colors.borderIdle,
+                                            boxShadow: isActive ? shadows.phantomGreen : 'none',
+                                        }}
+                                        onClick={() => { setCloudProvider(p); setModel(PROVIDERS[p].default); }}
+                                    >
+                                        {isActive && <span style={s.checkIcon}>&#10003;</span>}
+                                        <div style={s.providerLogoWrap}>
+                                            <ProviderLogo provider={p} size={48} active={isActive} />
+                                        </div>
+                                        <div style={s.providerName}>{PROVIDERS[p].name}</div>
+                                        <div style={s.providerDesc}>{PROVIDERS[p].desc}</div>
+                                        <span style={{ ...s.providerBadge, background: PROVIDERS[p].badge === 'FREE' ? colors.phosphorGreen : colors.textDim }}>
+                                            {PROVIDERS[p].badge}
+                                        </span>
+                                    </button>
+                                );
+                            })}
                         </div>
 
-                        {/* API Input */}
+                        {/* API Input - Secure Code-Block Style */}
                         <div style={s.inputSection}>
                             <label style={s.inputLabel}>API_KEY</label>
-                            <div style={s.liveInput}>
+                            <div style={s.secureInput} className="secure-input">
+                                <span style={s.inputPrefix}>$</span>
                                 <input
                                     type="password"
                                     value={apiKey}
                                     onChange={(e) => setApiKey(e.target.value)}
-                                    placeholder="Enter API key..."
+                                    placeholder="sk-..."
                                     style={s.input}
                                 />
-                                <div style={getIndicatorStyle()} />
+                                <div style={s.inputIndicator}>
+                                    <div style={getIndicatorStyle()} />
+                                </div>
                             </div>
-                            <a href={PROVIDERS[cloudProvider].url} target="_blank" rel="noopener noreferrer" style={s.link}>
-                                GET KEY FROM {PROVIDERS[cloudProvider].name} &#8599;
-                            </a>
+                            <div style={s.inputMeta}>
+                                <span style={s.inputStatus}>
+                                    {apiKey ? <MaskedApiKey apiKey={apiKey} /> : 'AWAITING_INPUT'}
+                                </span>
+                                <a href={PROVIDERS[cloudProvider].url} target="_blank" rel="noopener noreferrer" style={s.link}>
+                                    GET KEY &#8599;
+                                </a>
+                            </div>
                         </div>
 
                         {/* Model Select */}
@@ -550,10 +641,14 @@ const s: { [key: string]: React.CSSProperties } = {
     brand: {
         display: 'flex',
         alignItems: 'center',
-        gap: spacing.md,
+        gap: spacing.lg,
         marginBottom: spacing.xxxl,
         paddingBottom: spacing.xxl,
         borderBottom: `1px solid ${colors.borderIdle}`,
+    },
+    brandLogoWrap: {
+        flexShrink: 0,
+        filter: `drop-shadow(0 0 8px ${colors.phosphorGreen})`,
     },
     brandText: {},
     brandName: {
@@ -562,12 +657,14 @@ const s: { [key: string]: React.CSSProperties } = {
         fontWeight: typography.bold,
         color: colors.phosphorGreen,
         letterSpacing: '0.1em',
+        textShadow: `0 0 10px ${colors.phosphorGreen}`,
     },
     brandTagline: {
         fontFamily: typography.fontMono,
         fontSize: typography.sizeXs,
         color: colors.textDim,
         letterSpacing: '0.05em',
+        fontWeight: typography.normal,
     },
     nav: {
         display: 'flex',
@@ -578,10 +675,11 @@ const s: { [key: string]: React.CSSProperties } = {
     navItem: {
         display: 'flex',
         alignItems: 'center',
-        gap: spacing.md,
+        justifyContent: 'space-between',
         padding: `${spacing.md}px ${spacing.lg}px`,
         background: 'transparent',
-        border: `1px solid transparent`,
+        border: 'none',
+        borderLeft: '3px solid transparent',
         color: colors.textMuted,
         fontFamily: typography.fontMono,
         fontSize: typography.sizeSm,
@@ -589,24 +687,17 @@ const s: { [key: string]: React.CSSProperties } = {
         letterSpacing: '0.05em',
         cursor: 'pointer',
         textAlign: 'left',
-        transition: `all ${transitions.fast}`,
+        transition: `all ${transitions.normal}`,
     },
     navItemActive: {
-        background: colors.voidBlack,
-        borderColor: colors.phosphorGreen,
+        background: 'rgba(57, 255, 20, 0.03)',
         color: colors.phosphorGreen,
-    },
-    navIcon: {
-        fontSize: 10,
-        opacity: 0.7,
     },
     navStatus: {
-        marginLeft: 'auto',
         color: colors.phosphorGreen,
-        fontSize: 8,
+        fontSize: 10,
     },
     navBadge: {
-        marginLeft: 'auto',
         padding: '2px 6px',
         fontSize: 9,
         fontWeight: typography.bold,
@@ -614,23 +705,40 @@ const s: { [key: string]: React.CSSProperties } = {
     },
     systemStatus: {
         marginTop: 'auto',
-        paddingTop: spacing.xxl,
-        borderTop: `1px solid ${colors.borderIdle}`,
+        paddingTop: spacing.lg,
     },
-    statusRow: {
+    statusBar: {
+        height: 2,
+        background: colors.borderIdle,
+        marginBottom: spacing.md,
+        overflow: 'hidden',
+    },
+    statusBarFill: {
+        height: '100%',
+        width: '30%',
+        background: colors.phosphorGreen,
+        boxShadow: `0 0 6px ${colors.phosphorGreen}`,
+    },
+    statusGrid: {
+        display: 'grid',
+        gridTemplateColumns: 'repeat(3, 1fr)',
+        gap: spacing.sm,
+    },
+    statusItem: {
         display: 'flex',
-        justifyContent: 'space-between',
-        marginBottom: spacing.sm,
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: 2,
     },
     statusLabel: {
         fontFamily: typography.fontMono,
-        fontSize: typography.sizeXs,
+        fontSize: 8,
         color: colors.textDim,
-        letterSpacing: '0.05em',
+        letterSpacing: '0.1em',
     },
     statusValue: {
         fontFamily: typography.fontMono,
-        fontSize: typography.sizeXs,
+        fontSize: typography.sizeSm,
         letterSpacing: '0.05em',
     },
     viewport: {
@@ -685,47 +793,55 @@ const s: { [key: string]: React.CSSProperties } = {
     },
     providerCard: {
         position: 'relative',
+        aspectRatio: '4 / 5',
         padding: spacing.xl,
         background: colors.panelGrey,
         border: `1px solid ${colors.borderIdle}`,
         textAlign: 'center',
         cursor: 'pointer',
-        transition: `all ${transitions.fast}`,
+        transition: `all ${transitions.normal}`,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: spacing.md,
     },
     providerCardActive: {
         background: colors.successBg,
     },
     checkIcon: {
         position: 'absolute',
-        top: 8,
-        right: 8,
+        top: spacing.md,
+        right: spacing.md,
         color: colors.phosphorGreen,
         fontSize: 14,
+        textShadow: `0 0 6px ${colors.phosphorGreen}`,
     },
-    providerIcon: {
-        width: 32,
-        height: 32,
-        borderRadius: borderRadius.full,
-        margin: '0 auto',
-        marginBottom: spacing.md,
-        transition: `background ${transitions.fast}`,
+    providerLogoWrap: {
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: 64,
+        height: 64,
+        transition: `transform ${transitions.normal}`,
     },
     providerName: {
         fontFamily: typography.fontMono,
         fontSize: typography.sizeSm,
         fontWeight: typography.bold,
         color: colors.textPrimary,
-        letterSpacing: '0.05em',
+        letterSpacing: '0.1em',
+        textTransform: 'uppercase',
     },
     providerDesc: {
+        fontFamily: typography.fontFamily,
         fontSize: typography.sizeXs,
         color: colors.textDim,
-        marginTop: 4,
+        fontWeight: typography.normal,
     },
     providerBadge: {
         display: 'inline-block',
-        marginTop: spacing.sm,
-        padding: '2px 6px',
+        padding: '3px 8px',
         fontFamily: typography.fontMono,
         fontSize: 9,
         fontWeight: typography.bold,
@@ -740,16 +856,25 @@ const s: { [key: string]: React.CSSProperties } = {
         fontFamily: typography.fontMono,
         fontSize: typography.sizeXs,
         color: colors.textDim,
-        letterSpacing: '0.05em',
+        letterSpacing: '0.1em',
         marginBottom: spacing.sm,
+        textTransform: 'uppercase',
     },
-    liveInput: {
+    secureInput: {
         display: 'flex',
         alignItems: 'center',
-        gap: spacing.md,
+        gap: spacing.sm,
         padding: `${spacing.md}px ${spacing.lg}px`,
-        background: colors.panelGrey,
+        background: colors.voidBlack,
         border: `1px solid ${colors.borderIdle}`,
+        fontFamily: typography.fontMono,
+        transition: `all ${transitions.fast}`,
+    },
+    inputPrefix: {
+        color: colors.phosphorGreen,
+        fontSize: typography.sizeSm,
+        fontWeight: typography.bold,
+        opacity: 0.6,
     },
     input: {
         flex: 1,
@@ -759,15 +884,35 @@ const s: { [key: string]: React.CSSProperties } = {
         color: colors.textPrimary,
         fontFamily: typography.fontMono,
         fontSize: typography.sizeBase,
+        letterSpacing: '0.02em',
+    },
+    inputIndicator: {
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: 24,
+        height: 24,
+    },
+    inputMeta: {
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginTop: spacing.sm,
+    },
+    inputStatus: {
+        fontFamily: typography.fontMono,
+        fontSize: typography.sizeXs,
+        color: colors.textDim,
+        letterSpacing: '0.05em',
     },
     link: {
-        display: 'inline-block',
-        marginTop: spacing.sm,
         fontFamily: typography.fontMono,
         fontSize: typography.sizeXs,
         color: colors.phosphorGreen,
         textDecoration: 'none',
         letterSpacing: '0.05em',
+        opacity: 0.8,
+        transition: `opacity ${transitions.fast}`,
     },
     select: {
         width: '100%',
@@ -1044,17 +1189,51 @@ const s: { [key: string]: React.CSSProperties } = {
     },
 };
 
-// Inject CSS
+// Inject CSS with premium micro-interactions
 const styleSheet = document.createElement('style');
 styleSheet.textContent = `
-    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap');
 
+    /* Animations */
     @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
     @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
     @keyframes ticker { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+    @keyframes heartbeat { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+    @keyframes heartbeat-bar { 0% { transform: translateX(-100%); } 100% { transform: translateX(400%); } }
+    @keyframes selection-flash { 0% { background: rgba(57, 255, 20, 0.2); } 100% { background: rgba(57, 255, 20, 0.05); } }
+    @keyframes input-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(57, 255, 20, 0); } 50% { box-shadow: 0 0 0 3px rgba(57, 255, 20, 0.2); } }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { background: ${colors.voidBlack}; }
+
+    /* Heartbeat animation for status indicators */
+    .heartbeat { animation: heartbeat 2s ease-in-out infinite; }
+    .heartbeat-bar { animation: heartbeat-bar 3s ease-in-out infinite; }
+
+    /* Provider card hover lift */
+    .provider-card:hover:not(.active) {
+        transform: translateY(-2px);
+        box-shadow: ${shadows.cardHover};
+        border-color: ${colors.borderHover} !important;
+    }
+    .provider-card:active {
+        transform: translateY(0);
+    }
+    .provider-card.active {
+        animation: selection-flash 0.3s ease-out;
+    }
+
+    /* Nav item hover */
+    .nav-item:hover:not(:disabled) {
+        background: rgba(255, 255, 255, 0.02);
+        color: ${colors.textSecondary};
+    }
+
+    /* Secure input focus pulse */
+    .secure-input:focus-within {
+        border-color: ${colors.phosphorGreen} !important;
+        animation: input-pulse 1.5s ease-in-out infinite;
+    }
 
     input:focus, select:focus {
         border-color: ${colors.phosphorGreen} !important;
@@ -1073,6 +1252,10 @@ styleSheet.textContent = `
         cursor: not-allowed;
     }
 
+    a:hover {
+        opacity: 1 !important;
+    }
+
     select {
         appearance: none;
         background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888888' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
@@ -1087,6 +1270,17 @@ styleSheet.textContent = `
     ::-webkit-scrollbar-thumb:hover { background: ${colors.borderHover}; }
 
     ::selection { background: ${colors.phosphorGreen}; color: ${colors.voidBlack}; }
+
+    /* Typography refinement */
+    h1, h2, h3, h4, h5, h6 {
+        font-family: ${typography.fontMono};
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+    p, span, label {
+        font-family: ${typography.fontFamily};
+        font-weight: 300;
+    }
 
     @media (max-width: 768px) {
         .page { grid-template-columns: 1fr !important; }

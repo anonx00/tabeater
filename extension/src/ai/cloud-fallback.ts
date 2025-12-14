@@ -13,6 +13,11 @@ export class CloudFallbackService {
         return this.callCloudFunction('summarize', prompt);
     }
 
+    // Generic prompt execution for contextual analysis
+    async callPrompt(prompt: string): Promise<string> {
+        return this.callCloudFunction('prompt', prompt);
+    }
+
     private async callCloudFunction(action: string, prompt: string): Promise<any> {
         try {
             const response = await fetch(this.API_ENDPOINT, {

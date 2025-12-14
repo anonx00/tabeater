@@ -130,6 +130,14 @@ export const shadows = {
     glowAmber: '0 0 10px rgba(255, 176, 0, 0.3)',
     glowRed: '0 0 10px rgba(255, 0, 85, 0.3)',
     focus: '0 0 0 1px #39FF14',
+    // Premium phantom glow effects
+    phantomGreen: '0 0 10px rgba(57, 255, 20, 0.4), inset 0 0 5px rgba(57, 255, 20, 0.1)',
+    phantomAmber: '0 0 10px rgba(255, 176, 0, 0.4), inset 0 0 5px rgba(255, 176, 0, 0.1)',
+    phantomRed: '0 0 10px rgba(255, 0, 85, 0.4), inset 0 0 5px rgba(255, 0, 85, 0.1)',
+    phantomBlue: '0 0 10px rgba(66, 133, 244, 0.4), inset 0 0 5px rgba(66, 133, 244, 0.1)',
+    // Hover lift effect
+    hoverLift: '0 4px 12px rgba(0, 0, 0, 0.4)',
+    cardHover: '0 4px 8px rgba(0, 0, 0, 0.3)',
 };
 
 export const transitions = {
