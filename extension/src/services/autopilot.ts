@@ -72,6 +72,9 @@ const DEFAULT_SETTINGS: AutoPilotSettings = {
 
 class AutoPilotService {
     private settings: AutoPilotSettings = DEFAULT_SETTINGS;
+    // Pending tabs waiting to be grouped (key: windowId-category)
+    private pendingGroupTabs: Map<string, { ids: number[]; windowId: number }> = new Map();
+    private pendingGroupTimeout: ReturnType<typeof setTimeout> | null = null;
 
     async loadSettings(): Promise<AutoPilotSettings> {
         const stored = await chrome.storage.local.get(['autoPilotSettings']);
@@ -584,7 +587,7 @@ Give 2-3 actionable recommendations for better tab hygiene. Be concise.`;
 
     // Fly Mode: Process a newly loaded tab
     async processNewTab(tab: TabInfo): Promise<{
-        action: 'none' | 'closed-duplicate' | 'grouped';
+        action: 'none' | 'closed-duplicate' | 'grouped' | 'pending-group';
         message?: string;
     }> {
         await this.loadSettings();
@@ -613,9 +616,10 @@ Give 2-3 actionable recommendations for better tab hygiene. Be concise.`;
             };
         }
 
-        // Auto-grouping only in fly-mode - use AI to find best group
+        // Auto-grouping only in fly-mode
         if (this.settings.mode === 'fly-mode') {
             try {
+                // First, try to find an existing group that matches
                 const bestGroup = await this.findBestGroupForTab(tab);
                 if (bestGroup) {
                     await chrome.tabs.group({ tabIds: tab.id, groupId: bestGroup.id });
@@ -624,12 +628,132 @@ Give 2-3 actionable recommendations for better tab hygiene. Be concise.`;
                         message: `Added to ${bestGroup.title} group`
                     };
                 }
+
+                // No existing group found - categorize the tab and queue for grouping
+                const category = this.categorizeTab(tab);
+
+                // Skip "Other" category - too generic
+                if (category === 'Other') {
+                    return { action: 'none' };
+                }
+
+                // Check if there are ungrouped tabs with the same category in this window
+                const allTabs = await tabService.getAllTabs();
+                const sameCategoryTabs = allTabs.filter(t =>
+                    t.windowId === tab.windowId &&
+                    t.id !== tab.id &&
+                    (t.groupId === undefined || t.groupId === -1) &&
+                    this.categorizeTab(t) === category
+                );
+
+                if (sameCategoryTabs.length >= 1) {
+                    // We have 2+ tabs (current + at least 1 other) - create a group now
+                    const tabIdsToGroup = [tab.id, ...sameCategoryTabs.map(t => t.id)];
+                    const groupId = await chrome.tabs.group({ tabIds: tabIdsToGroup });
+
+                    // Set group title and color
+                    const color = this.getCategoryColor(category);
+                    await chrome.tabGroups.update(groupId, {
+                        title: category,
+                        color: color
+                    });
+
+                    return {
+                        action: 'grouped',
+                        message: `Created ${category} group with ${tabIdsToGroup.length} tabs`
+                    };
+                }
+
+                // Only 1 tab of this category - add to pending queue
+                const pendingKey = `${tab.windowId}-${category}`;
+                if (!this.pendingGroupTabs.has(pendingKey)) {
+                    this.pendingGroupTabs.set(pendingKey, { ids: [], windowId: tab.windowId });
+                }
+                const pending = this.pendingGroupTabs.get(pendingKey)!;
+                if (!pending.ids.includes(tab.id)) {
+                    pending.ids.push(tab.id);
+                }
+
+                // Schedule a check to create groups from pending tabs
+                this.schedulePendingGroupCheck();
+
+                return {
+                    action: 'pending-group',
+                    message: `Queued for ${category} group`
+                };
             } catch (err) {
-                console.warn('[AutoPilot] AI grouping for new tab failed:', err);
+                console.warn('[AutoPilot] Auto-grouping for new tab failed:', err);
             }
         }
 
         return { action: 'none' };
+    }
+
+    // Schedule a check to create groups from pending tabs
+    private schedulePendingGroupCheck(): void {
+        if (this.pendingGroupTimeout) {
+            clearTimeout(this.pendingGroupTimeout);
+        }
+
+        // Wait 10 seconds to accumulate more tabs before creating groups
+        this.pendingGroupTimeout = setTimeout(async () => {
+            await this.processPendingGroups();
+        }, 10000);
+    }
+
+    // Process pending tabs and create groups where we have 2+ tabs
+    private async processPendingGroups(): Promise<void> {
+        const entries = Array.from(this.pendingGroupTabs.entries());
+        for (const [key, data] of entries) {
+            if (data.ids.length >= 2) {
+                try {
+                    // Verify tabs still exist and are ungrouped
+                    const validIds: number[] = [];
+                    for (const id of data.ids) {
+                        try {
+                            const tab = await chrome.tabs.get(id);
+                            if (tab && (tab.groupId === undefined || tab.groupId === -1)) {
+                                validIds.push(id);
+                            }
+                        } catch {
+                            // Tab no longer exists
+                        }
+                    }
+
+                    if (validIds.length >= 2) {
+                        const category = key.split('-').slice(1).join('-'); // Extract category from key
+                        const groupId = await chrome.tabs.group({ tabIds: validIds });
+                        const color = this.getCategoryColor(category);
+                        await chrome.tabGroups.update(groupId, {
+                            title: category,
+                            color: color
+                        });
+                        console.log(`[AutoPilot] Created ${category} group with ${validIds.length} tabs`);
+                    }
+                } catch (err) {
+                    console.warn('[AutoPilot] Failed to create pending group:', err);
+                }
+            }
+            this.pendingGroupTabs.delete(key);
+        }
+    }
+
+    // Get a color for a category
+    private getCategoryColor(category: string): chrome.tabGroups.ColorEnum {
+        const colorMap: { [key: string]: chrome.tabGroups.ColorEnum } = {
+            'AI': 'purple',
+            'Cloud': 'blue',
+            'Dev': 'green',
+            'Social': 'pink',
+            'Communication': 'cyan',
+            'Finance': 'yellow',
+            'Shopping': 'orange',
+            'Entertainment': 'red',
+            'News': 'grey',
+            'Productivity': 'blue',
+            'Search': 'grey'
+        };
+        return colorMap[category] || 'grey';
     }
 
     // AI-powered: Find the best existing group for a new tab
