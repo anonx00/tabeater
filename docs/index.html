@@ -27,14 +27,16 @@
         :root {
             --accent: #00FF88;
             --accent-dim: rgba(0, 255, 136, 0.15);
-            --accent-glow: rgba(0, 255, 136, 0.4);
+            --accent-glow: rgba(0, 255, 136, 0.5);
             --cyan: #00D4FF;
-            --bg-dark: #050505;
-            --bg-card: rgba(255, 255, 255, 0.02);
-            --border: rgba(255, 255, 255, 0.06);
-            --text: #f0f0f0;
-            --text-dim: #707070;
-            --text-muted: #404040;
+            --bg-dark: #030303;
+            --bg-card: rgba(8, 8, 8, 0.85);
+            --bg-section: rgba(5, 5, 5, 0.9);
+            --border: rgba(255, 255, 255, 0.08);
+            --border-glow: rgba(0, 255, 136, 0.15);
+            --text: #f5f5f5;
+            --text-dim: #a0a0a0;
+            --text-muted: #606060;
         }
 
         html { scroll-behavior: smooth; }
@@ -65,7 +67,7 @@
             z-index: 1;
         }
 
-        /* Hero Section */
+        /* Hero Section - No backdrop, let animation show through */
         .hero {
             min-height: 100vh;
             display: flex;
@@ -74,49 +76,59 @@
             justify-content: center;
             padding: 2rem;
             text-align: center;
+            position: relative;
+        }
+
+        .hero-content {
+            background: rgba(3, 3, 3, 0.7);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            padding: 3rem;
+            border-radius: 24px;
+            border: 1px solid var(--border);
         }
 
         .logo-container {
             position: relative;
-            margin-bottom: 2rem;
+            margin-bottom: 1.5rem;
         }
 
         .logo {
-            width: 100px;
-            height: 100px;
-            filter: drop-shadow(0 0 30px var(--accent-glow));
+            width: 90px;
+            height: 90px;
+            filter: drop-shadow(0 0 40px var(--accent-glow));
             animation: float 6s ease-in-out infinite;
         }
 
         @keyframes float {
             0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-10px); }
+            50% { transform: translateY(-12px); }
         }
 
         .logo-glow {
             position: absolute;
-            width: 200px;
-            height: 200px;
+            width: 180px;
+            height: 180px;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            background: radial-gradient(circle, var(--accent-dim) 0%, transparent 70%);
+            background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
             pointer-events: none;
-            animation: pulse 4s ease-in-out infinite;
+            animation: pulse 3s ease-in-out infinite;
         }
 
         @keyframes pulse {
-            0%, 100% { opacity: 0.5; transform: translate(-50%, -50%) scale(1); }
-            50% { opacity: 0.8; transform: translate(-50%, -50%) scale(1.1); }
+            0%, 100% { opacity: 0.4; transform: translate(-50%, -50%) scale(1); }
+            50% { opacity: 0.7; transform: translate(-50%, -50%) scale(1.2); }
         }
 
         .headline {
-            font-size: clamp(2.5rem, 7vw, 4.5rem);
+            font-size: clamp(2.2rem, 6vw, 4rem);
             font-weight: 800;
             letter-spacing: -0.03em;
             line-height: 1.1;
-            margin-bottom: 1rem;
-            background: linear-gradient(135deg, #ffffff 0%, #a0a0a0 100%);
+            margin-bottom: 0.75rem;
+            background: linear-gradient(135deg, #ffffff 0%, #c0c0c0 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
@@ -130,10 +142,10 @@
         }
 
         .subheadline {
-            font-size: clamp(1rem, 2.5vw, 1.25rem);
+            font-size: clamp(0.95rem, 2vw, 1.15rem);
             color: var(--text-dim);
-            max-width: 500px;
-            margin-bottom: 2.5rem;
+            max-width: 420px;
+            margin: 0 auto 2rem;
             font-weight: 400;
         }
 
@@ -142,16 +154,15 @@
             gap: 1rem;
             flex-wrap: wrap;
             justify-content: center;
-            margin-bottom: 4rem;
         }
 
         .btn {
             display: inline-flex;
             align-items: center;
             gap: 0.5rem;
-            padding: 1rem 2rem;
+            padding: 0.9rem 1.8rem;
             border-radius: 12px;
-            font-size: 1rem;
+            font-size: 0.95rem;
             font-weight: 600;
             text-decoration: none;
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -162,29 +173,30 @@
         .btn-primary {
             background: var(--accent);
             color: #000;
-            box-shadow: 0 4px 20px var(--accent-dim);
+            box-shadow: 0 4px 25px var(--accent-dim), 0 0 60px rgba(0, 255, 136, 0.2);
         }
 
         .btn-primary:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 8px 40px var(--accent-glow);
+            transform: translateY(-3px) scale(1.02);
+            box-shadow: 0 8px 40px var(--accent-glow), 0 0 80px rgba(0, 255, 136, 0.3);
         }
 
         .btn-primary svg {
-            width: 20px;
-            height: 20px;
+            width: 18px;
+            height: 18px;
         }
 
         .btn-secondary {
-            background: var(--bg-card);
+            background: rgba(255, 255, 255, 0.05);
             color: var(--text-dim);
             border: 1px solid var(--border);
+            backdrop-filter: blur(10px);
         }
 
         .btn-secondary:hover {
-            border-color: rgba(255, 255, 255, 0.15);
+            border-color: var(--border-glow);
             color: var(--text);
-            background: rgba(255, 255, 255, 0.04);
+            background: rgba(255, 255, 255, 0.08);
         }
 
         .scroll-indicator {
@@ -195,66 +207,76 @@
             align-items: center;
             gap: 0.5rem;
             color: var(--text-muted);
-            font-size: 0.75rem;
-            letter-spacing: 0.1em;
+            font-size: 0.7rem;
+            letter-spacing: 0.15em;
             text-transform: uppercase;
             animation: bounce 2s infinite;
         }
 
         @keyframes bounce {
             0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
-            40% { transform: translateY(8px); }
-            60% { transform: translateY(4px); }
+            40% { transform: translateY(10px); }
+            60% { transform: translateY(5px); }
         }
 
         .scroll-indicator svg {
-            width: 20px;
-            height: 20px;
-            opacity: 0.5;
+            width: 18px;
+            height: 18px;
+            opacity: 0.4;
+        }
+
+        /* Content Sections with Backdrop */
+        .section-backdrop {
+            background: var(--bg-section);
+            backdrop-filter: blur(30px);
+            -webkit-backdrop-filter: blur(30px);
         }
 
         /* Features Section */
         .features {
-            padding: 6rem 2rem;
-            background: linear-gradient(180deg, transparent 0%, rgba(0, 255, 136, 0.02) 50%, transparent 100%);
+            padding: 5rem 2rem;
+            border-top: 1px solid var(--border);
         }
 
         .section-header {
             text-align: center;
-            margin-bottom: 4rem;
+            margin-bottom: 3.5rem;
         }
 
         .section-label {
-            font-size: 0.75rem;
-            letter-spacing: 0.2em;
+            font-size: 0.7rem;
+            letter-spacing: 0.25em;
             text-transform: uppercase;
             color: var(--accent);
-            margin-bottom: 1rem;
+            margin-bottom: 0.75rem;
             font-weight: 600;
         }
 
         .section-title {
-            font-size: clamp(1.75rem, 4vw, 2.5rem);
+            font-size: clamp(1.6rem, 4vw, 2.25rem);
             font-weight: 700;
             letter-spacing: -0.02em;
+            color: var(--text);
         }
 
         .features-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 1.5rem;
-            max-width: 1000px;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.25rem;
+            max-width: 950px;
             margin: 0 auto;
         }
 
         .feature-card {
-            padding: 2rem;
+            padding: 1.75rem;
             background: var(--bg-card);
             border: 1px solid var(--border);
             border-radius: 16px;
             transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             position: relative;
             overflow: hidden;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
         }
 
         .feature-card::before {
@@ -264,62 +286,64 @@
             left: 0;
             right: 0;
             height: 1px;
-            background: linear-gradient(90deg, transparent, var(--accent-dim), transparent);
+            background: linear-gradient(90deg, transparent, var(--accent), transparent);
             opacity: 0;
             transition: opacity 0.4s;
         }
 
         .feature-card:hover {
-            border-color: rgba(0, 255, 136, 0.2);
-            transform: translateY(-4px);
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            border-color: var(--border-glow);
+            transform: translateY(-6px);
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.4), 0 0 30px rgba(0, 255, 136, 0.1);
         }
 
         .feature-card:hover::before {
-            opacity: 1;
+            opacity: 0.6;
         }
 
         .feature-icon {
-            width: 48px;
-            height: 48px;
-            margin-bottom: 1.25rem;
+            width: 44px;
+            height: 44px;
+            margin-bottom: 1rem;
             display: flex;
             align-items: center;
             justify-content: center;
-            background: var(--accent-dim);
-            border-radius: 12px;
+            background: linear-gradient(135deg, var(--accent-dim), rgba(0, 212, 255, 0.1));
+            border-radius: 10px;
             color: var(--accent);
+            border: 1px solid var(--border-glow);
         }
 
         .feature-icon svg {
-            width: 24px;
-            height: 24px;
+            width: 22px;
+            height: 22px;
         }
 
         .feature-card h3 {
-            font-size: 1.125rem;
+            font-size: 1.05rem;
             font-weight: 600;
-            margin-bottom: 0.5rem;
+            margin-bottom: 0.4rem;
             color: var(--text);
         }
 
         .feature-card p {
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             color: var(--text-dim);
-            line-height: 1.6;
+            line-height: 1.55;
         }
 
         /* Privacy Section */
         .privacy {
-            padding: 6rem 2rem;
+            padding: 5rem 2rem;
+            border-top: 1px solid var(--border);
         }
 
         .privacy-container {
-            max-width: 800px;
+            max-width: 750px;
             margin: 0 auto;
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 3rem;
+            grid-template-columns: auto 1fr;
+            gap: 2.5rem;
             align-items: center;
         }
 
@@ -331,22 +355,24 @@
         }
 
         .shield-icon {
-            width: 120px;
-            height: 120px;
+            width: 100px;
+            height: 100px;
             color: var(--accent);
-            filter: drop-shadow(0 0 40px var(--accent-dim));
+            filter: drop-shadow(0 0 50px var(--accent-dim));
         }
 
         .privacy-content h2 {
-            font-size: 1.75rem;
+            font-size: 1.6rem;
             font-weight: 700;
-            margin-bottom: 1rem;
+            margin-bottom: 0.75rem;
             letter-spacing: -0.02em;
+            color: var(--text);
         }
 
-        .privacy-content p {
+        .privacy-content > p {
             color: var(--text-dim);
-            margin-bottom: 1.5rem;
+            margin-bottom: 1.25rem;
+            font-size: 0.95rem;
         }
 
         .privacy-list {
@@ -356,55 +382,55 @@
         .privacy-list li {
             display: flex;
             align-items: center;
-            gap: 0.75rem;
-            padding: 0.5rem 0;
+            gap: 0.6rem;
+            padding: 0.4rem 0;
             color: var(--text-dim);
-            font-size: 0.9rem;
+            font-size: 0.85rem;
         }
 
         .privacy-list li svg {
-            width: 16px;
-            height: 16px;
+            width: 14px;
+            height: 14px;
             color: var(--accent);
             flex-shrink: 0;
         }
 
         /* Providers Section */
         .providers {
-            padding: 4rem 2rem;
-            background: var(--bg-card);
+            padding: 3.5rem 2rem;
             border-top: 1px solid var(--border);
             border-bottom: 1px solid var(--border);
         }
 
         .providers-container {
-            max-width: 800px;
+            max-width: 750px;
             margin: 0 auto;
             text-align: center;
         }
 
         .providers-label {
-            font-size: 0.8rem;
+            font-size: 0.7rem;
             color: var(--text-muted);
-            margin-bottom: 1.5rem;
-            letter-spacing: 0.1em;
+            margin-bottom: 1.25rem;
+            letter-spacing: 0.15em;
             text-transform: uppercase;
         }
 
         .providers-grid {
             display: flex;
             justify-content: center;
-            gap: 3rem;
+            gap: 2.5rem;
             flex-wrap: wrap;
         }
 
         .provider {
             display: flex;
             align-items: center;
-            gap: 0.75rem;
+            gap: 0.6rem;
             color: var(--text-dim);
             font-weight: 500;
-            transition: color 0.3s;
+            font-size: 0.9rem;
+            transition: all 0.3s;
         }
 
         .provider:hover {
@@ -412,50 +438,54 @@
         }
 
         .provider svg {
-            width: 24px;
-            height: 24px;
-            opacity: 0.7;
+            width: 22px;
+            height: 22px;
+            opacity: 0.6;
         }
 
         /* CTA Section */
         .cta-section {
-            padding: 8rem 2rem;
+            padding: 6rem 2rem;
             text-align: center;
+            border-top: 1px solid var(--border);
         }
 
         .cta-section h2 {
-            font-size: clamp(1.5rem, 4vw, 2.25rem);
+            font-size: clamp(1.4rem, 3.5vw, 2rem);
             font-weight: 700;
-            margin-bottom: 1rem;
+            margin-bottom: 0.75rem;
             letter-spacing: -0.02em;
+            color: var(--text);
         }
 
         .cta-section p {
             color: var(--text-dim);
-            margin-bottom: 2rem;
-            max-width: 400px;
+            margin-bottom: 1.75rem;
+            max-width: 380px;
             margin-left: auto;
             margin-right: auto;
+            font-size: 0.95rem;
         }
 
         /* Footer */
         .footer {
-            padding: 2rem;
+            padding: 1.75rem 2rem;
             text-align: center;
             border-top: 1px solid var(--border);
+            background: rgba(0, 0, 0, 0.5);
         }
 
         .footer-links {
             display: flex;
             justify-content: center;
             gap: 2rem;
-            margin-bottom: 1rem;
+            margin-bottom: 0.75rem;
         }
 
         .footer-links a {
             color: var(--text-muted);
             text-decoration: none;
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             transition: color 0.3s;
         }
 
@@ -464,12 +494,16 @@
         }
 
         .footer-copy {
-            font-size: 0.75rem;
+            font-size: 0.7rem;
             color: var(--text-muted);
         }
 
         /* Responsive */
         @media (max-width: 768px) {
+            .hero-content {
+                padding: 2rem;
+            }
+
             .privacy-container {
                 grid-template-columns: 1fr;
                 text-align: center;
@@ -480,18 +514,23 @@
             }
 
             .shield-icon {
-                width: 80px;
-                height: 80px;
+                width: 70px;
+                height: 70px;
+            }
+
+            .privacy-list {
+                display: inline-block;
+                text-align: left;
             }
 
             .providers-grid {
-                gap: 1.5rem;
+                gap: 1.25rem;
             }
 
             .cta-group {
                 flex-direction: column;
                 width: 100%;
-                max-width: 300px;
+                max-width: 280px;
             }
 
             .btn {
@@ -504,14 +543,7 @@
             }
         }
 
-        /* Mobile Canvas Fallback */
-        @media (max-width: 600px) {
-            #canvas-container {
-                opacity: 0.3;
-            }
-        }
-
-        /* Disable animations for reduced motion */
+        /* Reduce motion */
         @media (prefers-reduced-motion: reduce) {
             *, *::before, *::after {
                 animation-duration: 0.01ms !important;
@@ -526,45 +558,47 @@
     <div class="content">
         <!-- Hero Section -->
         <section class="hero">
-            <div class="logo-container">
-                <div class="logo-glow"></div>
-                <svg class="logo" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <rect width="128" height="128" fill="#0a0a0a" rx="20"/>
-                    <defs>
-                        <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
-                            <feGaussianBlur stdDeviation="2" result="blur"/>
-                            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-                        </filter>
-                    </defs>
-                    <g filter="url(#glow)">
-                        <path d="M20 36V100C20 106 25 111 31 111H97C103 111 108 106 108 100V46C108 40 103 35 97 35H64L54 22H31C25 22 20 27 20 33V36Z"
-                              fill="none" stroke="#00FF88" stroke-width="4" stroke-linejoin="round"/>
-                        <rect x="34" y="52" width="20" height="20" fill="#00FF88" rx="3"/>
-                        <line x1="34" y1="86" x2="94" y2="86" stroke="#00FF88" stroke-width="3" stroke-linecap="round" opacity="0.6"/>
-                        <line x1="34" y1="96" x2="76" y2="96" stroke="#00FF88" stroke-width="2.5" stroke-linecap="round" opacity="0.4"/>
-                    </g>
-                </svg>
-            </div>
-
-            <h1 class="headline">
-                Tame Your<br><span class="headline-accent">Browser Chaos</span>
-            </h1>
-            <p class="subheadline">
-                AI-powered tab intelligence for Chrome. Organize, analyze, and manage your tabs instantly.
-            </p>
-
-            <div class="cta-group">
-                <a href="#" class="btn btn-primary" id="chrome-store-link">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="12" cy="12" r="10"/>
-                        <circle cx="12" cy="12" r="4"/>
-                        <line x1="21.17" y1="8" x2="12" y2="8"/>
-                        <line x1="3.95" y1="6.06" x2="8.54" y2="14"/>
-                        <line x1="10.88" y1="21.94" x2="15.46" y2="14"/>
+            <div class="hero-content">
+                <div class="logo-container">
+                    <div class="logo-glow"></div>
+                    <svg class="logo" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <rect width="128" height="128" fill="#0a0a0a" rx="20"/>
+                        <defs>
+                            <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+                                <feGaussianBlur stdDeviation="2" result="blur"/>
+                                <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+                            </filter>
+                        </defs>
+                        <g filter="url(#glow)">
+                            <path d="M20 36V100C20 106 25 111 31 111H97C103 111 108 106 108 100V46C108 40 103 35 97 35H64L54 22H31C25 22 20 27 20 33V36Z"
+                                  fill="none" stroke="#00FF88" stroke-width="4" stroke-linejoin="round"/>
+                            <rect x="34" y="52" width="20" height="20" fill="#00FF88" rx="3"/>
+                            <line x1="34" y1="86" x2="94" y2="86" stroke="#00FF88" stroke-width="3" stroke-linecap="round" opacity="0.6"/>
+                            <line x1="34" y1="96" x2="76" y2="96" stroke="#00FF88" stroke-width="2.5" stroke-linecap="round" opacity="0.4"/>
+                        </g>
                     </svg>
-                    Add to Chrome
-                </a>
-                <a href="#features" class="btn btn-secondary">Learn More</a>
+                </div>
+
+                <h1 class="headline">
+                    Tame Your<br><span class="headline-accent">Browser Chaos</span>
+                </h1>
+                <p class="subheadline">
+                    AI-powered tab intelligence for Chrome. Organize, analyze, and manage your tabs instantly.
+                </p>
+
+                <div class="cta-group">
+                    <a href="#" class="btn btn-primary" id="chrome-store-link">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"/>
+                            <circle cx="12" cy="12" r="4"/>
+                            <line x1="21.17" y1="8" x2="12" y2="8"/>
+                            <line x1="3.95" y1="6.06" x2="8.54" y2="14"/>
+                            <line x1="10.88" y1="21.94" x2="15.46" y2="14"/>
+                        </svg>
+                        Add to Chrome
+                    </a>
+                    <a href="#features" class="btn btn-secondary">Learn More</a>
+                </div>
             </div>
 
             <div class="scroll-indicator">
@@ -576,7 +610,7 @@
         </section>
 
         <!-- Features Section -->
-        <section class="features" id="features">
+        <section class="features section-backdrop" id="features">
             <div class="section-header">
                 <div class="section-label">Features</div>
                 <h2 class="section-title">Everything you need to stay organized</h2>
@@ -593,7 +627,7 @@
                         </svg>
                     </div>
                     <h3>Smart Organize</h3>
-                    <p>Auto-group tabs by domain and topic. Turn clutter into clarity with one click. AI understands context and creates logical groups.</p>
+                    <p>Auto-group tabs by domain and topic. Turn clutter into clarity with one click.</p>
                 </div>
 
                 <div class="feature-card">
@@ -606,7 +640,7 @@
                         </svg>
                     </div>
                     <h3>Duplicate Detection</h3>
-                    <p>Instantly find and close duplicate tabs. Free up memory and reduce browser bloat without losing important pages.</p>
+                    <p>Instantly find and close duplicate tabs. Free up memory and reduce browser bloat.</p>
                 </div>
 
                 <div class="feature-card">
@@ -618,7 +652,7 @@
                         </svg>
                     </div>
                     <h3>Auto-Pilot Mode</h3>
-                    <p>Set it and forget it. TabEater continuously organizes new tabs in the background. Your browser stays clean automatically.</p>
+                    <p>Set it and forget it. TabEater continuously organizes new tabs in the background.</p>
                 </div>
 
                 <div class="feature-card">
@@ -628,7 +662,7 @@
                         </svg>
                     </div>
                     <h3>Tab Chat</h3>
-                    <p>Ask questions about your open tabs. Get AI-powered insights about your browsing session without reading every page.</p>
+                    <p>Ask questions about your open tabs. Get AI-powered insights without reading every page.</p>
                 </div>
 
                 <div class="feature-card">
@@ -639,7 +673,7 @@
                         </svg>
                     </div>
                     <h3>Side Panel</h3>
-                    <p>Full command center in Chrome's side panel. Manage all your tabs without leaving your current page.</p>
+                    <p>Full command center in Chrome's side panel. Manage tabs without leaving your page.</p>
                 </div>
 
                 <div class="feature-card">
@@ -650,13 +684,13 @@
                         </svg>
                     </div>
                     <h3>Multiple AI Providers</h3>
-                    <p>Choose your AI: Local AI for privacy, or cloud providers like OpenAI, Gemini, and Claude for maximum power.</p>
+                    <p>Choose Local AI for privacy, or cloud providers like OpenAI, Gemini, and Claude.</p>
                 </div>
             </div>
         </section>
 
         <!-- Privacy Section -->
-        <section class="privacy">
+        <section class="privacy section-backdrop">
             <div class="privacy-container">
                 <div class="privacy-visual">
                     <svg class="shield-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -666,7 +700,7 @@
                 </div>
                 <div class="privacy-content">
                     <h2>Privacy First</h2>
-                    <p>Your browsing data stays on your device. TabEater prioritizes local AI processing—your tabs, your privacy.</p>
+                    <p>Your browsing data stays on your device. TabEater prioritizes local AI processing.</p>
                     <ul class="privacy-list">
                         <li>
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
@@ -678,7 +712,7 @@
                         </li>
                         <li>
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
-                            Cloud AI calls go directly to your chosen provider
+                            Cloud calls go directly to your provider
                         </li>
                         <li>
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
@@ -690,7 +724,7 @@
         </section>
 
         <!-- Providers Section -->
-        <section class="providers">
+        <section class="providers section-backdrop">
             <div class="providers-container">
                 <div class="providers-label">Supported AI Providers</div>
                 <div class="providers-grid">
@@ -715,11 +749,11 @@
         </section>
 
         <!-- Final CTA -->
-        <section class="cta-section">
+        <section class="cta-section section-backdrop">
             <h2>Ready to take control?</h2>
             <p>Join thousands of users who've tamed their browser chaos with TabEater.</p>
             <a href="#" class="btn btn-primary" id="chrome-store-link-2">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
                     <circle cx="12" cy="12" r="10"/>
                     <circle cx="12" cy="12" r="4"/>
                     <line x1="21.17" y1="8" x2="12" y2="8"/>
@@ -743,18 +777,17 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script>
-        // Tab Vortex - 3D animated tabs organizing themselves
+        // Enhanced Tab Vortex with connecting lines and better visuals
         (function() {
             const container = document.getElementById('canvas-container');
             if (!container) return;
 
-            // Reduce complexity on mobile
             const isMobile = window.innerWidth < 768;
-            const tabCount = isMobile ? 15 : 30;
+            const tabCount = isMobile ? 20 : 40;
 
-            // Scene setup
+            // Scene
             const scene = new THREE.Scene();
-            const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+            const camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 1000);
             const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
 
             renderer.setSize(window.innerWidth, window.innerHeight);
@@ -762,207 +795,269 @@
             container.appendChild(renderer.domElement);
 
             // Colors
-            const accentColor = 0x00FF88;
-            const cyanColor = 0x00D4FF;
+            const colors = {
+                accent: 0x00FF88,
+                cyan: 0x00D4FF,
+                purple: 0x8B5CF6,
+                white: 0xFFFFFF
+            };
 
-            // Create floating tab planes
+            // Tab group
             const tabs = [];
             const tabGroup = new THREE.Group();
 
-            // Tab materials with glow effect
+            // Create tabs with varied materials
             const tabMaterials = [
-                new THREE.MeshBasicMaterial({
-                    color: accentColor,
-                    transparent: true,
-                    opacity: 0.15,
-                    side: THREE.DoubleSide
-                }),
-                new THREE.MeshBasicMaterial({
-                    color: cyanColor,
-                    transparent: true,
-                    opacity: 0.12,
-                    side: THREE.DoubleSide
-                }),
-                new THREE.MeshBasicMaterial({
-                    color: 0xFFFFFF,
-                    transparent: true,
-                    opacity: 0.08,
-                    side: THREE.DoubleSide
-                })
+                new THREE.MeshBasicMaterial({ color: colors.accent, transparent: true, opacity: 0.2, side: THREE.DoubleSide }),
+                new THREE.MeshBasicMaterial({ color: colors.cyan, transparent: true, opacity: 0.15, side: THREE.DoubleSide }),
+                new THREE.MeshBasicMaterial({ color: colors.purple, transparent: true, opacity: 0.12, side: THREE.DoubleSide }),
             ];
 
-            // Edge materials for tab outlines
             const edgeMaterials = [
-                new THREE.LineBasicMaterial({ color: accentColor, transparent: true, opacity: 0.4 }),
-                new THREE.LineBasicMaterial({ color: cyanColor, transparent: true, opacity: 0.3 }),
-                new THREE.LineBasicMaterial({ color: 0xFFFFFF, transparent: true, opacity: 0.2 })
+                new THREE.LineBasicMaterial({ color: colors.accent, transparent: true, opacity: 0.6 }),
+                new THREE.LineBasicMaterial({ color: colors.cyan, transparent: true, opacity: 0.5 }),
+                new THREE.LineBasicMaterial({ color: colors.purple, transparent: true, opacity: 0.4 }),
             ];
 
             for (let i = 0; i < tabCount; i++) {
-                // Random tab sizes (browser tab proportions)
-                const width = 0.8 + Math.random() * 0.6;
-                const height = 0.5 + Math.random() * 0.3;
+                const width = 0.6 + Math.random() * 0.5;
+                const height = 0.4 + Math.random() * 0.25;
 
                 const geometry = new THREE.PlaneGeometry(width, height);
                 const materialIndex = Math.floor(Math.random() * tabMaterials.length);
-                const tab = new THREE.Mesh(geometry, tabMaterials[materialIndex]);
+                const tab = new THREE.Mesh(geometry, tabMaterials[materialIndex].clone());
 
-                // Create edge outline
                 const edges = new THREE.EdgesGeometry(geometry);
                 const line = new THREE.LineSegments(edges, edgeMaterials[materialIndex]);
                 tab.add(line);
 
-                // Random chaotic starting positions (the "chaos")
-                tab.position.x = (Math.random() - 0.5) * 25;
-                tab.position.y = (Math.random() - 0.5) * 20;
-                tab.position.z = (Math.random() - 0.5) * 15;
+                // Vortex starting positions - spiral outward
+                const angle = (i / tabCount) * Math.PI * 6;
+                const radius = 3 + (i / tabCount) * 12;
+                const height_pos = (Math.random() - 0.5) * 15;
 
-                // Random rotations
+                tab.position.x = Math.cos(angle) * radius;
+                tab.position.y = height_pos;
+                tab.position.z = Math.sin(angle) * radius - 5;
+
                 tab.rotation.x = Math.random() * Math.PI;
                 tab.rotation.y = Math.random() * Math.PI;
                 tab.rotation.z = Math.random() * Math.PI;
 
-                // Store organized target positions (the "order")
-                const row = Math.floor(i / 6);
-                const col = i % 6;
+                // Organized positions - neat grid
+                const row = Math.floor(i / 8);
+                const col = i % 8;
                 tab.userData = {
-                    // Chaotic state
                     chaosPos: tab.position.clone(),
                     chaosRot: tab.rotation.clone(),
-                    // Organized state - neat grid
-                    organizedPos: new THREE.Vector3(
-                        (col - 2.5) * 1.2,
-                        (row - Math.floor(tabCount / 12)) * 0.8,
-                        0
-                    ),
+                    organizedPos: new THREE.Vector3((col - 3.5) * 1.0, (row - 2.5) * 0.7, 0),
                     organizedRot: new THREE.Euler(0, 0, 0),
-                    // Animation
                     phase: Math.random() * Math.PI * 2,
-                    speed: 0.3 + Math.random() * 0.4,
-                    floatAmplitude: 0.1 + Math.random() * 0.15
+                    speed: 0.2 + Math.random() * 0.3,
+                    orbitSpeed: 0.1 + Math.random() * 0.2,
+                    orbitRadius: radius,
+                    orbitAngle: angle
                 };
 
                 tabs.push(tab);
                 tabGroup.add(tab);
             }
-
             scene.add(tabGroup);
 
-            // Add ambient particles
-            const particleCount = isMobile ? 50 : 100;
+            // Connecting lines between nearby tabs
+            const lineGroup = new THREE.Group();
+            const lineMaterial = new THREE.LineBasicMaterial({ color: colors.accent, transparent: true, opacity: 0.15 });
+
+            function updateConnections() {
+                // Clear old lines
+                while(lineGroup.children.length > 0) {
+                    lineGroup.remove(lineGroup.children[0]);
+                }
+
+                // Create new connections
+                const maxDist = 4;
+                for (let i = 0; i < tabs.length; i++) {
+                    for (let j = i + 1; j < tabs.length; j++) {
+                        const dist = tabs[i].position.distanceTo(tabs[j].position);
+                        if (dist < maxDist) {
+                            const geometry = new THREE.BufferGeometry().setFromPoints([
+                                tabs[i].position,
+                                tabs[j].position
+                            ]);
+                            const opacity = (1 - dist / maxDist) * 0.2;
+                            const material = new THREE.LineBasicMaterial({
+                                color: colors.accent,
+                                transparent: true,
+                                opacity: opacity
+                            });
+                            const line = new THREE.Line(geometry, material);
+                            lineGroup.add(line);
+                        }
+                    }
+                }
+            }
+            scene.add(lineGroup);
+
+            // Particles - more of them with glow
+            const particleCount = isMobile ? 80 : 200;
             const particleGeometry = new THREE.BufferGeometry();
             const particlePositions = new Float32Array(particleCount * 3);
+            const particleSizes = new Float32Array(particleCount);
 
             for (let i = 0; i < particleCount; i++) {
-                particlePositions[i * 3] = (Math.random() - 0.5) * 30;
+                const angle = Math.random() * Math.PI * 2;
+                const radius = 5 + Math.random() * 20;
+                particlePositions[i * 3] = Math.cos(angle) * radius;
                 particlePositions[i * 3 + 1] = (Math.random() - 0.5) * 25;
-                particlePositions[i * 3 + 2] = (Math.random() - 0.5) * 20;
+                particlePositions[i * 3 + 2] = Math.sin(angle) * radius;
+                particleSizes[i] = Math.random() * 0.08 + 0.02;
             }
 
             particleGeometry.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
             const particleMaterial = new THREE.PointsMaterial({
-                color: accentColor,
-                size: 0.03,
+                color: colors.accent,
+                size: 0.05,
                 transparent: true,
-                opacity: 0.5
+                opacity: 0.6,
+                sizeAttenuation: true
             });
             const particles = new THREE.Points(particleGeometry, particleMaterial);
             scene.add(particles);
 
-            // Central organizing sphere (the "AI core")
-            const coreGeometry = new THREE.SphereGeometry(0.3, 16, 16);
+            // Central core with rings
+            const coreGroup = new THREE.Group();
+
+            // Core sphere
+            const coreGeometry = new THREE.IcosahedronGeometry(0.4, 1);
             const coreMaterial = new THREE.MeshBasicMaterial({
-                color: accentColor,
+                color: colors.accent,
                 transparent: true,
-                opacity: 0.3,
+                opacity: 0.4,
                 wireframe: true
             });
             const core = new THREE.Mesh(coreGeometry, coreMaterial);
-            scene.add(core);
+            coreGroup.add(core);
 
-            // Position camera
-            camera.position.z = 12;
+            // Orbit rings
+            const ringGeometry = new THREE.RingGeometry(1.5, 1.55, 64);
+            const ringMaterial = new THREE.MeshBasicMaterial({
+                color: colors.accent,
+                transparent: true,
+                opacity: 0.2,
+                side: THREE.DoubleSide
+            });
+
+            const ring1 = new THREE.Mesh(ringGeometry, ringMaterial);
+            ring1.rotation.x = Math.PI / 2;
+            coreGroup.add(ring1);
+
+            const ring2Geo = new THREE.RingGeometry(2.2, 2.24, 64);
+            const ring2 = new THREE.Mesh(ring2Geo, ringMaterial.clone());
+            ring2.rotation.x = Math.PI / 3;
+            ring2.rotation.y = Math.PI / 4;
+            coreGroup.add(ring2);
+
+            scene.add(coreGroup);
+
+            // Camera position
+            camera.position.z = 14;
+            camera.position.y = 2;
 
             // Mouse interaction
             let mouseX = 0, mouseY = 0;
-            let targetRotationX = 0, targetRotationY = 0;
-
             document.addEventListener('mousemove', (e) => {
                 mouseX = (e.clientX / window.innerWidth - 0.5) * 2;
                 mouseY = (e.clientY / window.innerHeight - 0.5) * 2;
             });
 
-            // Scroll-based organization animation
+            // Scroll progress
             let scrollProgress = 0;
-
             function updateScrollProgress() {
                 const scrollY = window.scrollY;
-                const maxScroll = document.body.scrollHeight - window.innerHeight;
-                scrollProgress = Math.min(scrollY / (maxScroll * 0.3), 1); // Organize in first 30% of scroll
+                const heroHeight = window.innerHeight;
+                scrollProgress = Math.min(scrollY / heroHeight, 1);
             }
-
             window.addEventListener('scroll', updateScrollProgress);
             updateScrollProgress();
 
-            // Animation loop
+            // Animation
             let time = 0;
+            let connectionTimer = 0;
 
             function animate() {
                 requestAnimationFrame(animate);
-                time += 0.01;
+                time += 0.008;
+                connectionTimer++;
 
-                // Smoothly rotate scene based on mouse
-                targetRotationY = mouseX * 0.3;
-                targetRotationX = mouseY * 0.2;
+                const t = scrollProgress;
 
-                tabGroup.rotation.y += (targetRotationY - tabGroup.rotation.y) * 0.02;
-                tabGroup.rotation.x += (targetRotationX - tabGroup.rotation.x) * 0.02;
-
-                // Animate tabs between chaos and organized states
+                // Animate tabs - vortex spiral when in chaos, grid when organized
                 tabs.forEach((tab, i) => {
                     const data = tab.userData;
-                    const t = scrollProgress;
 
-                    // Interpolate position
-                    tab.position.lerpVectors(data.chaosPos, data.organizedPos, t);
-
-                    // Interpolate rotation
-                    tab.rotation.x = data.chaosRot.x * (1 - t) + data.organizedRot.x * t;
-                    tab.rotation.y = data.chaosRot.y * (1 - t) + data.organizedRot.y * t;
-                    tab.rotation.z = data.chaosRot.z * (1 - t) + data.organizedRot.z * t;
-
-                    // Add floating animation
-                    const floatOffset = Math.sin(time * data.speed + data.phase) * data.floatAmplitude * (1 - t * 0.7);
-                    tab.position.y += floatOffset;
-
-                    // Subtle rotation wobble in chaos state
                     if (t < 1) {
-                        tab.rotation.x += Math.sin(time * 0.5 + data.phase) * 0.01 * (1 - t);
-                        tab.rotation.z += Math.cos(time * 0.3 + data.phase) * 0.01 * (1 - t);
+                        // Vortex rotation in chaos mode
+                        data.orbitAngle += data.orbitSpeed * 0.02 * (1 - t);
+                        const currentRadius = data.orbitRadius * (1 - t * 0.8);
+
+                        const chaosX = Math.cos(data.orbitAngle) * currentRadius;
+                        const chaosZ = Math.sin(data.orbitAngle) * currentRadius - 5 * (1 - t);
+                        const chaosY = data.chaosPos.y + Math.sin(time * data.speed + data.phase) * 0.5 * (1 - t);
+
+                        tab.position.x = chaosX * (1 - t) + data.organizedPos.x * t;
+                        tab.position.y = chaosY * (1 - t) + data.organizedPos.y * t;
+                        tab.position.z = chaosZ * (1 - t) + data.organizedPos.z * t;
+
+                        // Rotation interpolation
+                        tab.rotation.x = data.chaosRot.x * (1 - t) + data.organizedRot.x * t;
+                        tab.rotation.y = data.chaosRot.y * (1 - t) + data.orbitAngle * (1 - t);
+                        tab.rotation.z = data.chaosRot.z * (1 - t) + data.organizedRot.z * t;
+                    } else {
+                        tab.position.copy(data.organizedPos);
+                        tab.rotation.set(0, 0, 0);
+                    }
+
+                    // Floating in organized mode
+                    if (t > 0.5) {
+                        tab.position.y += Math.sin(time * 0.5 + data.phase) * 0.05 * t;
                     }
                 });
 
-                // Animate core
-                core.rotation.x += 0.005;
-                core.rotation.y += 0.01;
-                core.scale.setScalar(1 + Math.sin(time * 2) * 0.1);
-                core.material.opacity = 0.2 + scrollProgress * 0.3;
+                // Update connections periodically
+                if (connectionTimer % 10 === 0) {
+                    updateConnections();
+                }
 
-                // Animate particles
-                particles.rotation.y += 0.0005;
-                particles.rotation.x += 0.0002;
+                // Rotate tab group based on mouse
+                tabGroup.rotation.y += (mouseX * 0.2 - tabGroup.rotation.y) * 0.03;
+                tabGroup.rotation.x += (mouseY * 0.1 - tabGroup.rotation.x) * 0.03;
 
-                // Camera slight movement
-                camera.position.x += (mouseX * 1 - camera.position.x) * 0.01;
-                camera.position.y += (-mouseY * 0.5 - camera.position.y) * 0.01;
-                camera.lookAt(scene.position);
+                // Core animation
+                core.rotation.x += 0.01;
+                core.rotation.y += 0.015;
+                core.scale.setScalar(1 + Math.sin(time * 2) * 0.15);
+
+                ring1.rotation.z += 0.005;
+                ring2.rotation.z -= 0.003;
+                ring2.rotation.x += 0.002;
+
+                coreGroup.scale.setScalar(0.8 + t * 0.4);
+                coreMaterial.opacity = 0.3 + t * 0.3;
+
+                // Particles rotation
+                particles.rotation.y += 0.001;
+
+                // Camera movement
+                camera.position.x += (mouseX * 2 - camera.position.x) * 0.02;
+                camera.position.y += (2 - mouseY * 1 - camera.position.y) * 0.02;
+                camera.lookAt(0, 0, 0);
 
                 renderer.render(scene, camera);
             }
 
             animate();
 
-            // Handle resize
+            // Resize
             window.addEventListener('resize', () => {
                 camera.aspect = window.innerWidth / window.innerHeight;
                 camera.updateProjectionMatrix();
