@@ -15,7 +15,19 @@ interface LicenseStatus {
     usageRemaining: number;
     dailyLimit?: number;
     trialEndDate?: string;
+    trialDaysRemaining?: number;
     canUse: boolean;
+    // Pro user info
+    email?: string;
+    devicesUsed?: number;
+    maxDevices?: number;
+    purchaseDate?: string;
+}
+
+interface DeviceInfo {
+    deviceId: string;
+    lastActive: string;
+    current: boolean;
 }
 
 interface UseResponse {
@@ -344,6 +356,99 @@ class LicenseService {
 
     isDevMode(): boolean {
         return DEV_MODE;
+    }
+
+    /**
+     * Get list of devices for paid users
+     */
+    async getDevices(): Promise<{ devices: DeviceInfo[]; maxDevices: number } | null> {
+        if (DEV_MODE) {
+            return {
+                devices: [{ deviceId: this.deviceId || 'dev', lastActive: new Date().toISOString(), current: true }],
+                maxDevices: 3
+            };
+        }
+
+        if (!this.licenseKey) {
+            await this.initialize();
+        }
+
+        try {
+            const response = await fetchWithRetry(`${API_BASE}/devices`, {
+                method: 'GET',
+                headers: {
+                    'X-License-Key': this.licenseKey!,
+                    'X-Device-Id': this.deviceId!
+                }
+            });
+
+            if (!response.ok) {
+                return null;
+            }
+
+            return await response.json();
+        } catch {
+            return null;
+        }
+    }
+
+    /**
+     * Remove a device from the license (for paid users)
+     */
+    async removeDevice(deviceIdToRemove: string): Promise<boolean> {
+        if (DEV_MODE) return true;
+
+        if (!this.licenseKey) {
+            await this.initialize();
+        }
+
+        try {
+            const response = await fetchWithRetry(`${API_BASE}/devices/${deviceIdToRemove}`, {
+                method: 'DELETE',
+                headers: {
+                    'X-License-Key': this.licenseKey!,
+                    'X-Device-Id': this.deviceId!
+                }
+            });
+
+            if (response.ok) {
+                this.clearCache();
+                return true;
+            }
+            return false;
+        } catch {
+            return false;
+        }
+    }
+
+    /**
+     * Get trial info with days remaining calculation
+     */
+    async getTrialInfo(): Promise<{ daysRemaining: number; startDate: string; endDate: string } | null> {
+        // Check local storage for trial start date
+        const stored = await chrome.storage.local.get(['trialStartDate']);
+
+        if (!stored.trialStartDate) {
+            // Start trial now
+            const startDate = new Date().toISOString();
+            await chrome.storage.local.set({ trialStartDate: startDate });
+            return {
+                daysRemaining: 7,
+                startDate,
+                endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+            };
+        }
+
+        const startDate = new Date(stored.trialStartDate);
+        const endDate = new Date(startDate.getTime() + 7 * 24 * 60 * 60 * 1000);
+        const now = new Date();
+        const daysRemaining = Math.max(0, Math.ceil((endDate.getTime() - now.getTime()) / (24 * 60 * 60 * 1000)));
+
+        return {
+            daysRemaining,
+            startDate: stored.trialStartDate,
+            endDate: endDate.toISOString()
+        };
     }
 }
 

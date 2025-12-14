@@ -349,6 +349,23 @@ async function handleMessage(message: Message): Promise<MessageResponse> {
             await autoPilotService.saveSettings(message.payload);
             return { success: true };
 
+        // Device management for Pro users
+        case 'getDevices':
+            const devices = await licenseService.getDevices();
+            return { success: true, data: devices };
+
+        case 'removeDevice':
+            if (!message.payload?.deviceId) {
+                return { success: false, error: 'Device ID required' };
+            }
+            const removed = await licenseService.removeDevice(message.payload.deviceId);
+            return { success: removed, data: { removed } };
+
+        // Trial info
+        case 'getTrialInfo':
+            const trialInfo = await licenseService.getTrialInfo();
+            return { success: true, data: trialInfo };
+
         // Memory tracking
         case 'getMemoryReport':
             const memoryReport = await memoryService.generateReport();

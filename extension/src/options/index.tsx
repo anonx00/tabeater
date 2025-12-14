@@ -14,7 +14,13 @@ interface LicenseStatus {
     usageRemaining: number;
     dailyLimit?: number;
     trialEndDate?: string;
+    trialDaysRemaining?: number;
     canUse: boolean;
+    // Pro user info
+    email?: string;
+    devicesUsed?: number;
+    maxDevices?: number;
+    purchaseDate?: string;
 }
 
 interface AutoPilotSettings {
@@ -132,6 +138,9 @@ const OptionsPage: React.FC = () => {
     const [verifyEmail, setVerifyEmail] = useState('');
     const [verifyError, setVerifyError] = useState('');
     const [verifyLoading, setVerifyLoading] = useState(false);
+    const [trialInfo, setTrialInfo] = useState<{ daysRemaining: number; startDate: string; endDate: string } | null>(null);
+    const [deviceInfo, setDeviceInfo] = useState<{ devices: { deviceId: string; lastActive: string; current: boolean }[]; maxDevices: number } | null>(null);
+    const [showDevices, setShowDevices] = useState(false);
     const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     // Load data
@@ -139,7 +148,15 @@ const OptionsPage: React.FC = () => {
         loadConfig();
         loadLicense();
         loadAutoPilotSettings();
+        loadTrialInfo();
     }, []);
+
+    // Load device info when license is loaded and user is Pro
+    useEffect(() => {
+        if (license?.paid) {
+            loadDeviceInfo();
+        }
+    }, [license?.paid]);
 
     // Auto-save with debounce
     useEffect(() => {
@@ -186,6 +203,24 @@ const OptionsPage: React.FC = () => {
         if (response.success) {
             setAutoPilotSettings(response.data);
             setPreviousMode(response.data.mode);
+        }
+    };
+
+    const loadTrialInfo = async () => {
+        const response = await chrome.runtime.sendMessage({ action: 'getTrialInfo' });
+        if (response.success) setTrialInfo(response.data);
+    };
+
+    const loadDeviceInfo = async () => {
+        const response = await chrome.runtime.sendMessage({ action: 'getDevices' });
+        if (response.success && response.data) setDeviceInfo(response.data);
+    };
+
+    const removeDevice = async (deviceId: string) => {
+        const response = await chrome.runtime.sendMessage({ action: 'removeDevice', payload: { deviceId } });
+        if (response.success) {
+            await loadDeviceInfo();
+            setToast({ message: 'Device removed', undo: () => {} });
         }
     };
 
@@ -534,21 +569,91 @@ const OptionsPage: React.FC = () => {
                         </div>
 
                         {license?.paid ? (
-                            <div style={s.licenseActive}>
-                                <div style={s.licenseIcon}>&#9733;</div>
-                                <div style={s.licenseTitle}>PRO_ACTIVE</div>
-                                <div style={s.licenseDesc}>Unlimited access to all features</div>
-                            </div>
+                            <>
+                                {/* Pro Active Status */}
+                                <div style={s.licenseActive}>
+                                    <div style={s.licenseIcon}>&#9733;</div>
+                                    <div style={s.licenseTitle}>PRO_ACTIVE</div>
+                                    <div style={s.licenseDesc}>Unlimited access to all features</div>
+                                    {license.email && (
+                                        <div style={s.licenseEmail}>{license.email}</div>
+                                    )}
+                                </div>
+
+                                {/* Device Management */}
+                                <div style={s.deviceSection}>
+                                    <div style={s.deviceHeader}>
+                                        <span style={s.deviceLabel}>DEVICES</span>
+                                        <span style={s.deviceCount}>
+                                            {deviceInfo ? `${deviceInfo.devices.length}/${deviceInfo.maxDevices}` : '...'}
+                                        </span>
+                                    </div>
+                                    <button
+                                        style={s.deviceToggle}
+                                        onClick={() => setShowDevices(!showDevices)}
+                                    >
+                                        {showDevices ? 'HIDE_DEVICES' : 'MANAGE_DEVICES'}
+                                    </button>
+
+                                    {showDevices && deviceInfo && (
+                                        <div style={s.deviceList}>
+                                            {deviceInfo.devices.map((device) => (
+                                                <div key={device.deviceId} style={s.deviceItem}>
+                                                    <div style={s.deviceInfo}>
+                                                        <span style={s.deviceId}>
+                                                            {device.current && <span style={s.currentBadge}>THIS</span>}
+                                                            {device.deviceId.slice(0, 12)}...
+                                                        </span>
+                                                        <span style={s.deviceDate}>
+                                                            Last: {new Date(device.lastActive).toLocaleDateString()}
+                                                        </span>
+                                                    </div>
+                                                    {!device.current && (
+                                                        <button
+                                                            style={s.deviceRemove}
+                                                            onClick={() => removeDevice(device.deviceId)}
+                                                        >
+                                                            &#10005;
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </>
                         ) : (
                             <div style={s.licenseCard}>
+                                {/* 7-Day Trial Banner */}
+                                {trialInfo && trialInfo.daysRemaining > 0 && (
+                                    <div style={s.trialBanner}>
+                                        <div style={s.trialDays}>{trialInfo.daysRemaining}</div>
+                                        <div style={s.trialText}>
+                                            <div style={s.trialLabel}>DAYS_REMAINING</div>
+                                            <div style={s.trialDesc}>Full access trial</div>
+                                        </div>
+                                        <div style={s.trialProgress}>
+                                            <div style={{ ...s.trialProgressFill, width: `${(trialInfo.daysRemaining / 7) * 100}%` }} />
+                                        </div>
+                                    </div>
+                                )}
+
+                                {trialInfo && trialInfo.daysRemaining === 0 && (
+                                    <div style={s.trialExpired}>
+                                        <span style={s.expiredIcon}>&#9888;</span>
+                                        TRIAL_EXPIRED
+                                    </div>
+                                )}
+
                                 <div style={s.licensePrice}>
-                                    A$6 <span style={s.licensePriceNote}>ONE_TIME</span>
+                                    A$6 <span style={s.licensePriceNote}>LIFETIME</span>
                                 </div>
                                 <ul style={s.featureList}>
                                     <li style={s.featureItem}><span style={s.checkMark}>&#10003;</span> Unlimited AI scans</li>
                                     <li style={s.featureItem}><span style={s.checkMark}>&#10003;</span> Auto Pilot mode</li>
                                     <li style={s.featureItem}><span style={s.checkMark}>&#10003;</span> Smart tab grouping</li>
-                                    <li style={s.featureItem}><span style={s.checkMark}>&#10003;</span> Priority support</li>
+                                    <li style={s.featureItem}><span style={s.checkMark}>&#10003;</span> Contextual grouping</li>
+                                    <li style={s.featureItem}><span style={s.checkMark}>&#10003;</span> Up to 3 devices</li>
                                 </ul>
                                 <button
                                     style={s.upgradeBtn}
@@ -559,12 +664,6 @@ const OptionsPage: React.FC = () => {
                                 >
                                     UPGRADE_TO_PRO
                                 </button>
-
-                                {license?.status === 'trial' && (
-                                    <div style={s.trialInfo}>
-                                        TRIAL: {license.usageRemaining}/{license.dailyLimit || 20} USES_REMAINING
-                                    </div>
-                                )}
 
                                 <div style={s.verifySection}>
                                     {!showEmailVerify ? (
@@ -1176,6 +1275,160 @@ const s: { [key: string]: React.CSSProperties } = {
         fontSize: typography.sizeSm,
         letterSpacing: '0.05em',
         cursor: 'pointer',
+    },
+    // Trial Banner Styles
+    trialBanner: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: spacing.lg,
+        padding: spacing.lg,
+        background: colors.successBg,
+        border: `1px solid ${colors.phosphorGreen}`,
+        marginBottom: spacing.xl,
+    },
+    trialDays: {
+        fontFamily: typography.fontMono,
+        fontSize: 32,
+        fontWeight: typography.bold,
+        color: colors.phosphorGreen,
+        textShadow: `0 0 10px ${colors.phosphorGreen}`,
+        minWidth: 50,
+        textAlign: 'center',
+    },
+    trialText: {
+        flex: 1,
+    },
+    trialLabel: {
+        fontFamily: typography.fontMono,
+        fontSize: typography.sizeSm,
+        color: colors.phosphorGreen,
+        letterSpacing: '0.1em',
+    },
+    trialDesc: {
+        fontSize: typography.sizeXs,
+        color: colors.textMuted,
+        marginTop: 2,
+    },
+    trialProgress: {
+        width: 60,
+        height: 4,
+        background: colors.borderIdle,
+        overflow: 'hidden',
+    },
+    trialProgressFill: {
+        height: '100%',
+        background: colors.phosphorGreen,
+        transition: 'width 0.3s ease',
+    },
+    trialExpired: {
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: spacing.sm,
+        padding: spacing.lg,
+        background: colors.errorBg,
+        border: `1px solid ${colors.criticalRed}`,
+        marginBottom: spacing.xl,
+        fontFamily: typography.fontMono,
+        fontSize: typography.sizeSm,
+        color: colors.criticalRed,
+        letterSpacing: '0.1em',
+    },
+    expiredIcon: {
+        fontSize: 16,
+    },
+    // Device Management Styles
+    licenseEmail: {
+        fontFamily: typography.fontMono,
+        fontSize: typography.sizeXs,
+        color: colors.textDim,
+        marginTop: spacing.md,
+        letterSpacing: '0.05em',
+    },
+    deviceSection: {
+        padding: spacing.lg,
+        background: colors.panelGrey,
+        border: `1px solid ${colors.borderIdle}`,
+        marginBottom: spacing.xl,
+    },
+    deviceHeader: {
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: spacing.md,
+    },
+    deviceLabel: {
+        fontFamily: typography.fontMono,
+        fontSize: typography.sizeXs,
+        color: colors.textDim,
+        letterSpacing: '0.1em',
+    },
+    deviceCount: {
+        fontFamily: typography.fontMono,
+        fontSize: typography.sizeSm,
+        color: colors.phosphorGreen,
+    },
+    deviceToggle: {
+        width: '100%',
+        padding: spacing.sm,
+        background: 'transparent',
+        border: `1px solid ${colors.borderIdle}`,
+        color: colors.textMuted,
+        fontFamily: typography.fontMono,
+        fontSize: typography.sizeXs,
+        letterSpacing: '0.05em',
+        cursor: 'pointer',
+    },
+    deviceList: {
+        marginTop: spacing.md,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: spacing.sm,
+    },
+    deviceItem: {
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: spacing.sm,
+        background: colors.voidBlack,
+        border: `1px solid ${colors.borderIdle}`,
+    },
+    deviceInfo: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 2,
+    },
+    deviceId: {
+        fontFamily: typography.fontMono,
+        fontSize: typography.sizeXs,
+        color: colors.textPrimary,
+        display: 'flex',
+        alignItems: 'center',
+        gap: spacing.sm,
+    },
+    currentBadge: {
+        padding: '2px 4px',
+        background: colors.phosphorGreen,
+        color: colors.voidBlack,
+        fontSize: 8,
+        fontWeight: typography.bold,
+        letterSpacing: '0.05em',
+    },
+    deviceDate: {
+        fontSize: typography.sizeXs,
+        color: colors.textDim,
+    },
+    deviceRemove: {
+        width: 24,
+        height: 24,
+        background: 'transparent',
+        border: `1px solid ${colors.criticalRed}`,
+        color: colors.criticalRed,
+        fontSize: 12,
+        cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     scanlines: {
         position: 'fixed',
