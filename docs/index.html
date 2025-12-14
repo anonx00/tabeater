@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TabEater - AI Tab Manager</title>
+    <meta name="description" content="AI-powered Chrome extension for intelligent tab management. Smart grouping, duplicate detection, and auto-pilot mode.">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%230a0a0a' rx='4'/%3E%3Cpath d='M4 8.5V26C4 27 5 28 6 28H26C27 28 28 27 28 26V11C28 10 27 9 26 9H16L13 5H6C5 5 4 6 4 7V8.5Z' fill='none' stroke='%2300FF88' stroke-width='2'/%3E%3Crect x='8' y='13' width='6' height='6' fill='%2300FF88'/%3E%3Cline x1='8' y1='22' x2='24' y2='22' stroke='%2300FF88' stroke-width='1.5' opacity='0.7'/%3E%3C/svg%3E">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        :root {
+            --green: #00FF88;
+            --cyan: #00D4FF;
+            --dark: #0a0a0a;
+            --gray: #1a1a1a;
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--dark);
+            color: #e0e0e0;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        
+        #canvas-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            opacity: 0.4;
+        }
+        
+        .content {
+            position: relative;
+            z-index: 1;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+        }
+        
+        .logo {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 1.5rem;
+            filter: drop-shadow(0 0 20px rgba(0, 255, 136, 0.3));
+        }
+        
+        h1 {
+            font-size: clamp(2.5rem, 8vw, 4rem);
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, #fff 0%, var(--green) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .tagline {
+            font-size: 1.1rem;
+            color: #888;
+            margin-bottom: 3rem;
+            text-align: center;
+        }
+        
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            max-width: 700px;
+            width: 100%;
+            margin-bottom: 3rem;
+        }
+        
+        .feature {
+            padding: 1.5rem;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+        
+        .feature:hover {
+            border-color: var(--green);
+            transform: translateY(-4px);
+            box-shadow: 0 10px 40px rgba(0, 255, 136, 0.1);
+        }
+        
+        .feature-icon {
+            font-size: 1.5rem;
+            margin-bottom: 0.75rem;
+            display: block;
+        }
+        
+        .feature h3 {
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+            color: #fff;
+        }
+        
+        .feature p {
+            font-size: 0.8rem;
+            color: #666;
+        }
+        
+        .cta-group {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        
+        .btn {
+            padding: 0.875rem 2rem;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.2s ease;
+            cursor: pointer;
+            border: none;
+        }
+        
+        .btn-primary {
+            background: var(--green);
+            color: var(--dark);
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(0, 255, 136, 0.3);
+        }
+        
+        .btn-secondary {
+            background: transparent;
+            color: #888;
+            border: 1px solid #333;
+        }
+        
+        .btn-secondary:hover {
+            border-color: #555;
+            color: #fff;
+        }
+        
+        .footer {
+            position: fixed;
+            bottom: 1.5rem;
+            font-size: 0.75rem;
+            color: #444;
+        }
+        
+        .footer a {
+            color: #555;
+            text-decoration: none;
+        }
+        
+        .footer a:hover {
+            color: var(--green);
+        }
+        
+        @media (max-width: 600px) {
+            .features { grid-template-columns: 1fr; }
+            .cta-group { flex-direction: column; width: 100%; max-width: 300px; }
+            .btn { width: 100%; text-align: center; }
+        }
+    </style>
+</head>
+<body>
+    <div id="canvas-container"></div>
+    
+    <div class="content">
+        <svg class="logo" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="128" height="128" fill="#0a0a0a" rx="16"/>
+            <path d="M16 34V102C16 107 20 111 25 111H103C108 111 112 107 112 102V44C112 39 108 35 103 35H64L54 22H25C20 22 16 26 16 31V34Z"
+                  fill="none" stroke="#00FF88" stroke-width="5" stroke-linejoin="round"/>
+            <rect x="32" y="50" width="22" height="22" fill="#00FF88" rx="2"/>
+            <line x1="32" y1="88" x2="96" y2="88" stroke="#00FF88" stroke-width="4" stroke-linecap="round" opacity="0.7"/>
+            <line x1="32" y1="98" x2="80" y2="98" stroke="#00FF88" stroke-width="3" stroke-linecap="round" opacity="0.5"/>
+        </svg>
+        
+        <h1>TabEater</h1>
+        <p class="tagline">AI-powered tab management for Chrome</p>
+        
+        <div class="features">
+            <div class="feature">
+                <span class="feature-icon">◆</span>
+                <h3>Smart Grouping</h3>
+                <p>AI organizes tabs by context</p>
+            </div>
+            <div class="feature">
+                <span class="feature-icon">◇</span>
+                <h3>Duplicate Detection</h3>
+                <p>Find and close duplicates</p>
+            </div>
+            <div class="feature">
+                <span class="feature-icon">▲</span>
+                <h3>Auto-Pilot</h3>
+                <p>Hands-free tab management</p>
+            </div>
+        </div>
+        
+        <div class="cta-group">
+            <a href="#" class="btn btn-primary" id="chrome-link">Add to Chrome</a>
+            <a href="https://github.com/anonx00/tabeater" class="btn btn-secondary">View Source</a>
+        </div>
+    </div>
+    
+    <div class="footer">
+        <a href="https://github.com/anonx00/tabeater">GitHub</a>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        // Three.js Background
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        container.appendChild(renderer.domElement);
+        
+        // Particles
+        const particleCount = 100;
+        const positions = new Float32Array(particleCount * 3);
+        const velocities = [];
+        
+        for (let i = 0; i < particleCount; i++) {
+            positions[i * 3] = (Math.random() - 0.5) * 20;
+            positions[i * 3 + 1] = (Math.random() - 0.5) * 20;
+            positions[i * 3 + 2] = (Math.random() - 0.5) * 10;
+            velocities.push({
+                x: (Math.random() - 0.5) * 0.01,
+                y: (Math.random() - 0.5) * 0.01,
+                z: (Math.random() - 0.5) * 0.005
+            });
+        }
+        
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        
+        const material = new THREE.PointsMaterial({
+            color: 0x00FF88,
+            size: 0.05,
+            transparent: true,
+            opacity: 0.6
+        });
+        
+        const particles = new THREE.Points(geometry, material);
+        scene.add(particles);
+        
+        // Lines connecting nearby particles
+        const lineMaterial = new THREE.LineBasicMaterial({ 
+            color: 0x00FF88, 
+            transparent: true, 
+            opacity: 0.1 
+        });
+        
+        camera.position.z = 5;
+        
+        // Mouse interaction
+        let mouseX = 0, mouseY = 0;
+        document.addEventListener('mousemove', (e) => {
+            mouseX = (e.clientX / window.innerWidth - 0.5) * 2;
+            mouseY = (e.clientY / window.innerHeight - 0.5) * 2;
+        });
+        
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            const positions = particles.geometry.attributes.position.array;
+            for (let i = 0; i < particleCount; i++) {
+                positions[i * 3] += velocities[i].x;
+                positions[i * 3 + 1] += velocities[i].y;
+                positions[i * 3 + 2] += velocities[i].z;
+                
+                // Wrap around
+                if (Math.abs(positions[i * 3]) > 10) velocities[i].x *= -1;
+                if (Math.abs(positions[i * 3 + 1]) > 10) velocities[i].y *= -1;
+                if (Math.abs(positions[i * 3 + 2]) > 5) velocities[i].z *= -1;
+            }
+            particles.geometry.attributes.position.needsUpdate = true;
+            
+            // Gentle camera movement
+            camera.position.x += (mouseX * 0.5 - camera.position.x) * 0.02;
+            camera.position.y += (-mouseY * 0.5 - camera.position.y) * 0.02;
+            camera.lookAt(scene.position);
+            
+            particles.rotation.y += 0.0005;
+            
+            renderer.render(scene, camera);
+        }
+        
+        animate();
+        
+        // Resize handler
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
