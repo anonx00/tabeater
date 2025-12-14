@@ -50,8 +50,15 @@ interface APIUsageStats {
     estimatedCost: number; // in cents
 }
 
-// Rate limits for fly mode auto-grouping
-const RATE_LIMITS = {
+// User-configurable rate limits
+interface RateLimitConfig {
+    maxPerHour: number;
+    maxPerDay: number;
+    warningThreshold: number;
+}
+
+// Default rate limits for fly mode auto-grouping
+const DEFAULT_RATE_LIMITS: RateLimitConfig = {
     maxPerHour: 30,       // Max 30 calls per hour
     maxPerDay: 100,       // Max 100 calls per day
     warningThreshold: 0.8 // Warn at 80% of limit
@@ -62,6 +69,7 @@ class AIService {
     private provider: AIProvider = 'none';
     private config: AIConfig = {};
     private nanoStatus: NanoStatus = { available: false, status: 'not_available', message: 'Not checked' };
+    private rateLimits: RateLimitConfig = { ...DEFAULT_RATE_LIMITS };
     private usageStats: APIUsageStats = {
         totalCalls: 0,
         todayCalls: 0,
@@ -71,13 +79,20 @@ class AIService {
         estimatedCost: 0
     };
 
+    // Request queue for batching and deduplication
+    private pendingRequests: Map<string, Promise<string>> = new Map();
+
     async initialize(): Promise<AIProvider> {
-        const stored = await chrome.storage.local.get(['aiConfig', 'apiUsageStats']);
+        const stored = await chrome.storage.local.get(['aiConfig', 'apiUsageStats', 'rateLimits']);
         if (stored.aiConfig) {
             this.config = stored.aiConfig;
         }
         if (stored.apiUsageStats) {
             this.usageStats = { ...this.usageStats, ...stored.apiUsageStats };
+        }
+        // Load custom rate limits if set
+        if (stored.rateLimits) {
+            this.rateLimits = { ...DEFAULT_RATE_LIMITS, ...stored.rateLimits };
         }
         // Reset counters if needed
         this.resetCountersIfNeeded();
@@ -270,6 +285,11 @@ class AIService {
 
     // Check if we can make an API call (rate limiting)
     async canMakeCall(): Promise<{ allowed: boolean; reason?: string; warning?: string }> {
+        // Reload limits in case they changed
+        const stored = await chrome.storage.local.get(['rateLimits']);
+        if (stored.rateLimits) {
+            this.rateLimits = { ...DEFAULT_RATE_LIMITS, ...stored.rateLimits };
+        }
         this.resetCountersIfNeeded();
 
         // Nano is free - no limits
@@ -278,33 +298,57 @@ class AIService {
         }
 
         // Check hourly limit
-        if (this.usageStats.hourCalls >= RATE_LIMITS.maxPerHour) {
+        if (this.usageStats.hourCalls >= this.rateLimits.maxPerHour) {
             return {
                 allowed: false,
-                reason: `Hourly limit reached (${RATE_LIMITS.maxPerHour}/hr). Resets at the next hour.`
+                reason: `Hourly limit reached (${this.rateLimits.maxPerHour}/hr). Resets at the next hour.`
             };
         }
 
         // Check daily limit
-        if (this.usageStats.todayCalls >= RATE_LIMITS.maxPerDay) {
+        if (this.usageStats.todayCalls >= this.rateLimits.maxPerDay) {
             return {
                 allowed: false,
-                reason: `Daily limit reached (${RATE_LIMITS.maxPerDay}/day). Resets at midnight.`
+                reason: `Daily limit reached (${this.rateLimits.maxPerDay}/day). Resets at midnight.`
             };
         }
 
         // Warning if approaching limits
-        const hourlyUsage = this.usageStats.hourCalls / RATE_LIMITS.maxPerHour;
-        const dailyUsage = this.usageStats.todayCalls / RATE_LIMITS.maxPerDay;
+        const hourlyUsage = this.usageStats.hourCalls / this.rateLimits.maxPerHour;
+        const dailyUsage = this.usageStats.todayCalls / this.rateLimits.maxPerDay;
 
-        if (hourlyUsage >= RATE_LIMITS.warningThreshold || dailyUsage >= RATE_LIMITS.warningThreshold) {
+        if (hourlyUsage >= this.rateLimits.warningThreshold || dailyUsage >= this.rateLimits.warningThreshold) {
             return {
                 allowed: true,
-                warning: `API usage high: ${this.usageStats.hourCalls}/${RATE_LIMITS.maxPerHour} this hour, ${this.usageStats.todayCalls}/${RATE_LIMITS.maxPerDay} today`
+                warning: `API usage high: ${this.usageStats.hourCalls}/${this.rateLimits.maxPerHour} this hour, ${this.usageStats.todayCalls}/${this.rateLimits.maxPerDay} today`
             };
         }
 
         return { allowed: true };
+    }
+
+    // Set custom rate limits
+    async setRateLimits(limits: Partial<RateLimitConfig>): Promise<void> {
+        this.rateLimits = { ...this.rateLimits, ...limits };
+        await chrome.storage.local.set({ rateLimits: this.rateLimits });
+    }
+
+    // Get current rate limits
+    getRateLimits(): RateLimitConfig {
+        return { ...this.rateLimits };
+    }
+
+    // Reset usage stats (for testing or user reset)
+    async resetUsageStats(): Promise<void> {
+        this.usageStats = {
+            totalCalls: 0,
+            todayCalls: 0,
+            hourCalls: 0,
+            lastCallDate: '',
+            lastCallHour: -1,
+            estimatedCost: 0
+        };
+        await chrome.storage.local.set({ apiUsageStats: this.usageStats });
     }
 
     // Track API usage (cost estimates in cents per call)
@@ -330,11 +374,14 @@ class AIService {
     }
 
     // Get API usage stats with limits info (async to load from storage)
-    async getUsageStats(): Promise<APIUsageStats & { limits: typeof RATE_LIMITS; nearLimit: boolean; provider: string; configuredProvider: string }> {
+    async getUsageStats(): Promise<APIUsageStats & { limits: RateLimitConfig; nearLimit: boolean; provider: string; configuredProvider: string }> {
         // Load latest from storage
-        const stored = await chrome.storage.local.get(['apiUsageStats', 'aiConfig']);
+        const stored = await chrome.storage.local.get(['apiUsageStats', 'aiConfig', 'rateLimits']);
         if (stored.apiUsageStats) {
             this.usageStats = { ...this.usageStats, ...stored.apiUsageStats };
+        }
+        if (stored.rateLimits) {
+            this.rateLimits = { ...DEFAULT_RATE_LIMITS, ...stored.rateLimits };
         }
         this.resetCountersIfNeeded();
 
@@ -344,12 +391,12 @@ class AIService {
             configuredProvider = stored.aiConfig.cloudProvider;
         }
 
-        const hourlyUsage = this.usageStats.hourCalls / RATE_LIMITS.maxPerHour;
-        const dailyUsage = this.usageStats.todayCalls / RATE_LIMITS.maxPerDay;
+        const hourlyUsage = this.usageStats.hourCalls / this.rateLimits.maxPerHour;
+        const dailyUsage = this.usageStats.todayCalls / this.rateLimits.maxPerDay;
         return {
             ...this.usageStats,
-            limits: RATE_LIMITS,
-            nearLimit: hourlyUsage >= RATE_LIMITS.warningThreshold || dailyUsage >= RATE_LIMITS.warningThreshold,
+            limits: this.rateLimits,
+            nearLimit: hourlyUsage >= this.rateLimits.warningThreshold || dailyUsage >= this.rateLimits.warningThreshold,
             provider: this.provider,
             configuredProvider: configuredProvider
         };
@@ -553,4 +600,5 @@ class AIService {
 }
 
 export const aiService = new AIService();
-export type { AIConfig, AIProvider, NanoStatus };
+export type { AIConfig, AIProvider, NanoStatus, RateLimitConfig };
+export { DEFAULT_RATE_LIMITS };

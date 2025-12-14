@@ -274,6 +274,18 @@ async function handleMessage(message: Message): Promise<MessageResponse> {
             const usageStats = await aiService.getUsageStats();
             return { success: true, data: usageStats };
 
+        case 'setRateLimits':
+            await aiService.setRateLimits(message.payload);
+            return { success: true };
+
+        case 'getRateLimits':
+            const rateLimits = aiService.getRateLimits();
+            return { success: true, data: rateLimits };
+
+        case 'resetUsageStats':
+            await aiService.resetUsageStats();
+            return { success: true };
+
         case 'getLicenseStatus':
             const status = await licenseService.getStatus(message.payload?.forceRefresh);
             return { success: true, data: status };

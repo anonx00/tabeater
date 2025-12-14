@@ -141,7 +141,10 @@ const OptionsPage: React.FC = () => {
     const [trialInfo, setTrialInfo] = useState<{ daysRemaining: number; startDate: string; endDate: string } | null>(null);
     const [deviceInfo, setDeviceInfo] = useState<{ devices: { deviceId: string; lastActive: string; current: boolean }[]; maxDevices: number } | null>(null);
     const [showDevices, setShowDevices] = useState(false);
-    const [apiUsage, setApiUsage] = useState<{ totalCalls: number; todayCalls: number; hourCalls: number; estimatedCost: number; limits: { maxPerHour: number; maxPerDay: number }; nearLimit: boolean; provider: string; configuredProvider: string } | null>(null);
+    const [apiUsage, setApiUsage] = useState<{ totalCalls: number; todayCalls: number; hourCalls: number; estimatedCost: number; limits: { maxPerHour: number; maxPerDay: number; warningThreshold: number }; nearLimit: boolean; provider: string; configuredProvider: string } | null>(null);
+    const [customLimits, setCustomLimits] = useState<{ maxPerHour: number; maxPerDay: number }>({ maxPerHour: 30, maxPerDay: 100 });
+    const [showLimitSettings, setShowLimitSettings] = useState(false);
+    const [hoveredMode, setHoveredMode] = useState<string | null>(null);
     const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     // Load data
@@ -223,9 +226,39 @@ const OptionsPage: React.FC = () => {
             const response = await chrome.runtime.sendMessage({ action: 'getAPIUsageStats' });
             if (response.success && response.data) {
                 setApiUsage(response.data);
+                // Update custom limits from loaded data
+                if (response.data.limits) {
+                    setCustomLimits({
+                        maxPerHour: response.data.limits.maxPerHour,
+                        maxPerDay: response.data.limits.maxPerDay
+                    });
+                }
             }
         } catch (err) {
             console.warn('Failed to load API usage:', err);
+        }
+    };
+
+    const saveRateLimits = async (limits: { maxPerHour: number; maxPerDay: number }) => {
+        try {
+            await chrome.runtime.sendMessage({ action: 'setRateLimits', payload: limits });
+            setCustomLimits(limits);
+            setSyncStatus('saved');
+            setTimeout(() => setSyncStatus('idle'), 2000);
+            // Reload to get updated stats
+            await loadApiUsage();
+        } catch (err) {
+            console.warn('Failed to save rate limits:', err);
+        }
+    };
+
+    const resetUsageStats = async () => {
+        try {
+            await chrome.runtime.sendMessage({ action: 'resetUsageStats' });
+            await loadApiUsage();
+            setToast({ message: 'Usage stats reset', undo: () => {} });
+        } catch (err) {
+            console.warn('Failed to reset usage stats:', err);
         }
     };
 
@@ -484,38 +517,65 @@ const OptionsPage: React.FC = () => {
                             {!license?.paid && <span style={s.proLabel}>Pro feature</span>}
                         </div>
 
-                        {/* 3-Stage Danger Slider */}
+                        {/* 3-Stage Mode Selector */}
                         <div style={{ ...s.sliderContainer, borderColor: autoPilotSettings.mode === 'fly-mode' ? colors.accentCyan : colors.borderIdle }}>
                             <div style={s.sliderTrack}>
                                 <button
-                                    style={{ ...s.sliderStop, ...(autoPilotSettings.mode === 'manual' ? s.sliderStopActive : {}), borderColor: colors.textMuted, color: autoPilotSettings.mode === 'manual' ? colors.textPrimary : colors.textDim }}
+                                    className="mode-btn"
+                                    style={{
+                                        ...s.sliderStop,
+                                        ...(autoPilotSettings.mode === 'manual' ? s.sliderStopActive : {}),
+                                        ...(hoveredMode === 'manual' && autoPilotSettings.mode !== 'manual' ? s.sliderStopHover : {}),
+                                        borderColor: autoPilotSettings.mode === 'manual' ? colors.textMuted : (hoveredMode === 'manual' ? colors.textMuted : colors.borderIdle),
+                                        color: autoPilotSettings.mode === 'manual' ? colors.textPrimary : colors.textDim
+                                    }}
                                     onClick={() => handleModeChange('manual')}
+                                    onMouseEnter={() => setHoveredMode('manual')}
+                                    onMouseLeave={() => setHoveredMode(null)}
                                 >
                                     <span style={s.stopIcon}>◼</span>
                                     <span style={s.stopLabel}>Manual</span>
-                                    <span style={s.stopDesc}>AI suggests, you confirm</span>
+                                    <span style={s.stopDesc}>AI suggests, you decide</span>
                                 </button>
                                 <button
-                                    style={{ ...s.sliderStop, ...(autoPilotSettings.mode === 'auto-cleanup' ? s.sliderStopActive : {}), borderColor: colors.signalAmber, color: autoPilotSettings.mode === 'auto-cleanup' ? colors.signalAmber : colors.textDim }}
+                                    className="mode-btn"
+                                    style={{
+                                        ...s.sliderStop,
+                                        ...(autoPilotSettings.mode === 'auto-cleanup' ? s.sliderStopActive : {}),
+                                        ...(hoveredMode === 'auto-cleanup' && autoPilotSettings.mode !== 'auto-cleanup' ? s.sliderStopHover : {}),
+                                        borderColor: autoPilotSettings.mode === 'auto-cleanup' ? colors.signalAmber : (hoveredMode === 'auto-cleanup' ? colors.signalAmber : colors.borderIdle),
+                                        color: autoPilotSettings.mode === 'auto-cleanup' ? colors.signalAmber : colors.textDim
+                                    }}
                                     onClick={() => handleModeChange('auto-cleanup')}
+                                    onMouseEnter={() => setHoveredMode('auto-cleanup')}
+                                    onMouseLeave={() => setHoveredMode(null)}
                                 >
                                     <span style={s.stopIcon}>▲</span>
                                     <span style={s.stopLabel}>Auto-Close</span>
-                                    <span style={s.stopDesc}>Auto-closes duplicates</span>
+                                    <span style={s.stopDesc}>Closes duplicates only</span>
                                 </button>
                                 <button
-                                    style={{ ...s.sliderStop, ...(autoPilotSettings.mode === 'fly-mode' ? s.sliderStopActive : {}), borderColor: colors.accentCyan, color: autoPilotSettings.mode === 'fly-mode' ? colors.accentCyan : colors.textDim }}
+                                    className="mode-btn"
+                                    style={{
+                                        ...s.sliderStop,
+                                        ...(autoPilotSettings.mode === 'fly-mode' ? s.sliderStopActive : {}),
+                                        ...(hoveredMode === 'fly-mode' && autoPilotSettings.mode !== 'fly-mode' ? s.sliderStopHover : {}),
+                                        borderColor: autoPilotSettings.mode === 'fly-mode' ? colors.accentCyan : (hoveredMode === 'fly-mode' ? colors.accentCyan : colors.borderIdle),
+                                        color: autoPilotSettings.mode === 'fly-mode' ? colors.accentCyan : colors.textDim
+                                    }}
                                     onClick={() => handleModeChange('fly-mode')}
+                                    onMouseEnter={() => setHoveredMode('fly-mode')}
+                                    onMouseLeave={() => setHoveredMode(null)}
                                 >
                                     <span style={s.stopIcon}>◆</span>
                                     <span style={s.stopLabel}>Fly Mode</span>
-                                    <span style={s.stopDesc}>Full autonomy</span>
+                                    <span style={s.stopDesc}>Auto-group & cleanup</span>
                                 </button>
                             </div>
 
                             {autoPilotSettings.mode === 'fly-mode' && (
                                 <div style={s.warningTicker}>
-                                    Experimental feature · Tabs may be auto-grouped and duplicates closed
+                                    AI-powered automation · New tabs auto-grouped, duplicates closed
                                 </div>
                             )}
                         </div>
@@ -581,15 +641,22 @@ const OptionsPage: React.FC = () => {
                         <div style={s.usageSection}>
                             <div style={s.usageHeader}>
                                 <span style={s.usageTitle}>API Usage</span>
-                                {apiUsage?.configuredProvider === 'nano' ? (
-                                    <span style={{ ...s.usageWarning, background: 'rgba(0, 255, 136, 0.1)', color: colors.phosphorGreen }}>Unlimited</span>
-                                ) : apiUsage?.nearLimit ? (
-                                    <span style={s.usageWarning}>Approaching limit</span>
-                                ) : apiUsage?.configuredProvider && apiUsage.configuredProvider !== 'none' ? (
-                                    <span style={{ ...s.usageWarning, background: 'rgba(0, 212, 255, 0.1)', color: colors.accentCyan }}>
-                                        {apiUsage.configuredProvider.toUpperCase()}
-                                    </span>
-                                ) : null}
+                                <div style={s.usageActions}>
+                                    {apiUsage?.configuredProvider === 'nano' ? (
+                                        <span style={{ ...s.usageWarning, background: 'rgba(0, 255, 136, 0.1)', color: colors.phosphorGreen }}>Unlimited</span>
+                                    ) : apiUsage?.nearLimit ? (
+                                        <span style={s.usageWarning}>Approaching limit</span>
+                                    ) : apiUsage?.configuredProvider && apiUsage.configuredProvider !== 'none' ? (
+                                        <span style={{ ...s.usageWarning, background: 'rgba(0, 212, 255, 0.1)', color: colors.accentCyan }}>
+                                            {apiUsage.configuredProvider.toUpperCase()}
+                                        </span>
+                                    ) : null}
+                                    {apiUsage?.configuredProvider && apiUsage.configuredProvider !== 'none' && apiUsage.configuredProvider !== 'nano' && (
+                                        <button style={s.limitBtn} onClick={() => setShowLimitSettings(!showLimitSettings)}>
+                                            {showLimitSettings ? 'Hide' : 'Configure'}
+                                        </button>
+                                    )}
+                                </div>
                             </div>
 
                             {apiUsage?.configuredProvider === 'nano' ? (
@@ -601,11 +668,11 @@ const OptionsPage: React.FC = () => {
                                     <div style={s.usageGrid}>
                                         <div style={s.usageItem}>
                                             <span style={s.usageValue}>{apiUsage.hourCalls || 0}</span>
-                                            <span style={s.usageLabel}>/{apiUsage.limits.maxPerHour} hr</span>
+                                            <span style={s.usageLabel}>/{customLimits.maxPerHour} hr</span>
                                         </div>
                                         <div style={s.usageItem}>
                                             <span style={s.usageValue}>{apiUsage.todayCalls || 0}</span>
-                                            <span style={s.usageLabel}>/{apiUsage.limits.maxPerDay} day</span>
+                                            <span style={s.usageLabel}>/{customLimits.maxPerDay} day</span>
                                         </div>
                                         <div style={s.usageItem}>
                                             <span style={s.usageValue}>{apiUsage.totalCalls || 0}</span>
@@ -616,8 +683,45 @@ const OptionsPage: React.FC = () => {
                                             <span style={s.usageLabel}>est. cost</span>
                                         </div>
                                     </div>
+
+                                    {/* Rate Limit Settings */}
+                                    {showLimitSettings && (
+                                        <div style={s.limitSettings}>
+                                            <div style={s.limitRow}>
+                                                <label style={s.limitLabel}>Calls per hour</label>
+                                                <input
+                                                    type="number"
+                                                    min="5"
+                                                    max="200"
+                                                    value={customLimits.maxPerHour}
+                                                    onChange={(e) => setCustomLimits(prev => ({ ...prev, maxPerHour: parseInt(e.target.value) || 30 }))}
+                                                    style={s.limitInput}
+                                                />
+                                            </div>
+                                            <div style={s.limitRow}>
+                                                <label style={s.limitLabel}>Calls per day</label>
+                                                <input
+                                                    type="number"
+                                                    min="10"
+                                                    max="1000"
+                                                    value={customLimits.maxPerDay}
+                                                    onChange={(e) => setCustomLimits(prev => ({ ...prev, maxPerDay: parseInt(e.target.value) || 100 }))}
+                                                    style={s.limitInput}
+                                                />
+                                            </div>
+                                            <div style={s.limitActions}>
+                                                <button style={s.limitSaveBtn} onClick={() => saveRateLimits(customLimits)}>
+                                                    Save Limits
+                                                </button>
+                                                <button style={s.limitResetBtn} onClick={resetUsageStats}>
+                                                    Reset Stats
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+
                                     <div style={s.usageNote}>
-                                        Fly mode uses AI to group tabs. Limits: {apiUsage.limits.maxPerHour}/hr, {apiUsage.limits.maxPerDay}/day.
+                                        Fly mode uses AI to group tabs. Set limits to control API costs.
                                     </div>
                                 </>
                             ) : (
@@ -713,7 +817,7 @@ const OptionsPage: React.FC = () => {
                                 )}
 
                                 <div style={s.licensePrice}>
-                                    A$6 <span style={s.licensePriceNote}>LIFETIME</span>
+                                    AUD $6 <span style={s.licensePriceNote}>LIFETIME</span>
                                 </div>
                                 <ul style={s.featureList}>
                                     <li style={s.featureItem}><span style={s.checkMark}>&#10003;</span> Unlimited AI scans</li>
@@ -1116,7 +1220,12 @@ const s: { [key: string]: React.CSSProperties } = {
         transition: `all ${transitions.fast}`,
     },
     sliderStopActive: {
+        background: 'rgba(255,255,255,0.04)',
+        transform: 'scale(1.02)',
+    },
+    sliderStopHover: {
         background: 'rgba(255,255,255,0.02)',
+        transform: 'translateY(-2px)',
     },
     stopIcon: {
         display: 'block',
@@ -1252,6 +1361,79 @@ const s: { [key: string]: React.CSSProperties } = {
         fontSize: typography.sizeXs,
         color: colors.textDim,
         textAlign: 'center',
+    },
+    usageActions: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: spacing.sm,
+    },
+    limitBtn: {
+        padding: `${spacing.xs}px ${spacing.sm}px`,
+        background: 'transparent',
+        border: `1px solid ${colors.borderIdle}`,
+        borderRadius: borderRadius.sm,
+        color: colors.textDim,
+        fontFamily: typography.fontMono,
+        fontSize: 9,
+        cursor: 'pointer',
+        transition: `all ${transitions.fast}`,
+    },
+    limitSettings: {
+        marginTop: spacing.md,
+        padding: spacing.md,
+        background: colors.voidBlack,
+        borderRadius: borderRadius.sm,
+        border: `1px solid ${colors.borderIdle}`,
+    },
+    limitRow: {
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: spacing.sm,
+    },
+    limitLabel: {
+        fontFamily: typography.fontMono,
+        fontSize: typography.sizeXs,
+        color: colors.textSecondary,
+    },
+    limitInput: {
+        width: 80,
+        padding: `${spacing.xs}px ${spacing.sm}px`,
+        background: colors.panelGrey,
+        border: `1px solid ${colors.borderIdle}`,
+        borderRadius: borderRadius.sm,
+        color: colors.textPrimary,
+        fontFamily: typography.fontMono,
+        fontSize: typography.sizeSm,
+        textAlign: 'right',
+        outline: 'none',
+    },
+    limitActions: {
+        display: 'flex',
+        gap: spacing.sm,
+        marginTop: spacing.md,
+    },
+    limitSaveBtn: {
+        flex: 1,
+        padding: `${spacing.sm}px ${spacing.md}px`,
+        background: colors.phosphorGreen,
+        border: 'none',
+        borderRadius: borderRadius.sm,
+        color: colors.voidBlack,
+        fontFamily: typography.fontMono,
+        fontSize: typography.sizeXs,
+        fontWeight: typography.bold,
+        cursor: 'pointer',
+    },
+    limitResetBtn: {
+        padding: `${spacing.sm}px ${spacing.md}px`,
+        background: 'transparent',
+        border: `1px solid ${colors.borderIdle}`,
+        borderRadius: borderRadius.sm,
+        color: colors.textMuted,
+        fontFamily: typography.fontMono,
+        fontSize: typography.sizeXs,
+        cursor: 'pointer',
     },
     licenseActive: {
         padding: spacing.xxxl,
@@ -1598,6 +1780,22 @@ styleSheet.textContent = `
     }
     .provider-card.active {
         animation: selection-flash 0.3s ease-out;
+    }
+
+    /* Mode button interactions */
+    .mode-btn {
+        transition: all 0.2s ease;
+    }
+    .mode-btn:hover {
+        transform: translateY(-2px);
+    }
+    .mode-btn:active {
+        transform: translateY(0) scale(0.98);
+    }
+
+    /* Setting row hover */
+    .setting-row:hover {
+        background: rgba(255, 255, 255, 0.02);
     }
 
     /* Nav item hover */
