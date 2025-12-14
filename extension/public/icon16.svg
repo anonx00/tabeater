@@ -1,7 +1,19 @@
 <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <rect width="16" height="16" rx="3" fill="#0f0f12"/>
-  <rect x="0.5" y="0.5" width="15" height="15" rx="2.5" fill="none" stroke="#27272f"/>
-  <path d="M3 12V6C3 5.448 3.448 5 4 5H7L8 4H12C12.552 4 13 4.448 13 5V12C13 12.552 12.552 13 12 13H4C3.448 13 3 12.552 3 12Z" fill="#1c1c22" stroke="#323240" stroke-width="0.5"/>
-  <rect x="10" y="4" width="2" height="2" fill="#f97316"/>
-  <circle cx="10" cy="10" r="1.5" fill="#f97316"/>
+  <!-- Background -->
+  <rect width="16" height="16" fill="#050505"/>
+
+  <!-- Tab outline simplified -->
+  <path d="M2 13V5C2 4.5 2.5 4 3 4H6L7 3H13C13.5 3 14 3.5 14 4V13C14 13.5 13.5 14 13 14H3C2.5 14 2 13.5 2 13Z"
+        fill="none" stroke="#39FF14" stroke-width="1"/>
+
+  <!-- The "Bite" simplified -->
+  <rect x="13" y="5" width="2" height="2" fill="#050505"/>
+  <rect x="12" y="7" width="3" height="3" fill="#050505"/>
+  <rect x="13" y="10" width="2" height="2" fill="#050505"/>
+
+  <!-- The "Eye" -->
+  <rect x="5" y="8" width="2" height="2" fill="#39FF14"/>
+
+  <!-- Single scanline -->
+  <line x1="2" y1="11" x2="12" y2="11" stroke="#39FF14" stroke-width="0.5" opacity="0.4"/>
 </svg>

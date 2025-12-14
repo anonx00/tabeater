@@ -1,40 +1,25 @@
 <svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <linearGradient id="bgGrad" x1="0" y1="0" x2="128" y2="128" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#18181c"/>
-      <stop offset="100%" stop-color="#0f0f12"/>
-    </linearGradient>
-    <linearGradient id="accentGrad" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#fb923c"/>
-      <stop offset="100%" stop-color="#f97316"/>
-    </linearGradient>
-    <filter id="glow">
-      <feGaussianBlur stdDeviation="3" result="blur"/>
-      <feMerge>
-        <feMergeNode in="blur"/>
-        <feMergeNode in="SourceGraphic"/>
-      </feMerge>
-    </filter>
-  </defs>
-
   <!-- Background -->
-  <rect width="128" height="128" rx="28" fill="url(#bgGrad)"/>
-  <rect x="1" y="1" width="126" height="126" rx="27" fill="none" stroke="#27272f" stroke-width="2"/>
+  <rect width="128" height="128" fill="#050505"/>
 
-  <!-- Tab shape - stylized -->
-  <path d="M24 96V44C24 40.686 26.686 38 30 38H54L62 30H98C101.314 30 104 32.686 104 36V96C104 99.314 101.314 102 98 102H30C26.686 102 24 99.314 24 96Z" fill="#1c1c22" stroke="#323240" stroke-width="2"/>
+  <!-- Tab outline with chamfered top -->
+  <path d="M18 108V36C18 32 21 28 26 28H52L62 18H102C106 18 110 22 110 26V108C110 112 106 116 102 116H26C21 116 18 112 18 108Z"
+        fill="none" stroke="#39FF14" stroke-width="4"/>
 
-  <!-- Bite mark - angular chunks -->
-  <path d="M104 30L104 54L78 54L78 30L104 30Z" fill="#0f0f12"/>
-  <rect x="78" y="30" width="14" height="12" fill="url(#accentGrad)" filter="url(#glow)"/>
-  <rect x="92" y="42" width="12" height="12" fill="url(#accentGrad)" opacity="0.8"/>
-  <rect x="78" y="42" width="14" height="12" fill="url(#accentGrad)" opacity="0.5"/>
+  <!-- The "Bite" - pixelated eaten effect on right edge -->
+  <rect x="106" y="40" width="12" height="12" fill="#050505"/>
+  <rect x="102" y="52" width="16" height="16" fill="#050505"/>
+  <rect x="106" y="68" width="12" height="12" fill="#050505"/>
 
-  <!-- Inner content lines -->
-  <rect x="36" y="52" width="40" height="4" rx="2" fill="#323240"/>
-  <rect x="36" y="62" width="32" height="4" rx="2" fill="#27272f"/>
-  <rect x="36" y="72" width="48" height="4" rx="2" fill="#27272f"/>
+  <!-- Bite border reconstruction -->
+  <path d="M106 40H118V52H102V68H118V80H106V68" stroke="#39FF14" stroke-width="4" fill="none"/>
 
-  <!-- Active indicator dot -->
-  <circle cx="88" cy="82" r="6" fill="url(#accentGrad)" filter="url(#glow)"/>
+  <!-- The "Eye" - center-left square -->
+  <rect x="42" y="62" width="16" height="16" fill="#39FF14"/>
+
+  <!-- Scanlines - 4 horizontal lines across bottom half -->
+  <line x1="18" y1="80" x2="100" y2="80" stroke="#39FF14" stroke-width="2" opacity="0.4"/>
+  <line x1="18" y1="88" x2="100" y2="88" stroke="#39FF14" stroke-width="2" opacity="0.4"/>
+  <line x1="18" y1="96" x2="100" y2="96" stroke="#39FF14" stroke-width="2" opacity="0.4"/>
+  <line x1="18" y1="104" x2="100" y2="104" stroke="#39FF14" stroke-width="2" opacity="0.4"/>
 </svg>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
-import { colors, spacing, typography, borderRadius, transitions, faviconFallback, effects } from '../shared/theme';
+import { colors, spacing, typography, borderRadius, transitions, faviconFallback, scanlineOverlay } from '../shared/theme';
 import { formatMarkdown } from '../shared/markdown';
 import { ScanlineOverlay } from '../ui/components/ScanlineOverlay';
 import { TypewriterText } from '../ui/components/TypewriterText';
@@ -526,19 +526,18 @@ const Sidepanel = () => {
 const styles: { [key: string]: React.CSSProperties } = {
     container: {
         height: '100vh',
-        background: colors.bgDarker,
+        background: colors.voidBlack,
         color: colors.textSecondary,
         fontFamily: typography.fontFamily,
         fontSize: typography.sizeLg,
         display: 'flex',
         flexDirection: 'column',
+        position: 'relative',
     },
     header: {
         padding: spacing.lg,
-        borderBottom: `1px solid ${colors.borderMedium}`,
-        background: 'rgba(33, 33, 33, 0.85)',
-        backdropFilter: effects.glassLight,
-        WebkitBackdropFilter: effects.glassLight,
+        borderBottom: `1px solid ${colors.borderIdle}`,
+        background: colors.panelGrey,
         flexShrink: 0,
     },
     headerTop: {
@@ -549,18 +548,18 @@ const styles: { [key: string]: React.CSSProperties } = {
     },
     title: {
         margin: 0,
+        fontFamily: typography.fontMono,
         fontSize: typography.sizeDisplay,
-        fontWeight: typography.semibold,
-        color: colors.primary,
-        letterSpacing: typography.letterNormal,
+        fontWeight: typography.bold,
+        color: colors.phosphorGreen,
+        letterSpacing: '0.1em',
     },
     settingsBtn: {
         background: 'transparent',
-        border: 'none',
+        border: `1px solid ${colors.borderIdle}`,
         color: colors.textDim,
         cursor: 'pointer',
         padding: spacing.sm,
-        borderRadius: borderRadius.sm,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -568,22 +567,23 @@ const styles: { [key: string]: React.CSSProperties } = {
     },
     closeBtn: {
         background: 'transparent',
-        border: 'none',
+        border: `1px solid ${colors.borderIdle}`,
         color: colors.textDim,
         cursor: 'pointer',
         padding: spacing.sm,
-        borderRadius: borderRadius.sm,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         transition: `all ${transitions.fast}`,
     },
     stats: {
-        fontSize: typography.sizeMd,
+        fontFamily: typography.fontMono,
+        fontSize: typography.sizeXs,
         color: colors.textDim,
         display: 'flex',
         alignItems: 'center',
         gap: spacing.sm,
+        letterSpacing: '0.05em',
     },
     statItem: {
         display: 'flex',
@@ -591,24 +591,27 @@ const styles: { [key: string]: React.CSSProperties } = {
         gap: spacing.xs,
     },
     statDivider: {
-        color: colors.borderLight,
+        color: colors.borderIdle,
     },
     viewToggle: {
         display: 'flex',
         padding: `${spacing.sm}px ${spacing.lg}px`,
         gap: spacing.sm,
-        borderBottom: `1px solid ${colors.borderMedium}`,
+        borderBottom: `1px solid ${colors.borderIdle}`,
         flexShrink: 0,
+        background: colors.panelGrey,
     },
     toggleBtn: {
         flex: 1,
         padding: `${spacing.sm}px ${spacing.md}px`,
-        background: colors.bgCardHover,
-        border: `1px solid ${colors.borderLight}`,
-        borderRadius: borderRadius.md,
+        background: 'transparent',
+        border: `1px solid ${colors.borderIdle}`,
         color: colors.textDim,
         cursor: 'pointer',
-        fontSize: typography.sizeBase,
+        fontFamily: typography.fontMono,
+        fontSize: typography.sizeXs,
+        textTransform: 'uppercase',
+        letterSpacing: '0.05em',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -616,9 +619,9 @@ const styles: { [key: string]: React.CSSProperties } = {
         transition: `all ${transitions.fast}`,
     },
     toggleActive: {
-        background: colors.primary,
-        color: colors.bgDarkest,
-        borderColor: colors.primary,
+        background: colors.phosphorGreen,
+        color: colors.voidBlack,
+        borderColor: colors.phosphorGreen,
     },
     content: {
         flex: 1,
@@ -631,17 +634,16 @@ const styles: { [key: string]: React.CSSProperties } = {
         gap: spacing.md,
     },
     group: {
-        background: colors.bgCard,
-        borderRadius: borderRadius.lg,
+        background: colors.panelGrey,
         overflow: 'hidden',
-        border: `1px solid ${colors.borderDark}`,
+        border: `1px solid ${colors.borderIdle}`,
     },
     groupHeader: {
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
         padding: `${spacing.md}px ${spacing.md}px`,
-        background: colors.bgCardHover,
+        background: 'transparent',
         cursor: 'pointer',
         width: '100%',
         border: 'none',
@@ -650,17 +652,21 @@ const styles: { [key: string]: React.CSSProperties } = {
         transition: `background ${transitions.fast}`,
     },
     groupName: {
+        fontFamily: typography.fontMono,
         fontWeight: typography.medium,
-        color: colors.primary,
+        color: colors.phosphorGreen,
         display: 'flex',
         alignItems: 'center',
+        fontSize: typography.sizeSm,
+        letterSpacing: '0.05em',
     },
     groupCount: {
-        fontSize: typography.sizeMd,
-        color: colors.textDimmer,
-        background: colors.borderMedium,
+        fontFamily: typography.fontMono,
+        fontSize: typography.sizeXs,
+        color: colors.textDim,
+        background: colors.voidBlack,
+        border: `1px solid ${colors.borderIdle}`,
         padding: `2px ${spacing.sm}px`,
-        borderRadius: borderRadius.full,
     },
     groupTabs: {
         padding: spacing.xs,
@@ -690,11 +696,11 @@ const styles: { [key: string]: React.CSSProperties } = {
         transition: `background ${transitions.fast}`,
     },
     tabItemHover: {
-        background: colors.bgCardHover,
+        background: colors.surfaceLight,
     },
     tabItemActive: {
-        borderLeft: `3px solid ${colors.primary}`,
-        paddingLeft: spacing.sm - 3,
+        borderLeft: `2px solid ${colors.phosphorGreen}`,
+        paddingLeft: spacing.sm - 2,
     },
     favicon: {
         width: 16,
@@ -749,16 +755,18 @@ const styles: { [key: string]: React.CSSProperties } = {
         fontSize: typography.sizeLg,
     },
     chatSection: {
-        borderTop: `1px solid ${colors.borderMedium}`,
-        background: colors.bgCard,
+        borderTop: `1px solid ${colors.borderIdle}`,
+        background: colors.panelGrey,
         flexShrink: 0,
     },
     chatHeader: {
         padding: `${spacing.md}px ${spacing.lg}px`,
-        fontSize: typography.sizeBase,
+        fontFamily: typography.fontMono,
+        fontSize: typography.sizeSm,
         fontWeight: typography.medium,
-        color: colors.primary,
-        borderBottom: `1px solid ${colors.borderMedium}`,
+        color: colors.phosphorGreen,
+        letterSpacing: '0.05em',
+        borderBottom: `1px solid ${colors.borderIdle}`,
         display: 'flex',
         alignItems: 'center',
         gap: spacing.sm,
@@ -767,8 +775,8 @@ const styles: { [key: string]: React.CSSProperties } = {
         display: 'flex',
         gap: spacing.xs,
         padding: `${spacing.sm}px ${spacing.lg}px`,
-        borderBottom: `1px solid ${colors.borderDark}`,
-        background: colors.bgDarker,
+        borderBottom: `1px solid ${colors.borderIdle}`,
+        background: colors.voidBlack,
         flexWrap: 'wrap',
     },
     presetBtn: {
@@ -776,22 +784,23 @@ const styles: { [key: string]: React.CSSProperties } = {
         alignItems: 'center',
         gap: spacing.xs,
         padding: `${spacing.xs}px ${spacing.sm}px`,
-        background: colors.bgCard,
-        border: `1px solid ${colors.borderLight}`,
-        borderRadius: borderRadius.sm,
+        background: 'transparent',
+        border: `1px solid ${colors.borderIdle}`,
         color: colors.textDim,
-        fontSize: typography.sizeSm,
+        fontFamily: typography.fontMono,
+        fontSize: typography.sizeXs,
+        textTransform: 'uppercase',
         cursor: 'pointer',
         transition: `all ${transitions.fast}`,
         whiteSpace: 'nowrap',
     },
     providerBadge: {
         marginLeft: 'auto',
-        fontSize: typography.sizeSm,
+        fontFamily: typography.fontMono,
+        fontSize: typography.sizeXs,
         color: colors.textDim,
-        background: colors.bgCardHover,
+        border: `1px solid ${colors.borderIdle}`,
         padding: `2px ${spacing.sm}px`,
-        borderRadius: borderRadius.sm,
     },
     chatMessages: {
         height: 140,
@@ -813,15 +822,12 @@ const styles: { [key: string]: React.CSSProperties } = {
         lineHeight: 1.5,
     },
     assistantMessage: {
-        background: 'rgba(95, 184, 120, 0.12)',
-        backdropFilter: effects.glassSubtle,
-        WebkitBackdropFilter: effects.glassSubtle,
+        background: colors.successBg,
         padding: `${spacing.sm}px ${spacing.md}px`,
-        borderRadius: borderRadius.md,
         marginBottom: spacing.sm,
         fontSize: typography.sizeBase,
         lineHeight: 1.5,
-        borderLeft: `3px solid ${colors.primary}`,
+        borderLeft: `2px solid ${colors.phosphorGreen}`,
     },
     loadingMessage: {
         padding: spacing.md,
@@ -836,32 +842,31 @@ const styles: { [key: string]: React.CSSProperties } = {
         width: 8,
         height: 8,
         borderRadius: '50%',
-        background: colors.primary,
+        background: colors.phosphorGreen,
         animation: 'pulse 1.4s infinite ease-in-out',
     },
     chatInputRow: {
         display: 'flex',
         padding: spacing.lg,
         gap: spacing.sm,
-        borderTop: `1px solid ${colors.borderMedium}`,
+        borderTop: `1px solid ${colors.borderIdle}`,
     },
     chatInput: {
         flex: 1,
         padding: `${spacing.md}px ${spacing.md}px`,
-        background: colors.bgDarker,
-        border: `1px solid ${colors.borderLight}`,
-        borderRadius: borderRadius.md,
+        background: colors.voidBlack,
+        border: `1px solid ${colors.borderIdle}`,
         color: colors.textPrimary,
-        fontSize: typography.sizeLg,
+        fontSize: typography.sizeBase,
+        fontFamily: typography.fontFamily,
         outline: 'none',
         transition: `border-color ${transitions.fast}`,
     },
     sendBtn: {
         padding: `${spacing.md}px ${spacing.lg}px`,
-        background: colors.primary,
+        background: colors.phosphorGreen,
         border: 'none',
-        borderRadius: borderRadius.md,
-        color: colors.bgDarkest,
+        color: colors.voidBlack,
         cursor: 'pointer',
         fontWeight: typography.medium,
         display: 'flex',
@@ -870,15 +875,17 @@ const styles: { [key: string]: React.CSSProperties } = {
         transition: `all ${transitions.fast}`,
     },
     sendBtnDisabled: {
-        background: colors.borderLight,
-        color: colors.textDimmest,
+        background: colors.borderIdle,
+        color: colors.textDim,
         cursor: 'not-allowed',
     },
 };
 
-// Add keyframe animation
+// Add keyframe animation and CSS
 const styleSheet = document.createElement('style');
 styleSheet.textContent = `
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap');
+
     @keyframes pulse {
         0%, 80%, 100% {
             transform: scale(0.6);
@@ -890,31 +897,25 @@ styleSheet.textContent = `
         }
     }
     input:focus {
-        border-color: ${colors.primary} !important;
+        border-color: ${colors.phosphorGreen} !important;
     }
     button:focus-visible {
-        outline: 2px solid ${colors.primary};
-        outline-offset: 2px;
+        outline: 1px solid ${colors.phosphorGreen};
     }
-    .settingsBtn:hover, .closeBtn:hover {
-        color: ${colors.textSecondary};
-        background: ${colors.bgCardHover};
-    }
-    .closeBtn:hover {
-        color: ${colors.error};
+    button:hover:not(:disabled) {
+        border-color: ${colors.borderHover} !important;
     }
     ::-webkit-scrollbar {
-        width: 6px;
+        width: 4px;
     }
     ::-webkit-scrollbar-track {
-        background: transparent;
+        background: ${colors.voidBlack};
     }
     ::-webkit-scrollbar-thumb {
-        background: ${colors.borderLight};
-        border-radius: 3px;
+        background: ${colors.borderIdle};
     }
     ::-webkit-scrollbar-thumb:hover {
-        background: ${colors.textDimmest};
+        background: ${colors.borderHover};
     }
 `;
 document.head.appendChild(styleSheet);
