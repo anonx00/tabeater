@@ -1,25 +1,43 @@
 <svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <!-- Background -->
+  <!-- Background with subtle gradient -->
   <rect width="128" height="128" fill="#050505"/>
 
-  <!-- Tab outline with chamfered top -->
-  <path d="M18 108V36C18 32 21 28 26 28H52L62 18H102C106 18 110 22 110 26V108C110 112 106 116 102 116H26C21 116 18 112 18 108Z"
-        fill="none" stroke="#39FF14" stroke-width="4"/>
+  <!-- Outer glow effect -->
+  <defs>
+    <filter id="glow128" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
 
-  <!-- The "Bite" - pixelated eaten effect on right edge -->
-  <rect x="106" y="40" width="12" height="12" fill="#050505"/>
-  <rect x="102" y="52" width="16" height="16" fill="#050505"/>
-  <rect x="106" y="68" width="12" height="12" fill="#050505"/>
+  <!-- Main tab shape with clean bite -->
+  <g filter="url(#glow128)">
+    <!-- Tab body -->
+    <path d="M20 106V38C20 34 23 30 28 30H54L66 20H100C104 20 108 24 108 28V72L92 72V56L108 56"
+          fill="none" stroke="#39FF14" stroke-width="4" stroke-linejoin="round"/>
 
-  <!-- Bite border reconstruction -->
-  <path d="M106 40H118V52H102V68H118V80H106V68" stroke="#39FF14" stroke-width="4" fill="none"/>
+    <!-- Bottom and left side -->
+    <path d="M20 106H100C104 106 108 102 108 98V88L92 88V72"
+          fill="none" stroke="#39FF14" stroke-width="4" stroke-linejoin="round"/>
 
-  <!-- The "Eye" - center-left square -->
-  <rect x="42" y="62" width="16" height="16" fill="#39FF14"/>
+    <!-- Diagonal bite marks -->
+    <path d="M108 56L92 56V72L108 72V88L92 88"
+          fill="none" stroke="#39FF14" stroke-width="4" stroke-linejoin="round"/>
+  </g>
 
-  <!-- Scanlines - 4 horizontal lines across bottom half -->
-  <line x1="18" y1="80" x2="100" y2="80" stroke="#39FF14" stroke-width="2" opacity="0.4"/>
-  <line x1="18" y1="88" x2="100" y2="88" stroke="#39FF14" stroke-width="2" opacity="0.4"/>
-  <line x1="18" y1="96" x2="100" y2="96" stroke="#39FF14" stroke-width="2" opacity="0.4"/>
-  <line x1="18" y1="104" x2="100" y2="104" stroke="#39FF14" stroke-width="2" opacity="0.4"/>
+  <!-- AI Eye - glowing center indicator -->
+  <circle cx="50" cy="68" r="14" fill="none" stroke="#39FF14" stroke-width="3"/>
+  <circle cx="50" cy="68" r="8" fill="#39FF14"/>
+  <circle cx="53" cy="65" r="3" fill="#050505"/>
+
+  <!-- Circuit line accents -->
+  <path d="M70 68H80" stroke="#39FF14" stroke-width="2" opacity="0.6"/>
+  <path d="M70 76H75" stroke="#39FF14" stroke-width="2" opacity="0.4"/>
+  <path d="M70 60H78" stroke="#39FF14" stroke-width="2" opacity="0.4"/>
+
+  <!-- Corner accent -->
+  <rect x="28" y="96" width="8" height="4" fill="#39FF14" opacity="0.5"/>
 </svg>
