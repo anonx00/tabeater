@@ -144,7 +144,6 @@ const OptionsPage: React.FC = () => {
     const [apiUsage, setApiUsage] = useState<{ totalCalls: number; todayCalls: number; hourCalls: number; estimatedCost: number; limits: { maxPerHour: number; maxPerDay: number; warningThreshold: number }; nearLimit: boolean; provider: string; configuredProvider: string } | null>(null);
     const [customLimits, setCustomLimits] = useState<{ maxPerHour: number; maxPerDay: number }>({ maxPerHour: 30, maxPerDay: 100 });
     const [showLimitSettings, setShowLimitSettings] = useState(false);
-    const [hoveredMode, setHoveredMode] = useState<string | null>(null);
     const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     // Load data
@@ -152,8 +151,9 @@ const OptionsPage: React.FC = () => {
         loadConfig();
         loadLicense();
         loadAutoPilotSettings();
-        loadApiUsage();
         loadTrialInfo();
+        // Load API usage after a short delay to ensure service worker is ready
+        setTimeout(loadApiUsage, 100);
     }, []);
 
     // Load device info when license is loaded and user is Pro
@@ -225,7 +225,20 @@ const OptionsPage: React.FC = () => {
         try {
             const response = await chrome.runtime.sendMessage({ action: 'getAPIUsageStats' });
             if (response.success && response.data) {
-                setApiUsage(response.data);
+                // Also check local config for configured provider (fallback)
+                const localConfig = await chrome.storage.local.get(['aiConfig']);
+                let configuredProvider = response.data.configuredProvider;
+
+                // If backend didn't detect it, check local storage directly
+                if ((!configuredProvider || configuredProvider === 'none') && localConfig.aiConfig?.cloudProvider && localConfig.aiConfig?.apiKey) {
+                    configuredProvider = localConfig.aiConfig.cloudProvider;
+                }
+
+                setApiUsage({
+                    ...response.data,
+                    configuredProvider: configuredProvider
+                });
+
                 // Update custom limits from loaded data
                 if (response.data.limits) {
                     setCustomLimits({
@@ -518,20 +531,18 @@ const OptionsPage: React.FC = () => {
                         </div>
 
                         {/* 3-Stage Mode Selector */}
-                        <div style={{ ...s.sliderContainer, borderColor: autoPilotSettings.mode === 'fly-mode' ? colors.accentCyan : colors.borderIdle }}>
+                        <div style={{ ...s.sliderContainer, borderColor: autoPilotSettings.mode === 'fly-mode' ? colors.accentCyan : autoPilotSettings.mode === 'auto-cleanup' ? colors.signalAmber : colors.borderIdle }}>
                             <div style={s.sliderTrack}>
                                 <button
                                     className="mode-btn"
                                     style={{
                                         ...s.sliderStop,
                                         ...(autoPilotSettings.mode === 'manual' ? s.sliderStopActive : {}),
-                                        ...(hoveredMode === 'manual' && autoPilotSettings.mode !== 'manual' ? s.sliderStopHover : {}),
-                                        borderColor: autoPilotSettings.mode === 'manual' ? colors.textMuted : (hoveredMode === 'manual' ? colors.textMuted : colors.borderIdle),
-                                        color: autoPilotSettings.mode === 'manual' ? colors.textPrimary : colors.textDim
+                                        borderColor: autoPilotSettings.mode === 'manual' ? colors.textMuted : colors.borderIdle,
+                                        color: autoPilotSettings.mode === 'manual' ? colors.textPrimary : colors.textDim,
+                                        background: autoPilotSettings.mode === 'manual' ? 'rgba(255,255,255,0.04)' : 'transparent'
                                     }}
                                     onClick={() => handleModeChange('manual')}
-                                    onMouseEnter={() => setHoveredMode('manual')}
-                                    onMouseLeave={() => setHoveredMode(null)}
                                 >
                                     <span style={s.stopIcon}>◼</span>
                                     <span style={s.stopLabel}>Manual</span>
@@ -542,13 +553,11 @@ const OptionsPage: React.FC = () => {
                                     style={{
                                         ...s.sliderStop,
                                         ...(autoPilotSettings.mode === 'auto-cleanup' ? s.sliderStopActive : {}),
-                                        ...(hoveredMode === 'auto-cleanup' && autoPilotSettings.mode !== 'auto-cleanup' ? s.sliderStopHover : {}),
-                                        borderColor: autoPilotSettings.mode === 'auto-cleanup' ? colors.signalAmber : (hoveredMode === 'auto-cleanup' ? colors.signalAmber : colors.borderIdle),
-                                        color: autoPilotSettings.mode === 'auto-cleanup' ? colors.signalAmber : colors.textDim
+                                        borderColor: autoPilotSettings.mode === 'auto-cleanup' ? colors.signalAmber : colors.borderIdle,
+                                        color: autoPilotSettings.mode === 'auto-cleanup' ? colors.signalAmber : colors.textDim,
+                                        background: autoPilotSettings.mode === 'auto-cleanup' ? 'rgba(255, 170, 0, 0.08)' : 'transparent'
                                     }}
                                     onClick={() => handleModeChange('auto-cleanup')}
-                                    onMouseEnter={() => setHoveredMode('auto-cleanup')}
-                                    onMouseLeave={() => setHoveredMode(null)}
                                 >
                                     <span style={s.stopIcon}>▲</span>
                                     <span style={s.stopLabel}>Auto-Close</span>
@@ -559,13 +568,11 @@ const OptionsPage: React.FC = () => {
                                     style={{
                                         ...s.sliderStop,
                                         ...(autoPilotSettings.mode === 'fly-mode' ? s.sliderStopActive : {}),
-                                        ...(hoveredMode === 'fly-mode' && autoPilotSettings.mode !== 'fly-mode' ? s.sliderStopHover : {}),
-                                        borderColor: autoPilotSettings.mode === 'fly-mode' ? colors.accentCyan : (hoveredMode === 'fly-mode' ? colors.accentCyan : colors.borderIdle),
-                                        color: autoPilotSettings.mode === 'fly-mode' ? colors.accentCyan : colors.textDim
+                                        borderColor: autoPilotSettings.mode === 'fly-mode' ? colors.accentCyan : colors.borderIdle,
+                                        color: autoPilotSettings.mode === 'fly-mode' ? colors.accentCyan : colors.textDim,
+                                        background: autoPilotSettings.mode === 'fly-mode' ? 'rgba(0, 212, 255, 0.08)' : 'transparent'
                                     }}
                                     onClick={() => handleModeChange('fly-mode')}
-                                    onMouseEnter={() => setHoveredMode('fly-mode')}
-                                    onMouseLeave={() => setHoveredMode(null)}
                                 >
                                     <span style={s.stopIcon}>◆</span>
                                     <span style={s.stopLabel}>Fly Mode</span>
@@ -1222,10 +1229,6 @@ const s: { [key: string]: React.CSSProperties } = {
     sliderStopActive: {
         background: 'rgba(255,255,255,0.04)',
         transform: 'scale(1.02)',
-    },
-    sliderStopHover: {
-        background: 'rgba(255,255,255,0.02)',
-        transform: 'translateY(-2px)',
     },
     stopIcon: {
         display: 'block',
