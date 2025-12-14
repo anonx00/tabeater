@@ -6,7 +6,8 @@
     "build": "webpack --mode production",
     "watch": "webpack --mode development --watch",
     "lint": "eslint . --ext .ts,.tsx",
-    "test": "jest"
+    "test": "jest",
+    "package": "npm run build && cd dist && zip -r ../tabeater-extension.zip ."
   },
   "author": "",
   "license": "ISC",
