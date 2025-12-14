@@ -29,7 +29,8 @@
             --accent: #00FF88;
             --accent-dim: rgba(0, 255, 136, 0.15);
             --accent-glow: rgba(0, 255, 136, 0.6);
-            --cyan: #00D4FF;
+            --cyan: #00FFFF;
+            --magenta: #FF00FF;
             --purple: #8B5CF6;
             --bg-dark: #000000;
             --bg-card: rgba(10, 10, 10, 0.95);
@@ -52,20 +53,20 @@
             line-height: 1.6;
         }
 
-        /* Canvas */
-        #canvas-container {
+        /* Phase 1: Canvas - z-index: -1 background layer */
+        #bg-canvas {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            z-index: 0;
+            z-index: -1;
             pointer-events: none;
         }
 
         .content {
             position: relative;
-            z-index: 1;
+            z-index: 10;
         }
 
         /* Hero */
@@ -81,13 +82,13 @@
         }
 
         .hero-content {
-            background: rgba(0, 0, 0, 0.8);
+            background: rgba(0, 0, 0, 0.85);
             backdrop-filter: blur(40px);
             -webkit-backdrop-filter: blur(40px);
             padding: 3.5rem;
             border-radius: 28px;
-            border: 1px solid rgba(0, 255, 136, 0.1);
-            box-shadow: 0 0 80px rgba(0, 255, 136, 0.05), inset 0 0 60px rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(0, 255, 136, 0.15);
+            box-shadow: 0 0 80px rgba(0, 255, 136, 0.08), inset 0 0 60px rgba(0, 0, 0, 0.5);
             max-width: 520px;
         }
 
@@ -140,7 +141,7 @@
         }
 
         .headline-accent {
-            background: linear-gradient(135deg, var(--accent) 0%, var(--cyan) 50%, var(--purple) 100%);
+            background: linear-gradient(135deg, var(--accent) 0%, var(--cyan) 50%, var(--magenta) 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
@@ -152,6 +153,15 @@
             max-width: 380px;
             margin: 0 auto 2rem;
             font-weight: 400;
+        }
+
+        .interaction-hint {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            margin-bottom: 1.5rem;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            opacity: 0.8;
         }
 
         .cta-group {
@@ -173,6 +183,8 @@
             transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             cursor: pointer;
             border: none;
+            position: relative;
+            z-index: 20;
         }
 
         .btn-primary {
@@ -223,6 +235,30 @@
         }
 
         .scroll-indicator svg { width: 16px; height: 16px; opacity: 0.4; }
+
+        /* Stats Counter */
+        .stats-counter {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(20px);
+            padding: 12px 20px;
+            border-radius: 12px;
+            border: 1px solid rgba(0, 255, 136, 0.2);
+            font-size: 0.75rem;
+            color: var(--accent);
+            z-index: 100;
+            font-family: 'Inter', monospace;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        .stats-counter span {
+            color: var(--text);
+            font-weight: 700;
+            font-size: 1rem;
+        }
 
         /* Sections */
         .section-backdrop {
@@ -473,6 +509,8 @@
             .cta-group { flex-direction: column; width: 100%; max-width: 260px; }
             .btn { width: 100%; justify-content: center; }
             .features-grid { grid-template-columns: 1fr; }
+            .stats-counter { display: none; }
+            .interaction-hint { display: none; }
         }
 
         @media (prefers-reduced-motion: reduce) {
@@ -484,7 +522,13 @@
     </style>
 </head>
 <body>
-    <div id="canvas-container"></div>
+    <!-- Phase 1: Canvas immediately after body -->
+    <canvas id="bg-canvas"></canvas>
+
+    <!-- Stats Counter for eaten tabs -->
+    <div class="stats-counter">
+        Tabs Eaten: <span id="eaten-count">0</span>
+    </div>
 
     <div class="content">
         <section class="hero">
@@ -509,6 +553,7 @@
                 </div>
                 <h1 class="headline">Tame Your<br><span class="headline-accent">Browser Chaos</span></h1>
                 <p class="subheadline">AI-powered tab intelligence for Chrome. Organize, analyze, and manage your tabs instantly.</p>
+                <p class="interaction-hint">Move your cursor to consume floating tabs</p>
                 <div class="cta-group">
                     <a href="https://chromewebstore.google.com/detail/tabeater/khehjgmppbfpmibjcjeffbndjcnbogfj" class="btn btn-primary" target="_blank">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/><line x1="21.17" y1="8" x2="12" y2="8"/><line x1="3.95" y1="6.06" x2="8.54" y2="14"/><line x1="10.88" y1="21.94" x2="15.46" y2="14"/></svg>
@@ -611,290 +656,530 @@
         </footer>
     </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script>
-    (function() {
-        const container = document.getElementById('canvas-container');
-        if (!container) return;
-
-        const isMobile = window.innerWidth < 768;
-
-        // Scene setup
-        const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-        container.appendChild(renderer.domElement);
-
-        // Colors
-        const accent = new THREE.Color(0x00FF88);
-        const cyan = new THREE.Color(0x00D4FF);
-        const purple = new THREE.Color(0x8B5CF6);
-
-        // === FLOATING GEOMETRIC SHAPES ===
-        const shapes = [];
-        const shapeGroup = new THREE.Group();
-        const shapeCount = isMobile ? 15 : 35;
-
-        const geometries = [
-            new THREE.BoxGeometry(0.5, 0.5, 0.5),
-            new THREE.OctahedronGeometry(0.35),
-            new THREE.TetrahedronGeometry(0.4),
-            new THREE.IcosahedronGeometry(0.3),
-            new THREE.TorusGeometry(0.25, 0.08, 8, 16),
-        ];
-
-        for (let i = 0; i < shapeCount; i++) {
-            const geo = geometries[Math.floor(Math.random() * geometries.length)];
-            const color = [accent, cyan, purple][Math.floor(Math.random() * 3)];
-
-            const mat = new THREE.MeshBasicMaterial({
-                color: color,
-                wireframe: true,
-                transparent: true,
-                opacity: 0.3 + Math.random() * 0.3
-            });
-
-            const mesh = new THREE.Mesh(geo, mat);
-
-            // Position in a sphere around center
-            const theta = Math.random() * Math.PI * 2;
-            const phi = Math.acos(2 * Math.random() - 1);
-            const radius = 8 + Math.random() * 15;
-
-            mesh.position.x = radius * Math.sin(phi) * Math.cos(theta);
-            mesh.position.y = radius * Math.sin(phi) * Math.sin(theta);
-            mesh.position.z = radius * Math.cos(phi) - 10;
-
-            mesh.rotation.x = Math.random() * Math.PI;
-            mesh.rotation.y = Math.random() * Math.PI;
-
-            mesh.userData = {
-                rotSpeed: { x: (Math.random() - 0.5) * 0.02, y: (Math.random() - 0.5) * 0.02, z: (Math.random() - 0.5) * 0.02 },
-                floatSpeed: 0.5 + Math.random() * 0.5,
-                floatOffset: Math.random() * Math.PI * 2,
-                orbitSpeed: (Math.random() - 0.5) * 0.003,
-                originalPos: mesh.position.clone()
-            };
-
-            shapes.push(mesh);
-            shapeGroup.add(mesh);
+    <!-- Phase 1: ES Module imports via CDN -->
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
         }
-        scene.add(shapeGroup);
+    }
+    </script>
 
-        // === PARTICLE SYSTEM WITH TRAILS ===
-        const particleCount = isMobile ? 150 : 400;
-        const particleGeometry = new THREE.BufferGeometry();
-        const positions = new Float32Array(particleCount * 3);
-        const colors = new Float32Array(particleCount * 3);
-        const sizes = new Float32Array(particleCount);
+    <script type="module">
+    import * as THREE from 'three';
+    import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+    import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+    import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 
+    // ============================================
+    // PHASE 1: Canvas Lifecycle & Renderer Setup
+    // ============================================
+
+    const canvas = document.getElementById('bg-canvas');
+    const eatenCountEl = document.getElementById('eaten-count');
+    const isMobile = window.innerWidth < 768;
+
+    // Renderer with alpha: true, antialias: false (retro look + performance)
+    const renderer = new THREE.WebGLRenderer({
+        canvas: canvas,
+        alpha: true,
+        antialias: false
+    });
+
+    // Pixel ratio capped at 2 for performance
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.2;
+
+    // Scene & Camera
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(
+        60,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        1000
+    );
+    camera.position.set(0, 2, 25);
+    camera.lookAt(0, 0, 0);
+
+    // ============================================
+    // PHASE 2: Cyberpunk Lighting
+    // ============================================
+
+    // Ambient Light - Low intensity, deep purple
+    const ambientLight = new THREE.AmbientLight(0x220033, 0.3);
+    scene.add(ambientLight);
+
+    // Point Light 1 - Cyan (Synthwave rim lighting)
+    const cyanLight = new THREE.PointLight(0x00FFFF, 2, 50);
+    cyanLight.position.set(-15, 10, 10);
+    scene.add(cyanLight);
+
+    // Point Light 2 - Magenta
+    const magentaLight = new THREE.PointLight(0xFF00FF, 2, 50);
+    magentaLight.position.set(15, -5, 10);
+    scene.add(magentaLight);
+
+    // ============================================
+    // PHASE 2: Instanced "Tabs" (Browser Tab Geometry)
+    // ============================================
+
+    const TAB_COUNT = isMobile ? 100 : 200;
+    const tabGeometry = new THREE.BoxGeometry(1.2, 0.8, 0.1); // Browser tab shape
+    const tabMaterial = new THREE.MeshStandardMaterial({
+        color: 0x00FF88,
+        wireframe: true,
+        emissive: 0x00FF88,
+        emissiveIntensity: 0.5,
+        metalness: 0.8,
+        roughness: 0.2
+    });
+
+    const tabMesh = new THREE.InstancedMesh(tabGeometry, tabMaterial, TAB_COUNT);
+    tabMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    scene.add(tabMesh);
+
+    // Dummy object for matrix calculations
+    const dummy = new THREE.Object3D();
+
+    // Tab instance data
+    const tabData = [];
+    for (let i = 0; i < TAB_COUNT; i++) {
+        const theta = Math.random() * Math.PI * 2;
+        const phi = Math.acos(2 * Math.random() - 1);
+        const radius = 8 + Math.random() * 18;
+
+        tabData.push({
+            position: new THREE.Vector3(
+                radius * Math.sin(phi) * Math.cos(theta),
+                radius * Math.sin(phi) * Math.sin(theta),
+                radius * Math.cos(phi) - 10
+            ),
+            rotation: new THREE.Euler(
+                Math.random() * Math.PI,
+                Math.random() * Math.PI,
+                Math.random() * Math.PI
+            ),
+            scale: 0.5 + Math.random() * 0.8,
+            rotSpeed: new THREE.Vector3(
+                (Math.random() - 0.5) * 0.02,
+                (Math.random() - 0.5) * 0.02,
+                (Math.random() - 0.5) * 0.02
+            ),
+            floatSpeed: 0.3 + Math.random() * 0.5,
+            floatOffset: Math.random() * Math.PI * 2,
+            originalY: 0,
+            eaten: false,
+            eatenScale: 1,
+            color: Math.random() < 0.5 ? 0x00FF88 : (Math.random() < 0.7 ? 0x00FFFF : 0xFF00FF)
+        });
+        tabData[i].originalY = tabData[i].position.y;
+    }
+
+    // Set initial matrices and colors
+    const colorArray = new Float32Array(TAB_COUNT * 3);
+    for (let i = 0; i < TAB_COUNT; i++) {
+        const d = tabData[i];
+        dummy.position.copy(d.position);
+        dummy.rotation.copy(d.rotation);
+        dummy.scale.setScalar(d.scale);
+        dummy.updateMatrix();
+        tabMesh.setMatrixAt(i, dummy.matrix);
+
+        const color = new THREE.Color(d.color);
+        colorArray[i * 3] = color.r;
+        colorArray[i * 3 + 1] = color.g;
+        colorArray[i * 3 + 2] = color.b;
+    }
+    tabGeometry.setAttribute('color', new THREE.InstancedBufferAttribute(colorArray, 3));
+    tabMesh.instanceMatrix.needsUpdate = true;
+
+    // ============================================
+    // PHASE 2: Retro Grid Floor
+    // ============================================
+
+    const gridSize = 80;
+    const gridDivisions = 40;
+    const gridHelper = new THREE.GridHelper(gridSize, gridDivisions, 0x00FF88, 0x003311);
+    gridHelper.position.y = -15;
+    gridHelper.material.opacity = 0.25;
+    gridHelper.material.transparent = true;
+    scene.add(gridHelper);
+
+    // Grid wave vertices for animation
+    const gridPlane = new THREE.PlaneGeometry(gridSize, gridSize, gridDivisions, gridDivisions);
+    const gridMaterial = new THREE.MeshBasicMaterial({
+        color: 0x00FF88,
+        wireframe: true,
+        transparent: true,
+        opacity: 0.1
+    });
+    const gridMesh = new THREE.Mesh(gridPlane, gridMaterial);
+    gridMesh.rotation.x = -Math.PI / 2;
+    gridMesh.position.y = -15;
+    scene.add(gridMesh);
+
+    // ============================================
+    // PHASE 3: Particle Explosion Pool
+    // ============================================
+
+    const PARTICLE_POOL_SIZE = 500;
+    const particleGeometry = new THREE.BufferGeometry();
+    const particlePositions = new Float32Array(PARTICLE_POOL_SIZE * 3);
+    const particleVelocities = [];
+    const particleLifetimes = [];
+    const particleColors = new Float32Array(PARTICLE_POOL_SIZE * 3);
+
+    for (let i = 0; i < PARTICLE_POOL_SIZE; i++) {
+        particlePositions[i * 3] = 0;
+        particlePositions[i * 3 + 1] = -1000; // Hidden below scene
+        particlePositions[i * 3 + 2] = 0;
+        particleVelocities.push(new THREE.Vector3());
+        particleLifetimes.push(0);
+        particleColors[i * 3] = 0;
+        particleColors[i * 3 + 1] = 1;
+        particleColors[i * 3 + 2] = 0.53;
+    }
+
+    particleGeometry.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
+    particleGeometry.setAttribute('color', new THREE.BufferAttribute(particleColors, 3));
+
+    const particleMaterial = new THREE.PointsMaterial({
+        size: 0.15,
+        vertexColors: true,
+        transparent: true,
+        opacity: 0.9,
+        blending: THREE.AdditiveBlending,
+        sizeAttenuation: true
+    });
+
+    const particles = new THREE.Points(particleGeometry, particleMaterial);
+    scene.add(particles);
+
+    let nextParticleIndex = 0;
+
+    function spawnExplosion(position, color) {
+        const particleCount = 15;
         for (let i = 0; i < particleCount; i++) {
-            const theta = Math.random() * Math.PI * 2;
-            const phi = Math.acos(2 * Math.random() - 1);
-            const radius = 5 + Math.random() * 25;
+            const idx = nextParticleIndex;
+            nextParticleIndex = (nextParticleIndex + 1) % PARTICLE_POOL_SIZE;
 
-            positions[i * 3] = radius * Math.sin(phi) * Math.cos(theta);
-            positions[i * 3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
-            positions[i * 3 + 2] = radius * Math.cos(phi);
+            particlePositions[idx * 3] = position.x;
+            particlePositions[idx * 3 + 1] = position.y;
+            particlePositions[idx * 3 + 2] = position.z;
 
-            const colorChoice = Math.random();
-            if (colorChoice < 0.5) {
-                colors[i * 3] = 0; colors[i * 3 + 1] = 1; colors[i * 3 + 2] = 0.53;
-            } else if (colorChoice < 0.8) {
-                colors[i * 3] = 0; colors[i * 3 + 1] = 0.83; colors[i * 3 + 2] = 1;
+            const c = new THREE.Color(color);
+            particleColors[idx * 3] = c.r;
+            particleColors[idx * 3 + 1] = c.g;
+            particleColors[idx * 3 + 2] = c.b;
+
+            particleVelocities[idx].set(
+                (Math.random() - 0.5) * 2,
+                (Math.random() - 0.5) * 2,
+                (Math.random() - 0.5) * 2
+            );
+            particleLifetimes[idx] = 1.0;
+        }
+        particleGeometry.attributes.position.needsUpdate = true;
+        particleGeometry.attributes.color.needsUpdate = true;
+    }
+
+    // ============================================
+    // PHASE 3: Mouse Tracking & Eater Mechanics
+    // ============================================
+
+    const mouse = new THREE.Vector2(0, 0);
+    const mouse3D = new THREE.Vector3();
+    let eatenCount = 0;
+    const EAT_RADIUS = 3.5;
+    const EAT_SPEED = 0.08;
+
+    // Attach event listeners to window (not canvas due to pointer-events: none)
+    window.addEventListener('mousemove', (e) => {
+        mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+    });
+
+    window.addEventListener('touchmove', (e) => {
+        if (e.touches.length > 0) {
+            mouse.x = (e.touches[0].clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(e.touches[0].clientY / window.innerHeight) * 2 + 1;
+        }
+    });
+
+    // ============================================
+    // PHASE 2: Central "Eater" Entity
+    // ============================================
+
+    const eaterGroup = new THREE.Group();
+
+    // Inner core - icosahedron
+    const innerCore = new THREE.Mesh(
+        new THREE.IcosahedronGeometry(0.8, 2),
+        new THREE.MeshStandardMaterial({
+            color: 0x00FF88,
+            wireframe: true,
+            emissive: 0x00FF88,
+            emissiveIntensity: 1
+        })
+    );
+    eaterGroup.add(innerCore);
+
+    // Outer shell
+    const outerShell = new THREE.Mesh(
+        new THREE.IcosahedronGeometry(1.5, 1),
+        new THREE.MeshStandardMaterial({
+            color: 0x00FFFF,
+            wireframe: true,
+            emissive: 0x00FFFF,
+            emissiveIntensity: 0.3,
+            transparent: true,
+            opacity: 0.4
+        })
+    );
+    eaterGroup.add(outerShell);
+
+    // Energy rings around eater
+    const eaterRings = [];
+    for (let i = 0; i < 3; i++) {
+        const ring = new THREE.Mesh(
+            new THREE.TorusGeometry(2 + i * 0.8, 0.03, 8, 64),
+            new THREE.MeshBasicMaterial({
+                color: i % 2 === 0 ? 0x00FF88 : 0xFF00FF,
+                transparent: true,
+                opacity: 0.5 - i * 0.1
+            })
+        );
+        ring.rotation.x = Math.PI / 2 + i * 0.4;
+        ring.rotation.y = i * 0.3;
+        eaterRings.push(ring);
+        eaterGroup.add(ring);
+    }
+
+    scene.add(eaterGroup);
+
+    // ============================================
+    // PHASE 4: Post-Processing Pipeline (Bloom)
+    // ============================================
+
+    const composer = new EffectComposer(renderer);
+
+    // Pass 1: Base scene render
+    const renderPass = new RenderPass(scene, camera);
+    composer.addPass(renderPass);
+
+    // Pass 2: Unreal Bloom for cyberpunk glow
+    const bloomPass = new UnrealBloomPass(
+        new THREE.Vector2(window.innerWidth, window.innerHeight),
+        1.5,   // Strength
+        0.4,   // Radius
+        0.8    // Threshold (high = only bright things glow)
+    );
+    composer.addPass(bloomPass);
+
+    // ============================================
+    // PHASE 5: Optimization & Animation Loop
+    // ============================================
+
+    let time = 0;
+    let lowPowerMode = false;
+
+    // Detect low power mode (simplified check)
+    if ('getBattery' in navigator) {
+        navigator.getBattery().then(battery => {
+            if (battery.level < 0.2 && !battery.charging) {
+                lowPowerMode = true;
+            }
+            battery.addEventListener('levelchange', () => {
+                lowPowerMode = battery.level < 0.2 && !battery.charging;
+            });
+        });
+    }
+
+    function animate() {
+        requestAnimationFrame(animate);
+        time += 0.016;
+
+        // Project mouse to 3D space at z = 0
+        mouse3D.set(mouse.x, mouse.y, 0.5);
+        mouse3D.unproject(camera);
+        const dir = mouse3D.sub(camera.position).normalize();
+        const distance = -camera.position.z / dir.z;
+        mouse3D.copy(camera.position).add(dir.multiplyScalar(distance));
+
+        // Animate tabs and check for eating
+        for (let i = 0; i < TAB_COUNT; i++) {
+            const d = tabData[i];
+
+            if (!d.eaten) {
+                // Rotate
+                d.rotation.x += d.rotSpeed.x;
+                d.rotation.y += d.rotSpeed.y;
+                d.rotation.z += d.rotSpeed.z;
+
+                // Float
+                d.position.y = d.originalY + Math.sin(time * d.floatSpeed + d.floatOffset) * 1.5;
+
+                // Check distance to cursor for eating
+                const dist = d.position.distanceTo(mouse3D);
+                if (dist < EAT_RADIUS) {
+                    d.eaten = true;
+                    eatenCount++;
+                    eatenCountEl.textContent = eatenCount;
+                    spawnExplosion(d.position.clone(), d.color);
+                }
             } else {
-                colors[i * 3] = 0.55; colors[i * 3 + 1] = 0.36; colors[i * 3 + 2] = 0.96;
+                // Shrink eaten tabs (don't delete - expensive)
+                d.eatenScale = Math.max(0, d.eatenScale - EAT_SPEED);
             }
 
-            sizes[i] = Math.random() * 3 + 1;
+            // Update instance matrix
+            dummy.position.copy(d.position);
+            dummy.rotation.copy(d.rotation);
+            dummy.scale.setScalar(d.scale * d.eatenScale);
+            dummy.updateMatrix();
+            tabMesh.setMatrixAt(i, dummy.matrix);
+        }
+        tabMesh.instanceMatrix.needsUpdate = true;
+
+        // Respawn eaten tabs after delay
+        for (let i = 0; i < TAB_COUNT; i++) {
+            const d = tabData[i];
+            if (d.eaten && d.eatenScale <= 0) {
+                // Respawn at random position
+                const theta = Math.random() * Math.PI * 2;
+                const phi = Math.acos(2 * Math.random() - 1);
+                const radius = 12 + Math.random() * 15;
+
+                d.position.set(
+                    radius * Math.sin(phi) * Math.cos(theta),
+                    radius * Math.sin(phi) * Math.sin(theta),
+                    radius * Math.cos(phi) - 10
+                );
+                d.originalY = d.position.y;
+                d.eaten = false;
+                d.eatenScale = 1;
+            }
         }
 
-        particleGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-        particleGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-        particleGeometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+        // Animate particles
+        for (let i = 0; i < PARTICLE_POOL_SIZE; i++) {
+            if (particleLifetimes[i] > 0) {
+                particleLifetimes[i] -= 0.03;
+                particlePositions[i * 3] += particleVelocities[i].x * 0.3;
+                particlePositions[i * 3 + 1] += particleVelocities[i].y * 0.3;
+                particlePositions[i * 3 + 2] += particleVelocities[i].z * 0.3;
 
-        const particleMaterial = new THREE.PointsMaterial({
-            size: 0.08,
-            vertexColors: true,
-            transparent: true,
-            opacity: 0.7,
-            sizeAttenuation: true,
-            blending: THREE.AdditiveBlending
+                // Gravity
+                particleVelocities[i].y -= 0.02;
+
+                if (particleLifetimes[i] <= 0) {
+                    particlePositions[i * 3 + 1] = -1000; // Hide
+                }
+            }
+        }
+        particleGeometry.attributes.position.needsUpdate = true;
+
+        // Animate eater (follows cursor smoothly)
+        eaterGroup.position.lerp(mouse3D, 0.08);
+        innerCore.rotation.x += 0.02;
+        innerCore.rotation.y += 0.03;
+        innerCore.scale.setScalar(1 + Math.sin(time * 4) * 0.15);
+
+        outerShell.rotation.x -= 0.01;
+        outerShell.rotation.y -= 0.015;
+        outerShell.scale.setScalar(1 + Math.sin(time * 2) * 0.1);
+
+        // Animate eater rings
+        eaterRings.forEach((ring, i) => {
+            ring.rotation.z += 0.02 * (i % 2 === 0 ? 1 : -1);
+            ring.scale.setScalar(1 + Math.sin(time * 1.5 + i) * 0.15);
         });
 
-        const particles = new THREE.Points(particleGeometry, particleMaterial);
-        scene.add(particles);
+        // Animate lights
+        cyanLight.position.x = Math.sin(time * 0.5) * 20;
+        cyanLight.position.z = Math.cos(time * 0.5) * 20;
+        magentaLight.position.x = Math.sin(time * 0.5 + Math.PI) * 20;
+        magentaLight.position.z = Math.cos(time * 0.5 + Math.PI) * 20;
 
-        // === CENTRAL CORE SYSTEM ===
-        const coreGroup = new THREE.Group();
-
-        // Inner core
-        const innerCore = new THREE.Mesh(
-            new THREE.IcosahedronGeometry(0.5, 2),
-            new THREE.MeshBasicMaterial({ color: accent, wireframe: true, transparent: true, opacity: 0.8 })
-        );
-        coreGroup.add(innerCore);
-
-        // Outer shell
-        const outerShell = new THREE.Mesh(
-            new THREE.IcosahedronGeometry(0.8, 1),
-            new THREE.MeshBasicMaterial({ color: cyan, wireframe: true, transparent: true, opacity: 0.3 })
-        );
-        coreGroup.add(outerShell);
-
-        // Energy rings
-        const ringCount = 4;
-        const rings = [];
-        for (let i = 0; i < ringCount; i++) {
-            const ring = new THREE.Mesh(
-                new THREE.TorusGeometry(1.2 + i * 0.6, 0.02, 8, 64),
-                new THREE.MeshBasicMaterial({
-                    color: i % 2 === 0 ? accent : cyan,
-                    transparent: true,
-                    opacity: 0.4 - i * 0.08
-                })
-            );
-            ring.rotation.x = Math.PI / 2 + (i * 0.3);
-            ring.rotation.y = i * 0.5;
-            rings.push(ring);
-            coreGroup.add(ring);
+        // Grid wave animation
+        const positions = gridMesh.geometry.attributes.position.array;
+        for (let i = 0; i < positions.length; i += 3) {
+            const x = positions[i];
+            const z = positions[i + 1];
+            positions[i + 2] = Math.sin(x * 0.1 + time) * Math.cos(z * 0.1 + time) * 0.5;
         }
+        gridMesh.geometry.attributes.position.needsUpdate = true;
 
-        scene.add(coreGroup);
+        // Camera subtle movement
+        camera.position.x += (mouse.x * 3 - camera.position.x) * 0.02;
+        camera.position.y += (2 + mouse.y * 2 - camera.position.y) * 0.02;
+        camera.lookAt(0, 0, -5);
 
-        // === GRID FLOOR ===
-        const gridHelper = new THREE.GridHelper(50, 50, 0x00FF88, 0x002211);
-        gridHelper.position.y = -12;
-        gridHelper.material.opacity = 0.15;
-        gridHelper.material.transparent = true;
-        scene.add(gridHelper);
-
-        // === ENERGY BEAMS ===
-        const beamCount = isMobile ? 3 : 6;
-        const beams = [];
-        for (let i = 0; i < beamCount; i++) {
-            const beamGeo = new THREE.CylinderGeometry(0.02, 0.02, 30, 8);
-            const beamMat = new THREE.MeshBasicMaterial({
-                color: i % 2 === 0 ? accent : cyan,
-                transparent: true,
-                opacity: 0.2
-            });
-            const beam = new THREE.Mesh(beamGeo, beamMat);
-            beam.rotation.x = Math.PI / 2;
-            beam.rotation.z = (i / beamCount) * Math.PI * 2;
-            beam.position.z = -5;
-            beam.userData = { baseRotation: (i / beamCount) * Math.PI * 2 };
-            beams.push(beam);
-            scene.add(beam);
-        }
-
-        // Camera position
-        camera.position.z = 18;
-        camera.position.y = 3;
-
-        // Mouse tracking
-        let mouseX = 0, mouseY = 0;
-        let targetMouseX = 0, targetMouseY = 0;
-
-        document.addEventListener('mousemove', (e) => {
-            targetMouseX = (e.clientX / window.innerWidth - 0.5) * 2;
-            targetMouseY = (e.clientY / window.innerHeight - 0.5) * 2;
-        });
-
-        // Scroll tracking
-        let scrollProgress = 0;
-        function updateScroll() {
-            scrollProgress = Math.min(window.scrollY / window.innerHeight, 1);
-        }
-        window.addEventListener('scroll', updateScroll);
-        updateScroll();
-
-        // Animation
-        let time = 0;
-
-        function animate() {
-            requestAnimationFrame(animate);
-            time += 0.01;
-
-            // Smooth mouse
-            mouseX += (targetMouseX - mouseX) * 0.05;
-            mouseY += (targetMouseY - mouseY) * 0.05;
-
-            // Animate shapes
-            shapes.forEach((shape, i) => {
-                const d = shape.userData;
-                shape.rotation.x += d.rotSpeed.x;
-                shape.rotation.y += d.rotSpeed.y;
-                shape.rotation.z += d.rotSpeed.z;
-
-                // Floating motion
-                shape.position.y = d.originalPos.y + Math.sin(time * d.floatSpeed + d.floatOffset) * 0.8;
-
-                // Orbit
-                const angle = time * d.orbitSpeed;
-                shape.position.x = d.originalPos.x * Math.cos(angle) - d.originalPos.z * Math.sin(angle);
-                shape.position.z = d.originalPos.x * Math.sin(angle) + d.originalPos.z * Math.cos(angle);
-            });
-
-            // Rotate shape group with mouse
-            shapeGroup.rotation.y += (mouseX * 0.3 - shapeGroup.rotation.y) * 0.02;
-            shapeGroup.rotation.x += (mouseY * 0.15 - shapeGroup.rotation.x) * 0.02;
-
-            // Particles
-            particles.rotation.y += 0.0008;
-            particles.rotation.x += 0.0002;
-
-            // Pulse particle opacity
-            particleMaterial.opacity = 0.5 + Math.sin(time * 2) * 0.2;
-
-            // Core animation
-            innerCore.rotation.x += 0.015;
-            innerCore.rotation.y += 0.02;
-            innerCore.scale.setScalar(1 + Math.sin(time * 3) * 0.1);
-
-            outerShell.rotation.x -= 0.008;
-            outerShell.rotation.y -= 0.01;
-            outerShell.scale.setScalar(1 + Math.sin(time * 2) * 0.15);
-
-            // Rings animation
-            rings.forEach((ring, i) => {
-                ring.rotation.z += 0.01 * (i % 2 === 0 ? 1 : -1);
-                ring.scale.setScalar(1 + Math.sin(time * 1.5 + i) * 0.1);
-            });
-
-            // Core pulsing glow based on scroll
-            const coreBrightness = 0.5 + scrollProgress * 0.5;
-            innerCore.material.opacity = coreBrightness;
-            coreGroup.scale.setScalar(0.8 + scrollProgress * 0.4);
-
-            // Beams rotation
-            beams.forEach((beam, i) => {
-                beam.rotation.z = beam.userData.baseRotation + time * 0.5;
-                beam.material.opacity = 0.1 + Math.sin(time * 3 + i) * 0.1;
-            });
-
-            // Grid wave
-            gridHelper.position.y = -12 + Math.sin(time * 0.5) * 0.5;
-
-            // Camera
-            camera.position.x += (mouseX * 4 - camera.position.x) * 0.02;
-            camera.position.y += (3 - mouseY * 2 - camera.position.y) * 0.02;
-            camera.lookAt(0, 0, -5);
-
+        // Render (use composer for bloom, or standard render in low power mode)
+        if (lowPowerMode) {
             renderer.render(scene, camera);
+        } else {
+            composer.render();
         }
+    }
 
-        animate();
+    animate();
 
-        // Resize
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        });
-    })();
+    // ============================================
+    // PHASE 5: ResizeObserver for proper resize handling
+    // ============================================
+
+    const resizeObserver = new ResizeObserver((entries) => {
+        const { width, height } = entries[0].contentRect;
+        camera.aspect = width / height;
+        camera.updateProjectionMatrix();
+        renderer.setSize(width, height);
+        composer.setSize(width, height);
+        bloomPass.resolution.set(width, height);
+    });
+
+    resizeObserver.observe(document.body);
+
+    // Fallback resize listener
+    window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        composer.setSize(window.innerWidth, window.innerHeight);
+        bloomPass.resolution.set(window.innerWidth, window.innerHeight);
+    });
+
+    // ============================================
+    // PHASE 5: Resource Disposal (for SPA navigation)
+    // ============================================
+
+    window.disposeThreeJS = function() {
+        resizeObserver.disconnect();
+
+        // Dispose geometries
+        tabGeometry.dispose();
+        particleGeometry.dispose();
+        gridPlane.dispose();
+        innerCore.geometry.dispose();
+        outerShell.geometry.dispose();
+        eaterRings.forEach(ring => ring.geometry.dispose());
+
+        // Dispose materials
+        tabMaterial.dispose();
+        particleMaterial.dispose();
+        gridMaterial.dispose();
+        innerCore.material.dispose();
+        outerShell.material.dispose();
+        eaterRings.forEach(ring => ring.material.dispose());
+
+        // Dispose renderer
+        renderer.dispose();
+        composer.dispose();
+    };
+
     </script>
 </body>
 </html>
