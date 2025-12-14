@@ -297,7 +297,7 @@ const Popup = () => {
 
                     if (loading || grouping) {
                         return (
-                            <button style={s.heroBtn} disabled>
+                            <button className="hero-btn" style={s.heroBtn} disabled>
                                 <div style={s.spinner} />
                                 <span className="mgs-text">{grouping ? 'ORGANIZING' : 'ANALYZING'}</span>
                             </button>
@@ -306,7 +306,7 @@ const Popup = () => {
 
                     if (isClean) {
                         return (
-                            <button style={{ ...s.heroBtn, ...s.heroBtnSuccess }} onClick={showAnalytics}>
+                            <button className="hero-btn" style={{ ...s.heroBtn, ...s.heroBtnSuccess }} onClick={showAnalytics}>
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                     <path d="M20 6L9 17l-5-5"/>
                                 </svg>
@@ -318,7 +318,7 @@ const Popup = () => {
                     if (hasCleanupNeeded) {
                         const count = (quickReport?.recommendations.closeSuggestions.length || 0) + (quickReport?.duplicateCount || 0);
                         return (
-                            <button style={{ ...s.heroBtn, ...s.heroBtnWarning }} onClick={license?.paid ? runActions : () => setView('upgrade')}>
+                            <button className="hero-btn" style={{ ...s.heroBtn, ...s.heroBtnWarning }} onClick={license?.paid ? runActions : () => setView('upgrade')}>
                                 <span style={s.heroBadge}>{count}</span>
                                 <span className="mgs-text">OPTIMIZE</span>
                             </button>
@@ -327,7 +327,7 @@ const Popup = () => {
 
                     if (hasGroupingNeeded) {
                         return (
-                            <button style={s.heroBtn} onClick={smartOrganize}>
+                            <button className="hero-btn" style={s.heroBtn} onClick={smartOrganize}>
                                 <span style={s.heroBadge}>{quickReport?.recommendations.groupSuggestions.length}</span>
                                 <span className="mgs-text">ORGANIZE</span>
                             </button>
@@ -335,7 +335,7 @@ const Popup = () => {
                     }
 
                     return (
-                        <button style={s.heroBtn} onClick={license?.paid ? runActions : smartOrganize}>
+                        <button className="hero-btn" style={s.heroBtn} onClick={license?.paid ? runActions : smartOrganize}>
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                 <circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>
                             </svg>
@@ -346,19 +346,19 @@ const Popup = () => {
                 })()}
 
                 <div style={s.actionRow}>
-                    <button style={s.actionBtn} onClick={smartOrganize} disabled={loading || grouping} title="Smart Group">
+                    <button className="action-btn" style={s.actionBtn} onClick={smartOrganize} disabled={loading || grouping} title="Smart Group">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                             <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
                         </svg>
                         <span>Group</span>
                     </button>
-                    <button style={s.actionBtn} onClick={findDuplicates} disabled={loading} title="Duplicates">
+                    <button className="action-btn" style={s.actionBtn} onClick={findDuplicates} disabled={loading} title="Duplicates">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                             <rect x="8" y="8" width="12" height="12" rx="2"/><path d="M4 16V6a2 2 0 0 1 2-2h10"/>
                         </svg>
                         <span>Dupes</span>
                     </button>
-                    <button style={s.actionBtn} onClick={showAnalytics} disabled={loading} title="Analytics">
+                    <button className="action-btn" style={s.actionBtn} onClick={showAnalytics} disabled={loading} title="Analytics">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                             <path d="M18 20V10M12 20V4M6 20v-6"/>
                         </svg>
@@ -582,14 +582,14 @@ const Popup = () => {
                     <div style={s.upgradeContent}>
                         <div style={s.upgradeHeader}>
                             <span style={s.upgradeTitle}>Upgrade to Pro</span>
-                            <span style={s.upgradePrice}>A$6</span>
+                            <span style={s.upgradePrice}>AUD $6</span>
                             <span style={s.upgradePriceNote}>one-time</span>
                         </div>
                         <ul style={s.upgradeFeatures}>
                             <li>Unlimited AI scans</li>
                             <li>Auto Pilot mode</li>
                             <li>Smart grouping</li>
-                            <li>Priority support</li>
+                            <li>Up to 3 devices</li>
                         </ul>
                         <button style={s.upgradeBtn} onClick={handleUpgrade} disabled={loading}>
                             {loading ? 'Loading...' : 'Get Pro'}
@@ -1190,9 +1190,32 @@ styleSheet.textContent = `
     button:hover:not(:disabled) {
         border-color: ${colors.borderHover} !important;
         color: ${colors.textSecondary} !important;
+        transform: translateY(-1px);
     }
-    button:active:not(:disabled) { opacity: 0.8; }
+    button:active:not(:disabled) {
+        opacity: 0.9;
+        transform: translateY(0);
+    }
     button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* Hero button glow on hover */
+    .hero-btn:hover:not(:disabled) {
+        box-shadow: 0 0 12px rgba(0, 212, 255, 0.2);
+    }
+
+    /* Action buttons lift */
+    .action-btn {
+        transition: all 0.15s ease;
+    }
+    .action-btn:hover:not(:disabled) {
+        transform: translateY(-2px);
+        background: rgba(255, 255, 255, 0.02);
+    }
+
+    /* Tab item highlight */
+    .tab-item:hover {
+        background: ${colors.surfaceDark};
+    }
 
     .mgs-text {
         animation: mgs-flicker 8s infinite;
