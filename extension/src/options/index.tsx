@@ -1,15 +1,12 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
-import '../ui/theme.css';
+import { colors, spacing, typography, borderRadius, shadows, transitions, scanlineOverlay } from '../shared/theme';
 
-// ============================================
-// TYPES
-// ============================================
-
+// Types
 type CloudProvider = 'gemini' | 'openai' | 'anthropic';
-type TabId = 'brain' | 'pilot' | 'display' | 'license';
-type ConnectionStatus = 'idle' | 'testing' | 'success' | 'error';
 type AutoPilotMode = 'manual' | 'auto-cleanup' | 'fly-mode';
+type InputState = 'empty' | 'typing' | 'validating' | 'success' | 'error';
+type NavSection = 'provider' | 'autopilot' | 'license';
 
 interface LicenseStatus {
     status: 'trial' | 'pro' | 'expired' | 'none';
@@ -18,12 +15,6 @@ interface LicenseStatus {
     dailyLimit?: number;
     trialEndDate?: string;
     canUse: boolean;
-}
-
-interface NanoStatus {
-    available: boolean;
-    status: 'ready' | 'downloading' | 'not_available' | 'error';
-    message: string;
 }
 
 interface AutoPilotSettings {
@@ -37,153 +28,104 @@ interface AutoPilotSettings {
     showNotifications: boolean;
 }
 
-// ============================================
-// CONSTANTS
-// ============================================
-
-const PROVIDER_INFO = {
-    gemini: {
-        name: 'Google Gemini',
-        defaultModel: 'gemini-2.0-flash',
-        models: ['gemini-2.0-flash', 'gemini-1.5-flash-latest', 'gemini-1.5-pro-latest'],
-        getKeyUrl: 'https://aistudio.google.com/app/apikey',
-        description: 'RECOMMENDED',
-        color: '#4285f4',
-    },
-    openai: {
-        name: 'OpenAI',
-        defaultModel: 'gpt-4o-mini',
-        models: ['gpt-4o-mini', 'gpt-4o', 'gpt-4-turbo', 'gpt-3.5-turbo'],
-        getKeyUrl: 'https://platform.openai.com/api-keys',
-        description: 'PAY-AS-YOU-GO',
-        color: '#10a37f',
-    },
-    anthropic: {
-        name: 'Claude',
-        defaultModel: 'claude-3-5-haiku-latest',
-        models: ['claude-3-5-haiku-latest', 'claude-3-5-sonnet-latest', 'claude-3-opus-latest'],
-        getKeyUrl: 'https://console.anthropic.com/settings/keys',
-        description: 'PAY-AS-YOU-GO',
-        color: '#d4a574',
-    }
+// Constants
+const PROVIDERS = {
+    gemini: { name: 'GEMINI', desc: 'Google AI', color: '#4285f4', badge: 'FREE', models: ['gemini-2.0-flash', 'gemini-1.5-flash-latest', 'gemini-1.5-pro-latest'], default: 'gemini-2.0-flash', url: 'https://aistudio.google.com/app/apikey' },
+    openai: { name: 'OPENAI', desc: 'GPT Models', color: '#10a37f', badge: 'PAID', models: ['gpt-4o-mini', 'gpt-4o', 'gpt-4-turbo'], default: 'gpt-4o-mini', url: 'https://platform.openai.com/api-keys' },
+    anthropic: { name: 'CLAUDE', desc: 'Anthropic', color: '#d4a574', badge: 'PAID', models: ['claude-3-5-haiku-latest', 'claude-3-5-sonnet-latest'], default: 'claude-3-5-haiku-latest', url: 'https://console.anthropic.com/settings/keys' },
 };
 
-// ============================================
-// COMPONENTS
-// ============================================
-
-// Status LED Component
-const StatusLED: React.FC<{ status: ConnectionStatus }> = ({ status }) => {
-    const statusClass = {
-        idle: 'idle',
-        testing: 'testing',
-        success: 'online',
-        error: 'offline'
-    }[status];
-
-    return <div className={`status-led ${statusClass}`} />;
-};
-
-// Section Header Component
-const SectionHeader: React.FC<{ title: string; subtitle: string }> = ({ title, subtitle }) => (
-    <div className="section-header">
-        <h2 className="section-title">{title}</h2>
-        <p className="section-subtitle">&gt;&gt; {subtitle}</p>
-    </div>
-);
-
-// Navigation Item Component
-const NavItem: React.FC<{
-    id: TabId;
-    label: string;
-    icon: string;
-    active: boolean;
-    badge?: string;
-    onClick: () => void;
-}> = ({ id, label, icon, active, badge, onClick }) => (
-    <button
-        className={`nav-item ${active ? 'active' : ''}`}
-        onClick={onClick}
-    >
-        <span style={{ fontSize: '16px' }}>{icon}</span>
-        <span style={{ flex: 1 }}>{label}</span>
-        {badge && <span className={`badge ${badge === 'PRO' ? 'badge-pro' : 'badge-trial'}`}>{badge}</span>}
-    </button>
-);
-
-// Glitch Logo Component
-const GlitchLogo: React.FC = () => (
-    <svg width="40" height="40" viewBox="0 0 128 128" fill="none">
-        <rect width="128" height="128" rx="16" fill="#0a0a0a"/>
-        <path d="M20 108H108V48H68L56 36H20V108Z" fill="#111111" stroke="#39ff14" strokeWidth="4"/>
-        <rect x="84" y="24" width="12" height="12" fill="#39ff14"/>
-        <rect x="96" y="36" width="12" height="12" fill="#39ff14"/>
-        <rect x="36" y="56" width="12" height="12" fill="#39ff14" style={{ filter: 'drop-shadow(0 0 4px rgba(57, 255, 20, 0.8))' }}/>
+// Glitch Tab Logo Component
+const GlitchLogo: React.FC<{ size?: number }> = ({ size = 32 }) => (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <rect width="24" height="24" fill={colors.voidBlack}/>
+        <path d="M3 18V7C3 6.5 3.5 6 4 6H8L10 4H20C20.5 4 21 4.5 21 5V18C21 18.5 20.5 19 20 19H4C3.5 19 3 18.5 3 18Z"
+              fill="none" stroke={colors.phosphorGreen} strokeWidth="1.5"/>
+        <rect x="18" y="6" width="2" height="2" fill={colors.voidBlack}/>
+        <rect x="17" y="8" width="3" height="3" fill={colors.voidBlack}/>
+        <rect x="18" y="11" width="2" height="2" fill={colors.voidBlack}/>
+        <rect x="7" y="10" width="3" height="3" fill={colors.phosphorGreen}/>
+        <line x1="3" y1="15" x2="17" y2="15" stroke={colors.phosphorGreen} strokeWidth="0.5" opacity="0.4"/>
+        <line x1="3" y1="17" x2="17" y2="17" stroke={colors.phosphorGreen} strokeWidth="0.5" opacity="0.4"/>
     </svg>
 );
 
-// ============================================
-// MAIN OPTIONS PAGE COMPONENT
-// ============================================
+// Toast Component for Undo
+const UndoToast: React.FC<{ message: string; onUndo: () => void; onDismiss: () => void }> = ({ message, onUndo, onDismiss }) => {
+    const [progress, setProgress] = useState(100);
 
+    useEffect(() => {
+        const interval = setInterval(() => setProgress(p => Math.max(0, p - 2.5)), 100);
+        const timeout = setTimeout(onDismiss, 4000);
+        return () => { clearInterval(interval); clearTimeout(timeout); };
+    }, [onDismiss]);
+
+    return (
+        <div style={toastStyles.container}>
+            <span style={toastStyles.message}>{message}</span>
+            <button style={toastStyles.undoBtn} onClick={onUndo}>UNDO</button>
+            <div style={{ ...toastStyles.progress, width: `${progress}%` }} />
+        </div>
+    );
+};
+
+const toastStyles = {
+    container: { position: 'fixed' as const, bottom: 24, left: '50%', transform: 'translateX(-50%)', background: colors.panelGrey, border: `1px solid ${colors.phosphorGreen}`, padding: '12px 16px', fontFamily: typography.fontMono, fontSize: 11, textTransform: 'uppercase' as const, letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: 16, zIndex: 1000, overflow: 'hidden' },
+    message: { color: colors.textPrimary },
+    undoBtn: { background: 'transparent', border: `1px solid ${colors.phosphorGreen}`, color: colors.phosphorGreen, padding: '4px 8px', fontFamily: typography.fontMono, fontSize: 10, textTransform: 'uppercase' as const, cursor: 'pointer' },
+    progress: { position: 'absolute' as const, bottom: 0, left: 0, height: 2, background: colors.phosphorGreen, transition: 'width 0.1s linear' },
+};
+
+// Main Options Page
 const OptionsPage: React.FC = () => {
-    // Tab State
-    const [activeTab, setActiveTab] = useState<TabId>('brain');
-
-    // AI Configuration State
-    const [activeProvider, setActiveProvider] = useState<string>('none');
+    // State
+    const [activeNav, setActiveNav] = useState<NavSection>('provider');
     const [cloudProvider, setCloudProvider] = useState<CloudProvider>('gemini');
     const [apiKey, setApiKey] = useState('');
     const [model, setModel] = useState('');
-    const [showApiKey, setShowApiKey] = useState(false);
-    const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('idle');
-    const [testResult, setTestResult] = useState<string | null>(null);
-    const [saved, setSaved] = useState(false);
-    const [confirmDelete, setConfirmDelete] = useState(false);
-
-    // Nano State
-    const [nanoStatus, setNanoStatus] = useState<NanoStatus | null>(null);
-    const [checkingNano, setCheckingNano] = useState(false);
-
-    // License State
+    const [inputState, setInputState] = useState<InputState>('empty');
+    const [activeProvider, setActiveProvider] = useState('none');
+    const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'saved'>('idle');
     const [license, setLicense] = useState<LicenseStatus | null>(null);
+    const [autoPilotSettings, setAutoPilotSettings] = useState<AutoPilotSettings>({
+        mode: 'manual', staleDaysThreshold: 7, autoCloseStale: false, autoGroupByCategory: false,
+        excludePinned: true, excludeActive: true, flyModeDebounceMs: 5000, showNotifications: true,
+    });
+    const [toast, setToast] = useState<{ message: string; undo: () => void } | null>(null);
+    const [previousMode, setPreviousMode] = useState<AutoPilotMode>('manual');
     const [showEmailVerify, setShowEmailVerify] = useState(false);
     const [verifyEmail, setVerifyEmail] = useState('');
     const [verifyError, setVerifyError] = useState('');
     const [verifyLoading, setVerifyLoading] = useState(false);
+    const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-    // Auto Pilot State
-    const [autoPilotSettings, setAutoPilotSettings] = useState<AutoPilotSettings>({
-        mode: 'manual',
-        staleDaysThreshold: 7,
-        autoCloseStale: false,
-        autoGroupByCategory: false,
-        excludePinned: true,
-        excludeActive: true,
-        flyModeDebounceMs: 5000,
-        showNotifications: true,
-    });
-    const [autoPilotSaved, setAutoPilotSaved] = useState(false);
-
-    // Display State
-    const [cleanMode, setCleanMode] = useState(true);
-
-    // ============================================
-    // EFFECTS & DATA LOADING
-    // ============================================
-
+    // Load data
     useEffect(() => {
         loadConfig();
         loadLicense();
-        checkNanoStatus();
         loadAutoPilotSettings();
-        loadDisplaySettings();
     }, []);
 
-    const loadDisplaySettings = async () => {
-        const stored = await chrome.storage.local.get(['cleanMode']);
-        setCleanMode(stored.cleanMode !== false);
-    };
+    // Auto-save with debounce
+    useEffect(() => {
+        if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+        if (apiKey || model) {
+            setInputState('typing');
+            setSyncStatus('syncing');
+            saveTimeoutRef.current = setTimeout(async () => {
+                await saveConfig();
+            }, 500);
+        }
+    }, [apiKey, model, cloudProvider]);
+
+    // Auto-save auto-pilot settings
+    useEffect(() => {
+        if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+        setSyncStatus('syncing');
+        saveTimeoutRef.current = setTimeout(async () => {
+            await saveAutoPilotSettings();
+        }, 500);
+    }, [autoPilotSettings]);
 
     const loadConfig = async () => {
         const stored = await chrome.storage.local.get(['aiConfig']);
@@ -192,674 +134,967 @@ const OptionsPage: React.FC = () => {
             setCloudProvider(stored.aiConfig.cloudProvider || 'gemini');
             setModel(stored.aiConfig.model || '');
         }
-        checkProvider();
+        const response = await chrome.runtime.sendMessage({ action: 'getAIProvider' });
+        if (response.success) {
+            setActiveProvider(response.data.provider);
+            setInputState(response.data.provider !== 'none' ? 'success' : 'empty');
+        }
     };
 
     const loadLicense = async () => {
         const response = await chrome.runtime.sendMessage({ action: 'getLicenseStatus', payload: { forceRefresh: true } });
-        if (response.success) {
-            setLicense(response.data);
-        }
-    };
-
-    const checkProvider = async () => {
-        const response = await chrome.runtime.sendMessage({ action: 'getAIProvider' });
-        if (response.success) {
-            setActiveProvider(response.data.provider);
-            setConnectionStatus(response.data.provider !== 'none' ? 'success' : 'idle');
-        }
-    };
-
-    const checkNanoStatus = async () => {
-        setCheckingNano(true);
-        try {
-            const statusResponse = await chrome.runtime.sendMessage({ action: 'checkNanoStatus' });
-            if (statusResponse.success) {
-                setNanoStatus(statusResponse.data);
-            }
-            const reinitResponse = await chrome.runtime.sendMessage({ action: 'reinitializeAI' });
-            if (reinitResponse.success) {
-                setActiveProvider(reinitResponse.data.provider);
-                if (reinitResponse.data.nanoStatus) {
-                    setNanoStatus(reinitResponse.data.nanoStatus);
-                }
-            }
-        } catch (err) {
-            console.error('Failed to check Nano status:', err);
-        }
-        setCheckingNano(false);
+        if (response.success) setLicense(response.data);
     };
 
     const loadAutoPilotSettings = async () => {
         const response = await chrome.runtime.sendMessage({ action: 'getAutoPilotSettings' });
         if (response.success) {
             setAutoPilotSettings(response.data);
+            setPreviousMode(response.data.mode);
         }
-    };
-
-    // ============================================
-    // ACTIONS
-    // ============================================
-
-    const toggleCleanMode = async () => {
-        const newValue = !cleanMode;
-        setCleanMode(newValue);
-        await chrome.storage.local.set({ cleanMode: newValue });
     };
 
     const saveConfig = async () => {
-        const selectedModel = model || PROVIDER_INFO[cloudProvider].defaultModel;
-        await chrome.runtime.sendMessage({
-            action: 'setAIConfig',
-            payload: { cloudProvider, apiKey, model: selectedModel }
-        });
-        setSaved(true);
-        setTimeout(() => setSaved(false), 2000);
-        checkProvider();
-    };
-
-    const testConnection = async () => {
-        setConnectionStatus('testing');
-        setTestResult(null);
-
+        const selectedModel = model || PROVIDERS[cloudProvider].default;
+        setInputState('validating');
         try {
-            const response = await chrome.runtime.sendMessage({
-                action: 'askAI',
-                payload: { prompt: 'Respond with exactly: "Connection OK"' }
-            });
-
-            if (response.success) {
-                setConnectionStatus('success');
-                setTestResult('success');
-            } else {
-                setConnectionStatus('error');
-                setTestResult(response.error || 'Test failed');
-            }
-        } catch (err: any) {
-            setConnectionStatus('error');
-            setTestResult(err.message);
+            await chrome.runtime.sendMessage({ action: 'setAIConfig', payload: { cloudProvider, apiKey, model: selectedModel } });
+            // Test connection
+            const response = await chrome.runtime.sendMessage({ action: 'askAI', payload: { prompt: 'Say OK' } });
+            setInputState(response.success ? 'success' : 'error');
+            setSyncStatus('saved');
+            setTimeout(() => setSyncStatus('idle'), 2000);
+        } catch {
+            setInputState('error');
+            setSyncStatus('idle');
         }
-    };
-
-    const deleteApiKey = async () => {
-        if (!confirmDelete) {
-            setConfirmDelete(true);
-            setTimeout(() => setConfirmDelete(false), 3000);
-            return;
-        }
-        setApiKey('');
-        await chrome.runtime.sendMessage({
-            action: 'setAIConfig',
-            payload: { cloudProvider, apiKey: '', model: '' }
-        });
-        setConfirmDelete(false);
-        setConnectionStatus('idle');
-        checkProvider();
     };
 
     const saveAutoPilotSettings = useCallback(async () => {
-        await chrome.runtime.sendMessage({
-            action: 'setAutoPilotSettings',
-            payload: autoPilotSettings
-        });
-        setAutoPilotSaved(true);
-        setTimeout(() => setAutoPilotSaved(false), 2000);
+        await chrome.runtime.sendMessage({ action: 'setAutoPilotSettings', payload: autoPilotSettings });
+        setSyncStatus('saved');
+        setTimeout(() => setSyncStatus('idle'), 2000);
     }, [autoPilotSettings]);
 
-    const updateAutoPilotSetting = <K extends keyof AutoPilotSettings>(key: K, value: AutoPilotSettings[K]) => {
-        setAutoPilotSettings(prev => ({ ...prev, [key]: value }));
+    const handleModeChange = (newMode: AutoPilotMode) => {
+        const oldMode = autoPilotSettings.mode;
+        setPreviousMode(oldMode);
+        setAutoPilotSettings(p => ({ ...p, mode: newMode }));
+        if (newMode === 'fly-mode') {
+            setToast({
+                message: 'Auto-Pilot set to FLY MODE',
+                undo: () => setAutoPilotSettings(p => ({ ...p, mode: oldMode })),
+            });
+        }
     };
 
     const verifyByEmail = async () => {
-        if (!verifyEmail.trim()) {
-            setVerifyError('Please enter your payment email');
-            return;
-        }
-        setVerifyLoading(true);
-        setVerifyError('');
+        if (!verifyEmail.trim()) { setVerifyError('Enter your payment email'); return; }
+        setVerifyLoading(true); setVerifyError('');
         try {
-            const response = await chrome.runtime.sendMessage({
-                action: 'verifyByEmail',
-                payload: { email: verifyEmail.trim().toLowerCase() }
-            });
+            const response = await chrome.runtime.sendMessage({ action: 'verifyByEmail', payload: { email: verifyEmail.trim().toLowerCase() } });
             if (response.success && response.data.verified) {
-                await loadLicense();
-                setShowEmailVerify(false);
-                setVerifyEmail('');
-            } else if (response.data?.error === 'DEVICE_LIMIT') {
-                setVerifyError('Device limit reached. Contact support.');
-            } else if (response.data?.error === 'NOT_FOUND') {
-                setVerifyError('No purchase found for this email');
+                await loadLicense(); setShowEmailVerify(false); setVerifyEmail('');
             } else {
-                setVerifyError(response.data?.message || 'Verification failed');
+                setVerifyError(response.data?.error === 'DEVICE_LIMIT' ? 'Device limit reached' : response.data?.error === 'NOT_FOUND' ? 'No purchase found' : 'Verification failed');
             }
-        } catch {
-            setVerifyError('Failed to verify. Please try again.');
-        }
+        } catch { setVerifyError('Failed to verify'); }
         setVerifyLoading(false);
     };
 
-    // ============================================
-    // HELPER FUNCTIONS
-    // ============================================
-
-    const getProviderLabel = (p: string) => {
-        if (p === 'nano') return 'Chrome Nano (Local)';
-        if (p === 'gemini') return 'Google Gemini';
-        if (p === 'openai') return 'OpenAI';
-        if (p === 'anthropic') return 'Anthropic Claude';
-        return 'Not Configured';
+    const getIndicatorStyle = (): React.CSSProperties => {
+        const base: React.CSSProperties = { width: 8, height: 8, borderRadius: borderRadius.full, transition: 'all 0.2s' };
+        switch (inputState) {
+            case 'empty': return { ...base, border: `2px solid ${colors.textDim}`, background: 'transparent' };
+            case 'typing': return { ...base, background: colors.signalAmber, animation: 'pulse 1s infinite' };
+            case 'validating': return { ...base, background: colors.signalAmber, animation: 'spin 0.8s linear infinite' };
+            case 'success': return { ...base, background: colors.phosphorGreen, boxShadow: shadows.glow };
+            case 'error': return { ...base, background: colors.criticalRed, boxShadow: shadows.glowRed };
+        }
     };
-
-    const getLicenseBadge = () => {
-        if (!license) return null;
-        if (license.paid) return 'PRO';
-        if (license.status === 'trial') return 'TRIAL';
-        return null;
-    };
-
-    // ============================================
-    // SECTION RENDERERS
-    // ============================================
-
-    const renderBrainSection = () => (
-        <div className="animate-fade-in">
-            <SectionHeader title="AI Core" subtitle="Configure Neural Link" />
-
-            {/* Current Status Card */}
-            <div className="card" style={{ marginBottom: '24px' }}>
-                <div className="card-body">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                        <span style={{ color: 'var(--text-secondary)', textTransform: 'uppercase', fontSize: '12px', letterSpacing: '1px' }}>
-                            Active Provider
-                        </span>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <StatusLED status={connectionStatus} />
-                            <span className={`badge ${connectionStatus === 'success' ? 'badge-online' : 'badge-offline'}`}>
-                                {connectionStatus === 'success' ? 'ONLINE' : 'OFFLINE'}
-                            </span>
-                        </div>
-                    </div>
-                    <div style={{ fontSize: '18px', fontWeight: 'bold', color: 'var(--terminal-green)' }}>
-                        {getProviderLabel(activeProvider)}
-                    </div>
-                </div>
-            </div>
-
-            {/* Provider Selection */}
-            <div className="card" style={{ marginBottom: '24px' }}>
-                <div className="card-body">
-                    <label style={{ display: 'block', color: 'var(--text-dim)', textTransform: 'uppercase', fontSize: '11px', letterSpacing: '1px', marginBottom: '12px' }}>
-                        Cloud Provider
-                    </label>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '24px' }}>
-                        {(Object.keys(PROVIDER_INFO) as CloudProvider[]).map(p => (
-                            <button
-                                key={p}
-                                className={`provider-card ${p} ${cloudProvider === p ? 'selected' : ''}`}
-                                onClick={() => {
-                                    setCloudProvider(p);
-                                    setModel(PROVIDER_INFO[p].defaultModel);
-                                }}
-                                style={{
-                                    borderColor: cloudProvider === p ? PROVIDER_INFO[p].color : undefined
-                                }}
-                            >
-                                <div style={{ fontWeight: 'bold', color: PROVIDER_INFO[p].color, marginBottom: '4px' }}>
-                                    {PROVIDER_INFO[p].name}
-                                </div>
-                                <div style={{ fontSize: '10px', color: 'var(--text-dim)' }}>
-                                    {PROVIDER_INFO[p].description}
-                                </div>
-                            </button>
-                        ))}
-                    </div>
-
-                    {/* API Key Input */}
-                    <label style={{ display: 'block', color: 'var(--text-dim)', textTransform: 'uppercase', fontSize: '11px', letterSpacing: '1px', marginBottom: '8px' }}>
-                        API Key
-                    </label>
-                    <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
-                        <input
-                            type={showApiKey ? 'text' : 'password'}
-                            value={apiKey}
-                            onChange={(e) => setApiKey(e.target.value)}
-                            placeholder="sk-..."
-                            style={{ flex: 1 }}
-                        />
-                        <button
-                            className="btn-ghost"
-                            onClick={() => setShowApiKey(!showApiKey)}
-                            style={{ padding: '8px 12px' }}
-                            title={showApiKey ? 'Hide' : 'Show'}
-                        >
-                            {showApiKey ? '◠' : '◡'}
-                        </button>
-                        {apiKey && (
-                            <button
-                                className={confirmDelete ? 'btn-danger' : 'btn-ghost'}
-                                onClick={deleteApiKey}
-                                style={{ padding: '8px 12px' }}
-                                title={confirmDelete ? 'Confirm delete' : 'Delete key'}
-                            >
-                                ✕
-                            </button>
-                        )}
-                        <button
-                            className="btn-primary"
-                            onClick={testConnection}
-                            disabled={connectionStatus === 'testing' || !apiKey}
-                            style={{ padding: '8px 16px' }}
-                        >
-                            {connectionStatus === 'testing' ? 'TESTING...' : 'TEST'}
-                        </button>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '16px' }}>
-                        <a
-                            href={PROVIDER_INFO[cloudProvider].getKeyUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            style={{ color: 'var(--info-blue)', fontSize: '12px', textDecoration: 'none' }}
-                        >
-                            ↗ Get API key
-                        </a>
-                        <span style={{ color: 'var(--terminal-green)', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <span style={{ fontSize: '8px' }}>🔒</span> Encrypted locally
-                        </span>
-                    </div>
-
-                    {/* Model Selection */}
-                    <label style={{ display: 'block', color: 'var(--text-dim)', textTransform: 'uppercase', fontSize: '11px', letterSpacing: '1px', marginBottom: '8px' }}>
-                        Model
-                    </label>
-                    <select
-                        value={model || PROVIDER_INFO[cloudProvider].defaultModel}
-                        onChange={(e) => setModel(e.target.value)}
-                        style={{ width: '100%', marginBottom: '16px' }}
-                    >
-                        {PROVIDER_INFO[cloudProvider].models.map(m => (
-                            <option key={m} value={m}>{m}</option>
-                        ))}
-                    </select>
-
-                    {/* Test Result */}
-                    {testResult && (
-                        <div style={{
-                            padding: '12px',
-                            marginBottom: '16px',
-                            borderRadius: '4px',
-                            background: testResult === 'success' ? 'rgba(57, 255, 20, 0.1)' : 'rgba(255, 0, 85, 0.1)',
-                            border: `1px solid ${testResult === 'success' ? 'var(--terminal-green-dim)' : 'var(--alert-red-dim)'}`,
-                            color: testResult === 'success' ? 'var(--terminal-green)' : 'var(--alert-red)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px'
-                        }}>
-                            <StatusLED status={testResult === 'success' ? 'success' : 'error'} />
-                            {testResult === 'success' ? 'Connection successful!' : testResult}
-                        </div>
-                    )}
-
-                    {/* Save Button */}
-                    <button
-                        className="btn-primary"
-                        onClick={saveConfig}
-                        style={{ width: '100%', padding: '12px' }}
-                    >
-                        {saved ? '✓ SAVED!' : 'SAVE CONFIGURATION'}
-                    </button>
-                </div>
-            </div>
-
-            {/* Local AI Section */}
-            {(activeProvider === 'nano' || nanoStatus?.status === 'ready' || nanoStatus?.status === 'downloading') && (
-                <div className="card">
-                    <div className="card-body">
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <div>
-                                <div style={{ color: 'var(--terminal-green)', fontWeight: 'bold', marginBottom: '4px' }}>
-                                    Gemini Nano (Local)
-                                </div>
-                                <div style={{ color: 'var(--text-dim)', fontSize: '12px' }}>
-                                    Runs on device • No API key needed • Free & Private
-                                </div>
-                            </div>
-                            <span className={`badge ${activeProvider === 'nano' ? 'badge-online' : 'badge-trial'}`}>
-                                {activeProvider === 'nano' ? 'ACTIVE' : nanoStatus?.status === 'ready' ? 'READY' : 'DOWNLOADING'}
-                            </span>
-                        </div>
-                    </div>
-                </div>
-            )}
-        </div>
-    );
-
-    const renderAutoPilotSection = () => (
-        <div className="animate-fade-in">
-            <SectionHeader title="Auto Pilot" subtitle="Automated Cleanup Protocols" />
-
-            {/* Mode Selection */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '24px' }}>
-                <button
-                    className={`mode-card ${autoPilotSettings.mode === 'manual' ? 'selected' : ''}`}
-                    onClick={() => updateAutoPilotSetting('mode', 'manual')}
-                >
-                    <span style={{ fontSize: '24px' }}>🔔</span>
-                    <span style={{ fontWeight: 'bold', fontSize: '14px' }}>MANUAL</span>
-                    <span style={{ fontSize: '11px', color: 'var(--text-dim)' }}>AI suggests, you confirm</span>
-                </button>
-                <button
-                    className={`mode-card ${autoPilotSettings.mode === 'auto-cleanup' ? 'selected' : ''}`}
-                    onClick={() => updateAutoPilotSetting('mode', 'auto-cleanup')}
-                >
-                    <span style={{ fontSize: '24px' }}>🧹</span>
-                    <span style={{ fontWeight: 'bold', fontSize: '14px' }}>AUTO-CLEAN</span>
-                    <span style={{ fontSize: '11px', color: 'var(--text-dim)' }}>Auto-closes duplicates</span>
-                </button>
-                <button
-                    className={`mode-card danger ${autoPilotSettings.mode === 'fly-mode' ? 'selected' : ''}`}
-                    onClick={() => updateAutoPilotSetting('mode', 'fly-mode')}
-                >
-                    <span style={{ fontSize: '24px' }}>🚀</span>
-                    <span style={{ fontWeight: 'bold', fontSize: '14px', color: 'var(--alert-red)' }}>FLY MODE</span>
-                    <span style={{ fontSize: '11px', color: 'var(--alert-red)' }}>Full autonomy • EXPERIMENTAL</span>
-                </button>
-            </div>
-
-            {autoPilotSettings.mode === 'fly-mode' && (
-                <div style={{
-                    padding: '12px',
-                    marginBottom: '24px',
-                    background: 'rgba(255, 0, 85, 0.1)',
-                    border: '1px solid var(--alert-red-dim)',
-                    borderRadius: '4px',
-                    color: 'var(--alert-red)',
-                    fontSize: '12px'
-                }}>
-                    ⚠ FLY MODE: Automatically closes duplicates and groups tabs. Use with caution.
-                </div>
-            )}
-
-            {/* Settings Card */}
-            <div className="card">
-                <div className="card-body">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', paddingBottom: '16px', borderBottom: '1px solid var(--border-subtle)' }}>
-                        <div>
-                            <div style={{ color: 'var(--text-primary)', marginBottom: '4px' }}>Stale Tab Threshold</div>
-                            <div style={{ color: 'var(--text-dim)', fontSize: '12px' }}>Tabs not accessed for this period</div>
-                        </div>
-                        <select
-                            value={autoPilotSettings.staleDaysThreshold}
-                            onChange={(e) => updateAutoPilotSetting('staleDaysThreshold', parseInt(e.target.value))}
-                            style={{ minWidth: '120px' }}
-                        >
-                            <option value={1}>1 Day</option>
-                            <option value={3}>3 Days</option>
-                            <option value={7}>7 Days</option>
-                            <option value={14}>14 Days</option>
-                            <option value={30}>30 Days</option>
-                        </select>
-                    </div>
-
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px', cursor: 'pointer', padding: '8px', borderRadius: '4px' }}>
-                        <input
-                            type="checkbox"
-                            checked={autoPilotSettings.excludePinned}
-                            onChange={(e) => updateAutoPilotSetting('excludePinned', e.target.checked)}
-                        />
-                        <span style={{ color: 'var(--text-primary)' }}>Exclude pinned tabs</span>
-                    </label>
-
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px', cursor: 'pointer', padding: '8px', borderRadius: '4px' }}>
-                        <input
-                            type="checkbox"
-                            checked={autoPilotSettings.excludeActive}
-                            onChange={(e) => updateAutoPilotSetting('excludeActive', e.target.checked)}
-                        />
-                        <span style={{ color: 'var(--text-primary)' }}>Exclude currently active tabs</span>
-                    </label>
-
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px', cursor: 'pointer', padding: '8px', borderRadius: '4px' }}>
-                        <input
-                            type="checkbox"
-                            checked={autoPilotSettings.showNotifications}
-                            onChange={(e) => updateAutoPilotSetting('showNotifications', e.target.checked)}
-                        />
-                        <span style={{ color: 'var(--text-primary)' }}>Show notifications for auto actions</span>
-                    </label>
-
-                    <button
-                        className="btn-primary"
-                        onClick={saveAutoPilotSettings}
-                        style={{ width: '100%', padding: '12px' }}
-                    >
-                        {autoPilotSaved ? '✓ SAVED!' : 'SAVE AUTO PILOT SETTINGS'}
-                    </button>
-                </div>
-            </div>
-        </div>
-    );
-
-    const renderDisplaySection = () => (
-        <div className="animate-fade-in">
-            <SectionHeader title="Display" subtitle="Visual Configuration" />
-
-            <div className="card">
-                <div className="card-body">
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', padding: '8px', borderRadius: '4px' }}>
-                        <input
-                            type="checkbox"
-                            checked={!cleanMode}
-                            onChange={toggleCleanMode}
-                        />
-                        <div>
-                            <div style={{ color: 'var(--text-primary)', marginBottom: '4px' }}>Retro Mode (CRT Scanlines)</div>
-                            <div style={{ color: 'var(--text-dim)', fontSize: '12px' }}>Enable classic CRT monitor effects for tactical aesthetic</div>
-                        </div>
-                    </label>
-                </div>
-            </div>
-
-            <div style={{ marginTop: '24px', padding: '16px', border: '1px dashed var(--border-medium)', borderRadius: '4px', textAlign: 'center', color: 'var(--text-dim)' }}>
-                <div style={{ fontSize: '24px', marginBottom: '8px' }}>🎨</div>
-                <div>More display settings coming soon</div>
-            </div>
-        </div>
-    );
-
-    const renderLicenseSection = () => {
-        const getLicenseStatus = () => {
-            if (!license) return { text: 'Loading...', color: 'var(--text-dim)' };
-            if (license.paid) return { text: 'PRO - Unlimited Access', color: 'var(--terminal-green)' };
-            if (license.status === 'trial') {
-                const daysLeft = license.trialEndDate
-                    ? Math.ceil((new Date(license.trialEndDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
-                    : 0;
-                return { text: `Free Trial - ${daysLeft} days left (${license.usageRemaining}/${license.dailyLimit || 20} uses today)`, color: 'var(--warning-amber)' };
-            }
-            if (license.status === 'expired') return { text: 'Trial Expired', color: 'var(--alert-red)' };
-            return { text: 'Not Registered', color: 'var(--alert-red)' };
-        };
-
-        const status = getLicenseStatus();
-
-        return (
-            <div className="animate-fade-in">
-                <SectionHeader title="License" subtitle="Account Status" />
-
-                <div className="card">
-                    <div className="card-body">
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                            <span style={{ color: status.color, fontWeight: 'bold', fontSize: '16px' }}>
-                                {status.text}
-                            </span>
-                            <button
-                                className="btn-ghost"
-                                onClick={loadLicense}
-                                style={{ padding: '6px 12px', fontSize: '12px' }}
-                            >
-                                ↻ REFRESH
-                            </button>
-                        </div>
-
-                        {license && !license.paid && (
-                            <>
-                                {!showEmailVerify ? (
-                                    <button
-                                        className="btn-secondary"
-                                        onClick={() => setShowEmailVerify(true)}
-                                        style={{ width: '100%', padding: '12px', marginTop: '16px' }}
-                                    >
-                                        ✉ Already paid? Verify by email
-                                    </button>
-                                ) : (
-                                    <div style={{ marginTop: '16px', padding: '16px', background: 'var(--bg-card)', borderRadius: '4px' }}>
-                                        <div style={{ color: 'var(--text-dim)', fontSize: '12px', marginBottom: '8px' }}>
-                                            Enter the email you used for payment:
-                                        </div>
-                                        <input
-                                            type="email"
-                                            placeholder="your@email.com"
-                                            value={verifyEmail}
-                                            onChange={(e) => setVerifyEmail(e.target.value)}
-                                            onKeyDown={(e) => e.key === 'Enter' && verifyByEmail()}
-                                            style={{ width: '100%', marginBottom: '8px' }}
-                                        />
-                                        <div style={{ color: 'var(--text-dimmer)', fontSize: '11px', marginBottom: '8px' }}>
-                                            Each purchase can be activated on up to 3 devices
-                                        </div>
-                                        {verifyError && (
-                                            <div style={{ color: 'var(--alert-red)', fontSize: '12px', marginBottom: '8px' }}>
-                                                {verifyError}
-                                            </div>
-                                        )}
-                                        <div style={{ display: 'flex', gap: '8px' }}>
-                                            <button
-                                                className="btn-primary"
-                                                onClick={verifyByEmail}
-                                                disabled={verifyLoading}
-                                                style={{ flex: 1, padding: '10px' }}
-                                            >
-                                                {verifyLoading ? 'VERIFYING...' : 'VERIFY'}
-                                            </button>
-                                            <button
-                                                className="btn-ghost"
-                                                onClick={() => {
-                                                    setShowEmailVerify(false);
-                                                    setVerifyError('');
-                                                    setVerifyEmail('');
-                                                }}
-                                                style={{ flex: 1, padding: '10px' }}
-                                            >
-                                                CANCEL
-                                            </button>
-                                        </div>
-                                    </div>
-                                )}
-                            </>
-                        )}
-                    </div>
-                </div>
-            </div>
-        );
-    };
-
-    // ============================================
-    // MAIN RENDER
-    // ============================================
 
     return (
-        <div style={{
-            minHeight: '100vh',
-            display: 'flex',
-            background: 'var(--bg-dark)',
-            color: 'var(--terminal-green)',
-            fontFamily: 'var(--font-mono)',
-        }}>
+        <div style={s.page}>
             {/* Sidebar */}
-            <div style={{
-                width: '260px',
-                borderRight: '1px solid var(--terminal-green-dim)',
-                padding: '24px',
-                display: 'flex',
-                flexDirection: 'column',
-                background: '#000',
-            }}>
-                {/* Logo Section */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '32px' }}>
-                    <GlitchLogo />
-                    <div>
-                        <h1 style={{ margin: 0, fontSize: '20px', fontWeight: 'bold', letterSpacing: '-0.5px' }}>
-                            TabEater
-                        </h1>
-                        <p style={{ margin: 0, fontSize: '10px', color: 'var(--text-dim)' }}>
-                            SYS.V.1.0.0
-                        </p>
+            <aside style={s.sidebar}>
+                {/* Brand */}
+                <div style={s.brand}>
+                    <GlitchLogo size={40} />
+                    <div style={s.brandText}>
+                        <div style={s.brandName}>TAB_EATER</div>
+                        <div style={s.brandTagline}>// AUTOMATION_SYSTEM</div>
                     </div>
                 </div>
 
                 {/* Navigation */}
-                <nav style={{ flex: 1 }}>
-                    <NavItem
-                        id="brain"
-                        label="AI CONNECTION"
-                        icon="🧠"
-                        active={activeTab === 'brain'}
-                        onClick={() => setActiveTab('brain')}
-                    />
-                    <NavItem
-                        id="pilot"
-                        label="AUTO PILOT"
-                        icon="✈️"
-                        active={activeTab === 'pilot'}
-                        badge="PRO"
-                        onClick={() => setActiveTab('pilot')}
-                    />
-                    <NavItem
-                        id="display"
-                        label="DISPLAY / UX"
-                        icon="🖥️"
-                        active={activeTab === 'display'}
-                        onClick={() => setActiveTab('display')}
-                    />
-                    <NavItem
-                        id="license"
-                        label={`LICENSE${getLicenseBadge() ? `: ${getLicenseBadge()}` : ''}`}
-                        icon="💎"
-                        active={activeTab === 'license'}
-                        onClick={() => setActiveTab('license')}
-                    />
+                <nav style={s.nav}>
+                    <button style={{ ...s.navItem, ...(activeNav === 'provider' ? s.navItemActive : {}) }} onClick={() => setActiveNav('provider')}>
+                        <span style={s.navIcon}>&#9632;</span>
+                        <span>AI_PROVIDER</span>
+                        {activeProvider !== 'none' && <span style={s.navStatus}>&#9679;</span>}
+                    </button>
+                    <button style={{ ...s.navItem, ...(activeNav === 'autopilot' ? s.navItemActive : {}) }} onClick={() => setActiveNav('autopilot')}>
+                        <span style={s.navIcon}>&#9650;</span>
+                        <span>AUTO_PILOT</span>
+                        {autoPilotSettings.mode !== 'manual' && <span style={{ ...s.navStatus, color: autoPilotSettings.mode === 'fly-mode' ? colors.criticalRed : colors.signalAmber }}>&#9679;</span>}
+                    </button>
+                    <button style={{ ...s.navItem, ...(activeNav === 'license' ? s.navItemActive : {}) }} onClick={() => setActiveNav('license')}>
+                        <span style={s.navIcon}>&#9733;</span>
+                        <span>LICENSE</span>
+                        {license?.paid && <span style={{ ...s.navBadge, background: colors.phosphorGreen }}>PRO</span>}
+                    </button>
                 </nav>
 
-                {/* Footer Stats */}
-                <div style={{ fontSize: '10px', color: 'var(--text-dimmer)', borderTop: '1px solid var(--border-subtle)', paddingTop: '16px' }}>
-                    <div style={{ marginBottom: '4px' }}>STATUS: {connectionStatus === 'success' ? 'CONNECTED' : 'DISCONNECTED'}</div>
-                    <div>PROVIDER: {activeProvider.toUpperCase()}</div>
+                {/* System Status */}
+                <div style={s.systemStatus}>
+                    <div style={s.statusRow}>
+                        <span style={s.statusLabel}>CONNECTION</span>
+                        <span style={{ ...s.statusValue, color: activeProvider !== 'none' ? colors.phosphorGreen : colors.textDim }}>
+                            {activeProvider !== 'none' ? 'ONLINE' : 'OFFLINE'}
+                        </span>
+                    </div>
+                    <div style={s.statusRow}>
+                        <span style={s.statusLabel}>SYNC</span>
+                        <span style={{ ...s.statusValue, color: syncStatus === 'saved' ? colors.phosphorGreen : syncStatus === 'syncing' ? colors.signalAmber : colors.textDim }}>
+                            {syncStatus === 'saved' ? 'SAVED' : syncStatus === 'syncing' ? 'SYNCING...' : 'IDLE'}
+                        </span>
+                    </div>
                 </div>
-            </div>
+            </aside>
 
-            {/* Main Content */}
-            <div style={{ flex: 1, padding: '32px 48px', position: 'relative', overflowY: 'auto' }}>
+            {/* Viewport */}
+            <main style={s.viewport}>
+                {/* Provider Panel */}
+                {activeNav === 'provider' && (
+                    <div style={s.panel}>
+                        <div style={s.panelHeader}>
+                            <h2 style={s.panelTitle}>SELECT_AI_PROVIDER</h2>
+                            <div style={s.indicatorWrap}>
+                                <div style={getIndicatorStyle()} />
+                                <span style={s.indicatorLabel}>
+                                    {inputState === 'success' ? 'ENCRYPTED' : inputState === 'error' ? 'FAILED' : inputState === 'validating' ? 'VALIDATING' : ''}
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* Provider Cards */}
+                        <div style={s.providerGrid}>
+                            {(Object.keys(PROVIDERS) as CloudProvider[]).map(p => (
+                                <button
+                                    key={p}
+                                    style={{
+                                        ...s.providerCard,
+                                        ...(cloudProvider === p ? s.providerCardActive : {}),
+                                        borderColor: cloudProvider === p ? colors.phosphorGreen : colors.borderIdle,
+                                    }}
+                                    onClick={() => { setCloudProvider(p); setModel(PROVIDERS[p].default); }}
+                                >
+                                    {cloudProvider === p && <span style={s.checkIcon}>&#10003;</span>}
+                                    <div style={{ ...s.providerIcon, background: cloudProvider === p ? PROVIDERS[p].color : colors.textDim }} />
+                                    <div style={s.providerName}>{PROVIDERS[p].name}</div>
+                                    <div style={s.providerDesc}>{PROVIDERS[p].desc}</div>
+                                    <span style={{ ...s.providerBadge, background: PROVIDERS[p].badge === 'FREE' ? colors.phosphorGreen : colors.textDim }}>
+                                        {PROVIDERS[p].badge}
+                                    </span>
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* API Input */}
+                        <div style={s.inputSection}>
+                            <label style={s.inputLabel}>API_KEY</label>
+                            <div style={s.liveInput}>
+                                <input
+                                    type="password"
+                                    value={apiKey}
+                                    onChange={(e) => setApiKey(e.target.value)}
+                                    placeholder="Enter API key..."
+                                    style={s.input}
+                                />
+                                <div style={getIndicatorStyle()} />
+                            </div>
+                            <a href={PROVIDERS[cloudProvider].url} target="_blank" rel="noopener noreferrer" style={s.link}>
+                                GET KEY FROM {PROVIDERS[cloudProvider].name} &#8599;
+                            </a>
+                        </div>
+
+                        {/* Model Select */}
+                        <div style={s.inputSection}>
+                            <label style={s.inputLabel}>MODEL</label>
+                            <select
+                                value={model || PROVIDERS[cloudProvider].default}
+                                onChange={(e) => setModel(e.target.value)}
+                                style={s.select}
+                            >
+                                {PROVIDERS[cloudProvider].models.map(m => <option key={m} value={m}>{m}</option>)}
+                            </select>
+                        </div>
+                    </div>
+                )}
+
+                {/* Auto-Pilot Panel */}
+                {activeNav === 'autopilot' && (
+                    <div style={s.panel}>
+                        <div style={s.panelHeader}>
+                            <h2 style={s.panelTitle}>AUTO_PILOT_CONFIG</h2>
+                            {!license?.paid && <span style={s.proBadge}>PRO</span>}
+                        </div>
+
+                        {/* 3-Stage Danger Slider */}
+                        <div style={{ ...s.sliderContainer, borderColor: autoPilotSettings.mode === 'fly-mode' ? colors.criticalRed : colors.borderIdle }}>
+                            <div style={s.sliderTrack}>
+                                <button
+                                    style={{ ...s.sliderStop, ...(autoPilotSettings.mode === 'manual' ? s.sliderStopActive : {}), borderColor: colors.phosphorGreen, color: autoPilotSettings.mode === 'manual' ? colors.phosphorGreen : colors.textDim }}
+                                    onClick={() => handleModeChange('manual')}
+                                >
+                                    <span style={s.stopIcon}>&#9632;</span>
+                                    <span style={s.stopLabel}>MANUAL</span>
+                                    <span style={s.stopDesc}>AI suggests, you confirm</span>
+                                </button>
+                                <button
+                                    style={{ ...s.sliderStop, ...(autoPilotSettings.mode === 'auto-cleanup' ? s.sliderStopActive : {}), borderColor: colors.signalAmber, color: autoPilotSettings.mode === 'auto-cleanup' ? colors.signalAmber : colors.textDim }}
+                                    onClick={() => handleModeChange('auto-cleanup')}
+                                >
+                                    <span style={s.stopIcon}>&#9650;</span>
+                                    <span style={s.stopLabel}>AUTO_CLOSE</span>
+                                    <span style={s.stopDesc}>Auto-closes duplicates</span>
+                                </button>
+                                <button
+                                    style={{ ...s.sliderStop, ...(autoPilotSettings.mode === 'fly-mode' ? s.sliderStopActive : {}), borderColor: colors.criticalRed, color: autoPilotSettings.mode === 'fly-mode' ? colors.criticalRed : colors.textDim }}
+                                    onClick={() => handleModeChange('fly-mode')}
+                                >
+                                    <span style={s.stopIcon}>&#9660;</span>
+                                    <span style={s.stopLabel}>FLY_MODE</span>
+                                    <span style={s.stopDesc}>Full autonomy</span>
+                                </button>
+                            </div>
+
+                            {autoPilotSettings.mode === 'fly-mode' && (
+                                <div style={s.warningTicker}>
+                                    &#9888; WARNING: EXPERIMENTAL &#9888; WARNING: EXPERIMENTAL &#9888; WARNING: EXPERIMENTAL &#9888;
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Settings */}
+                        <div style={s.settingsGrid}>
+                            <div style={s.settingRow}>
+                                <div>
+                                    <div style={s.settingLabel}>STALE_THRESHOLD</div>
+                                    <div style={s.settingDesc}>Days before tab marked stale</div>
+                                </div>
+                                <select
+                                    value={autoPilotSettings.staleDaysThreshold}
+                                    onChange={(e) => setAutoPilotSettings(p => ({ ...p, staleDaysThreshold: parseInt(e.target.value) }))}
+                                    style={s.selectSmall}
+                                >
+                                    <option value={1}>1 DAY</option>
+                                    <option value={3}>3 DAYS</option>
+                                    <option value={7}>7 DAYS</option>
+                                    <option value={14}>14 DAYS</option>
+                                    <option value={30}>30 DAYS</option>
+                                </select>
+                            </div>
+                            <div style={s.settingRow}>
+                                <div>
+                                    <div style={s.settingLabel}>EXCLUDE_PINNED</div>
+                                    <div style={s.settingDesc}>Never auto-close pinned tabs</div>
+                                </div>
+                                <button
+                                    style={{ ...s.toggle, ...(autoPilotSettings.excludePinned ? s.toggleOn : {}) }}
+                                    onClick={() => setAutoPilotSettings(p => ({ ...p, excludePinned: !p.excludePinned }))}
+                                >
+                                    {autoPilotSettings.excludePinned ? 'ON' : 'OFF'}
+                                </button>
+                            </div>
+                            <div style={s.settingRow}>
+                                <div>
+                                    <div style={s.settingLabel}>EXCLUDE_ACTIVE</div>
+                                    <div style={s.settingDesc}>Never auto-close current tab</div>
+                                </div>
+                                <button
+                                    style={{ ...s.toggle, ...(autoPilotSettings.excludeActive ? s.toggleOn : {}) }}
+                                    onClick={() => setAutoPilotSettings(p => ({ ...p, excludeActive: !p.excludeActive }))}
+                                >
+                                    {autoPilotSettings.excludeActive ? 'ON' : 'OFF'}
+                                </button>
+                            </div>
+                            <div style={s.settingRow}>
+                                <div>
+                                    <div style={s.settingLabel}>NOTIFICATIONS</div>
+                                    <div style={s.settingDesc}>Show when tabs auto-managed</div>
+                                </div>
+                                <button
+                                    style={{ ...s.toggle, ...(autoPilotSettings.showNotifications ? s.toggleOn : {}) }}
+                                    onClick={() => setAutoPilotSettings(p => ({ ...p, showNotifications: !p.showNotifications }))}
+                                >
+                                    {autoPilotSettings.showNotifications ? 'ON' : 'OFF'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* License Panel */}
+                {activeNav === 'license' && (
+                    <div style={s.panel}>
+                        <div style={s.panelHeader}>
+                            <h2 style={s.panelTitle}>LICENSE_STATUS</h2>
+                        </div>
+
+                        {license?.paid ? (
+                            <div style={s.licenseActive}>
+                                <div style={s.licenseIcon}>&#9733;</div>
+                                <div style={s.licenseTitle}>PRO_ACTIVE</div>
+                                <div style={s.licenseDesc}>Unlimited access to all features</div>
+                            </div>
+                        ) : (
+                            <div style={s.licenseCard}>
+                                <div style={s.licensePrice}>
+                                    A$6 <span style={s.licensePriceNote}>ONE_TIME</span>
+                                </div>
+                                <ul style={s.featureList}>
+                                    <li style={s.featureItem}><span style={s.checkMark}>&#10003;</span> Unlimited AI scans</li>
+                                    <li style={s.featureItem}><span style={s.checkMark}>&#10003;</span> Auto Pilot mode</li>
+                                    <li style={s.featureItem}><span style={s.checkMark}>&#10003;</span> Smart tab grouping</li>
+                                    <li style={s.featureItem}><span style={s.checkMark}>&#10003;</span> Priority support</li>
+                                </ul>
+                                <button
+                                    style={s.upgradeBtn}
+                                    onClick={async () => {
+                                        const r = await chrome.runtime.sendMessage({ action: 'getCheckoutUrl' });
+                                        if (r.success) chrome.tabs.create({ url: r.data.url });
+                                    }}
+                                >
+                                    UPGRADE_TO_PRO
+                                </button>
+
+                                {license?.status === 'trial' && (
+                                    <div style={s.trialInfo}>
+                                        TRIAL: {license.usageRemaining}/{license.dailyLimit || 20} USES_REMAINING
+                                    </div>
+                                )}
+
+                                <div style={s.verifySection}>
+                                    {!showEmailVerify ? (
+                                        <button style={s.verifyBtn} onClick={() => setShowEmailVerify(true)}>
+                                            ALREADY_PURCHASED? VERIFY_BY_EMAIL
+                                        </button>
+                                    ) : (
+                                        <div style={s.verifyForm}>
+                                            <input
+                                                type="email"
+                                                placeholder="your@email.com"
+                                                value={verifyEmail}
+                                                onChange={(e) => setVerifyEmail(e.target.value)}
+                                                onKeyDown={(e) => e.key === 'Enter' && verifyByEmail()}
+                                                style={s.verifyInput}
+                                            />
+                                            {verifyError && <div style={s.verifyError}>{verifyError}</div>}
+                                            <div style={s.verifyActions}>
+                                                <button style={s.verifySubmit} onClick={verifyByEmail} disabled={verifyLoading}>
+                                                    {verifyLoading ? 'VERIFYING...' : 'VERIFY'}
+                                                </button>
+                                                <button style={s.verifyCancel} onClick={() => { setShowEmailVerify(false); setVerifyError(''); setVerifyEmail(''); }}>
+                                                    CANCEL
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        <button style={s.refreshBtn} onClick={loadLicense}>
+                            &#8635; REFRESH_LICENSE
+                        </button>
+                    </div>
+                )}
+
                 {/* Scanline Overlay */}
-                {!cleanMode && <div className="scanline-overlay" />}
+                <div style={s.scanlines} />
+            </main>
 
-                <div style={{ maxWidth: '640px', margin: '0 auto' }}>
-                    {activeTab === 'brain' && renderBrainSection()}
-                    {activeTab === 'pilot' && renderAutoPilotSection()}
-                    {activeTab === 'display' && renderDisplaySection()}
-                    {activeTab === 'license' && renderLicenseSection()}
-                </div>
-            </div>
+            {/* Toast */}
+            {toast && (
+                <UndoToast
+                    message={toast.message}
+                    onUndo={() => { toast.undo(); setToast(null); }}
+                    onDismiss={() => setToast(null)}
+                />
+            )}
         </div>
     );
 };
 
-// ============================================
-// MOUNT
-// ============================================
+// Styles
+const s: { [key: string]: React.CSSProperties } = {
+    page: {
+        display: 'grid',
+        gridTemplateColumns: '260px 1fr',
+        minHeight: '100vh',
+        background: colors.voidBlack,
+        color: colors.textPrimary,
+        fontFamily: typography.fontFamily,
+    },
+    sidebar: {
+        background: colors.panelGrey,
+        borderRight: `1px solid ${colors.borderIdle}`,
+        display: 'flex',
+        flexDirection: 'column',
+        padding: spacing.xxl,
+        position: 'sticky',
+        top: 0,
+        height: '100vh',
+    },
+    brand: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: spacing.md,
+        marginBottom: spacing.xxxl,
+        paddingBottom: spacing.xxl,
+        borderBottom: `1px solid ${colors.borderIdle}`,
+    },
+    brandText: {},
+    brandName: {
+        fontFamily: typography.fontMono,
+        fontSize: typography.sizeLg,
+        fontWeight: typography.bold,
+        color: colors.phosphorGreen,
+        letterSpacing: '0.1em',
+    },
+    brandTagline: {
+        fontFamily: typography.fontMono,
+        fontSize: typography.sizeXs,
+        color: colors.textDim,
+        letterSpacing: '0.05em',
+    },
+    nav: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: spacing.xs,
+        flex: 1,
+    },
+    navItem: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: spacing.md,
+        padding: `${spacing.md}px ${spacing.lg}px`,
+        background: 'transparent',
+        border: `1px solid transparent`,
+        color: colors.textMuted,
+        fontFamily: typography.fontMono,
+        fontSize: typography.sizeSm,
+        textTransform: 'uppercase',
+        letterSpacing: '0.05em',
+        cursor: 'pointer',
+        textAlign: 'left',
+        transition: `all ${transitions.fast}`,
+    },
+    navItemActive: {
+        background: colors.voidBlack,
+        borderColor: colors.phosphorGreen,
+        color: colors.phosphorGreen,
+    },
+    navIcon: {
+        fontSize: 10,
+        opacity: 0.7,
+    },
+    navStatus: {
+        marginLeft: 'auto',
+        color: colors.phosphorGreen,
+        fontSize: 8,
+    },
+    navBadge: {
+        marginLeft: 'auto',
+        padding: '2px 6px',
+        fontSize: 9,
+        fontWeight: typography.bold,
+        color: colors.voidBlack,
+    },
+    systemStatus: {
+        marginTop: 'auto',
+        paddingTop: spacing.xxl,
+        borderTop: `1px solid ${colors.borderIdle}`,
+    },
+    statusRow: {
+        display: 'flex',
+        justifyContent: 'space-between',
+        marginBottom: spacing.sm,
+    },
+    statusLabel: {
+        fontFamily: typography.fontMono,
+        fontSize: typography.sizeXs,
+        color: colors.textDim,
+        letterSpacing: '0.05em',
+    },
+    statusValue: {
+        fontFamily: typography.fontMono,
+        fontSize: typography.sizeXs,
+        letterSpacing: '0.05em',
+    },
+    viewport: {
+        padding: spacing.xxxl,
+        overflowY: 'auto',
+        position: 'relative',
+    },
+    panel: {
+        maxWidth: 640,
+    },
+    panelHeader: {
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: spacing.xxl,
+        paddingBottom: spacing.lg,
+        borderBottom: `1px solid ${colors.borderIdle}`,
+    },
+    panelTitle: {
+        fontFamily: typography.fontMono,
+        fontSize: typography.sizeXl,
+        fontWeight: typography.bold,
+        color: colors.textPrimary,
+        letterSpacing: '0.05em',
+        margin: 0,
+    },
+    indicatorWrap: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: spacing.sm,
+    },
+    indicatorLabel: {
+        fontFamily: typography.fontMono,
+        fontSize: typography.sizeXs,
+        color: colors.textDim,
+        letterSpacing: '0.05em',
+    },
+    proBadge: {
+        background: colors.phosphorGreen,
+        color: colors.voidBlack,
+        padding: '4px 8px',
+        fontFamily: typography.fontMono,
+        fontSize: 10,
+        fontWeight: typography.bold,
+        letterSpacing: '0.1em',
+    },
+    providerGrid: {
+        display: 'grid',
+        gridTemplateColumns: 'repeat(3, 1fr)',
+        gap: spacing.lg,
+        marginBottom: spacing.xxl,
+    },
+    providerCard: {
+        position: 'relative',
+        padding: spacing.xl,
+        background: colors.panelGrey,
+        border: `1px solid ${colors.borderIdle}`,
+        textAlign: 'center',
+        cursor: 'pointer',
+        transition: `all ${transitions.fast}`,
+    },
+    providerCardActive: {
+        background: colors.successBg,
+    },
+    checkIcon: {
+        position: 'absolute',
+        top: 8,
+        right: 8,
+        color: colors.phosphorGreen,
+        fontSize: 14,
+    },
+    providerIcon: {
+        width: 32,
+        height: 32,
+        borderRadius: borderRadius.full,
+        margin: '0 auto',
+        marginBottom: spacing.md,
+        transition: `background ${transitions.fast}`,
+    },
+    providerName: {
+        fontFamily: typography.fontMono,
+        fontSize: typography.sizeSm,
+        fontWeight: typography.bold,
+        color: colors.textPrimary,
+        letterSpacing: '0.05em',
+    },
+    providerDesc: {
+        fontSize: typography.sizeXs,
+        color: colors.textDim,
+        marginTop: 4,
+    },
+    providerBadge: {
+        display: 'inline-block',
+        marginTop: spacing.sm,
+        padding: '2px 6px',
+        fontFamily: typography.fontMono,
+        fontSize: 9,
+        fontWeight: typography.bold,
+        color: colors.voidBlack,
+        letterSpacing: '0.05em',
+    },
+    inputSection: {
+        marginBottom: spacing.xl,
+    },
+    inputLabel: {
+        display: 'block',
+        fontFamily: typography.fontMono,
+        fontSize: typography.sizeXs,
+        color: colors.textDim,
+        letterSpacing: '0.05em',
+        marginBottom: spacing.sm,
+    },
+    liveInput: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: spacing.md,
+        padding: `${spacing.md}px ${spacing.lg}px`,
+        background: colors.panelGrey,
+        border: `1px solid ${colors.borderIdle}`,
+    },
+    input: {
+        flex: 1,
+        background: 'transparent',
+        border: 'none',
+        outline: 'none',
+        color: colors.textPrimary,
+        fontFamily: typography.fontMono,
+        fontSize: typography.sizeBase,
+    },
+    link: {
+        display: 'inline-block',
+        marginTop: spacing.sm,
+        fontFamily: typography.fontMono,
+        fontSize: typography.sizeXs,
+        color: colors.phosphorGreen,
+        textDecoration: 'none',
+        letterSpacing: '0.05em',
+    },
+    select: {
+        width: '100%',
+        padding: `${spacing.md}px ${spacing.lg}px`,
+        background: colors.panelGrey,
+        border: `1px solid ${colors.borderIdle}`,
+        color: colors.textPrimary,
+        fontFamily: typography.fontMono,
+        fontSize: typography.sizeBase,
+        cursor: 'pointer',
+        outline: 'none',
+    },
+    sliderContainer: {
+        border: '1px solid',
+        padding: spacing.lg,
+        marginBottom: spacing.xxl,
+        transition: `border-color ${transitions.fast}`,
+    },
+    sliderTrack: {
+        display: 'grid',
+        gridTemplateColumns: 'repeat(3, 1fr)',
+        gap: spacing.md,
+    },
+    sliderStop: {
+        padding: spacing.lg,
+        background: 'transparent',
+        border: '1px solid',
+        textAlign: 'center',
+        cursor: 'pointer',
+        transition: `all ${transitions.fast}`,
+    },
+    sliderStopActive: {
+        background: 'rgba(255,255,255,0.02)',
+    },
+    stopIcon: {
+        display: 'block',
+        fontSize: 16,
+        marginBottom: spacing.sm,
+    },
+    stopLabel: {
+        display: 'block',
+        fontFamily: typography.fontMono,
+        fontSize: typography.sizeSm,
+        fontWeight: typography.bold,
+        letterSpacing: '0.05em',
+    },
+    stopDesc: {
+        display: 'block',
+        fontSize: typography.sizeXs,
+        marginTop: 4,
+        opacity: 0.7,
+    },
+    warningTicker: {
+        marginTop: spacing.lg,
+        padding: spacing.sm,
+        background: colors.errorBg,
+        color: colors.criticalRed,
+        fontFamily: typography.fontMono,
+        fontSize: typography.sizeXs,
+        letterSpacing: '0.05em',
+        textAlign: 'center',
+        whiteSpace: 'nowrap',
+        overflow: 'hidden',
+        animation: 'ticker 10s linear infinite',
+    },
+    settingsGrid: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: spacing.md,
+    },
+    settingRow: {
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: spacing.lg,
+        background: colors.panelGrey,
+        border: `1px solid ${colors.borderIdle}`,
+    },
+    settingLabel: {
+        fontFamily: typography.fontMono,
+        fontSize: typography.sizeSm,
+        color: colors.textPrimary,
+        letterSpacing: '0.05em',
+    },
+    settingDesc: {
+        fontSize: typography.sizeXs,
+        color: colors.textDim,
+        marginTop: 2,
+    },
+    selectSmall: {
+        padding: `${spacing.sm}px ${spacing.md}px`,
+        background: colors.voidBlack,
+        border: `1px solid ${colors.borderIdle}`,
+        color: colors.textPrimary,
+        fontFamily: typography.fontMono,
+        fontSize: typography.sizeSm,
+        cursor: 'pointer',
+        outline: 'none',
+    },
+    toggle: {
+        padding: `${spacing.sm}px ${spacing.lg}px`,
+        background: colors.voidBlack,
+        border: `1px solid ${colors.borderIdle}`,
+        color: colors.textDim,
+        fontFamily: typography.fontMono,
+        fontSize: typography.sizeSm,
+        cursor: 'pointer',
+        transition: `all ${transitions.fast}`,
+    },
+    toggleOn: {
+        borderColor: colors.phosphorGreen,
+        color: colors.phosphorGreen,
+    },
+    licenseActive: {
+        padding: spacing.xxxl,
+        background: colors.successBg,
+        border: `1px solid ${colors.phosphorGreen}`,
+        textAlign: 'center',
+        marginBottom: spacing.xxl,
+    },
+    licenseIcon: {
+        fontSize: 40,
+        color: colors.phosphorGreen,
+        marginBottom: spacing.md,
+    },
+    licenseTitle: {
+        fontFamily: typography.fontMono,
+        fontSize: typography.sizeXl,
+        fontWeight: typography.bold,
+        color: colors.phosphorGreen,
+        letterSpacing: '0.1em',
+    },
+    licenseDesc: {
+        fontSize: typography.sizeSm,
+        color: colors.textMuted,
+        marginTop: spacing.sm,
+    },
+    licenseCard: {
+        padding: spacing.xxl,
+        background: colors.panelGrey,
+        border: `1px solid ${colors.borderIdle}`,
+        textAlign: 'center',
+        marginBottom: spacing.xxl,
+    },
+    licensePrice: {
+        fontFamily: typography.fontMono,
+        fontSize: 32,
+        fontWeight: typography.bold,
+        color: colors.textPrimary,
+    },
+    licensePriceNote: {
+        fontSize: typography.sizeSm,
+        fontWeight: typography.normal,
+        color: colors.textDim,
+    },
+    featureList: {
+        listStyle: 'none',
+        padding: 0,
+        margin: `${spacing.xl}px 0`,
+        textAlign: 'left',
+    },
+    featureItem: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: spacing.md,
+        padding: `${spacing.sm}px 0`,
+        fontSize: typography.sizeSm,
+        color: colors.textMuted,
+    },
+    checkMark: {
+        color: colors.phosphorGreen,
+    },
+    upgradeBtn: {
+        width: '100%',
+        padding: spacing.lg,
+        background: colors.phosphorGreen,
+        border: 'none',
+        color: colors.voidBlack,
+        fontFamily: typography.fontMono,
+        fontSize: typography.sizeSm,
+        fontWeight: typography.bold,
+        letterSpacing: '0.1em',
+        cursor: 'pointer',
+        transition: `opacity ${transitions.fast}`,
+    },
+    trialInfo: {
+        marginTop: spacing.lg,
+        padding: spacing.md,
+        background: colors.warningBg,
+        border: `1px solid ${colors.signalAmber}`,
+        fontFamily: typography.fontMono,
+        fontSize: typography.sizeXs,
+        color: colors.signalAmber,
+        letterSpacing: '0.05em',
+    },
+    verifySection: {
+        marginTop: spacing.xl,
+        paddingTop: spacing.xl,
+        borderTop: `1px solid ${colors.borderIdle}`,
+    },
+    verifyBtn: {
+        background: 'transparent',
+        border: `1px solid ${colors.borderIdle}`,
+        color: colors.textMuted,
+        fontFamily: typography.fontMono,
+        fontSize: typography.sizeXs,
+        letterSpacing: '0.05em',
+        padding: `${spacing.sm}px ${spacing.lg}px`,
+        cursor: 'pointer',
+    },
+    verifyForm: {},
+    verifyInput: {
+        width: '100%',
+        padding: spacing.md,
+        background: colors.voidBlack,
+        border: `1px solid ${colors.borderIdle}`,
+        color: colors.textPrimary,
+        fontFamily: typography.fontFamily,
+        fontSize: typography.sizeBase,
+        outline: 'none',
+        marginBottom: spacing.sm,
+    },
+    verifyError: {
+        color: colors.criticalRed,
+        fontFamily: typography.fontMono,
+        fontSize: typography.sizeXs,
+        marginBottom: spacing.sm,
+    },
+    verifyActions: {
+        display: 'flex',
+        gap: spacing.sm,
+    },
+    verifySubmit: {
+        flex: 1,
+        padding: spacing.md,
+        background: colors.phosphorGreen,
+        border: 'none',
+        color: colors.voidBlack,
+        fontFamily: typography.fontMono,
+        fontSize: typography.sizeSm,
+        fontWeight: typography.bold,
+        cursor: 'pointer',
+    },
+    verifyCancel: {
+        flex: 1,
+        padding: spacing.md,
+        background: 'transparent',
+        border: `1px solid ${colors.borderIdle}`,
+        color: colors.textMuted,
+        fontFamily: typography.fontMono,
+        fontSize: typography.sizeSm,
+        cursor: 'pointer',
+    },
+    refreshBtn: {
+        width: '100%',
+        padding: spacing.md,
+        background: 'transparent',
+        border: `1px solid ${colors.borderIdle}`,
+        color: colors.textMuted,
+        fontFamily: typography.fontMono,
+        fontSize: typography.sizeSm,
+        letterSpacing: '0.05em',
+        cursor: 'pointer',
+    },
+    scanlines: {
+        position: 'fixed',
+        top: 0,
+        left: 260,
+        right: 0,
+        bottom: 0,
+        pointerEvents: 'none',
+        background: scanlineOverlay,
+        opacity: 0.5,
+    },
+};
+
+// Inject CSS
+const styleSheet = document.createElement('style');
+styleSheet.textContent = `
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap');
+
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    @keyframes ticker { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: ${colors.voidBlack}; }
+
+    input:focus, select:focus {
+        border-color: ${colors.phosphorGreen} !important;
+    }
+
+    button:hover:not(:disabled) {
+        border-color: ${colors.borderHover} !important;
+    }
+
+    button:active:not(:disabled) {
+        opacity: 0.8;
+    }
+
+    button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    select {
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888888' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 12px center;
+        padding-right: 36px;
+    }
+
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: ${colors.voidBlack}; }
+    ::-webkit-scrollbar-thumb { background: ${colors.borderIdle}; }
+    ::-webkit-scrollbar-thumb:hover { background: ${colors.borderHover}; }
+
+    ::selection { background: ${colors.phosphorGreen}; color: ${colors.voidBlack}; }
+
+    @media (max-width: 768px) {
+        .page { grid-template-columns: 1fr !important; }
+        .sidebar { display: none; }
+        .scanlines { left: 0 !important; }
+    }
+`;
+document.head.appendChild(styleSheet);
 
 const container = document.getElementById('root');
-if (container) {
-    const root = createRoot(container);
-    root.render(<OptionsPage />);
-}
+if (container) createRoot(container).render(<OptionsPage />);

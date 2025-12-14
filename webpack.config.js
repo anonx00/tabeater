@@ -1,6 +1,5 @@
 const path = require('path');
 const CopyPlugin = require('copy-webpack-plugin');
-const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 const webpack = require('webpack');
 require('dotenv').config();
 
@@ -30,20 +29,9 @@ module.exports = {
                 use: 'ts-loader',
                 exclude: /node_modules/,
             },
-            {
-                test: /\.css$/,
-                use: [
-                    MiniCssExtractPlugin.loader,
-                    'css-loader',
-                    'postcss-loader',
-                ],
-            },
         ],
     },
     plugins: [
-        new MiniCssExtractPlugin({
-            filename: '[name].css',
-        }),
         new CopyPlugin({
             patterns: [
                 {
