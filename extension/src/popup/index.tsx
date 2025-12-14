@@ -61,13 +61,25 @@ interface AutoPilotReport {
 
 type View = 'tabs' | 'duplicates' | 'upgrade' | 'actions' | 'analytics';
 
-// Minimal Logo
+// Logo - Glowing folder with indicator
 const Logo: React.FC<{ size?: number }> = ({ size = 24 }) => (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-        <path d="M3 18V7C3 6 4 5 5 5H9L11 3H19C20 3 21 4 21 5V18C21 19 20 20 19 20H5C4 20 3 19 3 18Z"
-              fill="none" stroke={colors.textSecondary} strokeWidth="1.5"/>
-        <path d="M21 8L18 8V11L21 11V14L18 14" stroke={colors.textSecondary} strokeWidth="1.5"/>
-        <circle cx="9" cy="12" r="3" fill={colors.accentCyan} opacity="0.8"/>
+        <defs>
+            <filter id="logoGlow" x="-50%" y="-50%" width="200%" height="200%">
+                <feGaussianBlur stdDeviation="0.5" result="blur"/>
+                <feMerge>
+                    <feMergeNode in="blur"/>
+                    <feMergeNode in="SourceGraphic"/>
+                </feMerge>
+            </filter>
+        </defs>
+        <g filter="url(#logoGlow)">
+            <path d="M3 6.5V19C3 19.8 3.7 20.5 4.5 20.5H19.5C20.3 20.5 21 19.8 21 19V8.5C21 7.7 20.3 7 19.5 7H12L10 4.5H4.5C3.7 4.5 3 5.2 3 6V6.5Z"
+                  fill="none" stroke={colors.phosphorGreen} strokeWidth="1.5" strokeLinejoin="round"/>
+            <rect x="5.5" y="10" width="4" height="4" fill={colors.phosphorGreen}/>
+            <line x1="5.5" y1="16.5" x2="18" y2="16.5" stroke={colors.phosphorGreen} strokeWidth="1" opacity="0.7"/>
+            <line x1="5.5" y1="18.5" x2="14" y2="18.5" stroke={colors.phosphorGreen} strokeWidth="0.8" opacity="0.5"/>
+        </g>
     </svg>
 );
 
