@@ -329,15 +329,22 @@ class AIService {
         await chrome.storage.local.set({ apiUsageStats: this.usageStats });
     }
 
-    // Get API usage stats with limits info
-    getUsageStats(): APIUsageStats & { limits: typeof RATE_LIMITS; nearLimit: boolean } {
+    // Get API usage stats with limits info (async to load from storage)
+    async getUsageStats(): Promise<APIUsageStats & { limits: typeof RATE_LIMITS; nearLimit: boolean; provider: string }> {
+        // Load latest from storage
+        const stored = await chrome.storage.local.get(['apiUsageStats']);
+        if (stored.apiUsageStats) {
+            this.usageStats = { ...this.usageStats, ...stored.apiUsageStats };
+        }
         this.resetCountersIfNeeded();
+
         const hourlyUsage = this.usageStats.hourCalls / RATE_LIMITS.maxPerHour;
         const dailyUsage = this.usageStats.todayCalls / RATE_LIMITS.maxPerDay;
         return {
             ...this.usageStats,
             limits: RATE_LIMITS,
-            nearLimit: hourlyUsage >= RATE_LIMITS.warningThreshold || dailyUsage >= RATE_LIMITS.warningThreshold
+            nearLimit: hourlyUsage >= RATE_LIMITS.warningThreshold || dailyUsage >= RATE_LIMITS.warningThreshold,
+            provider: this.provider
         };
     }
 

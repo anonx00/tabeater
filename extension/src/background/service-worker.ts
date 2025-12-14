@@ -271,7 +271,8 @@ async function handleMessage(message: Message): Promise<MessageResponse> {
             return { success: true, data: { response } };
 
         case 'getAPIUsageStats':
-            return { success: true, data: aiService.getUsageStats() };
+            const usageStats = await aiService.getUsageStats();
+            return { success: true, data: usageStats };
 
         case 'getLicenseStatus':
             const status = await licenseService.getStatus(message.payload?.forceRefresh);
