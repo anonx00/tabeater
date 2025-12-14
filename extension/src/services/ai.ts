@@ -40,16 +40,34 @@ interface NanoStatus {
     message: string;
 }
 
+// API usage tracking
+interface APIUsageStats {
+    totalCalls: number;
+    todayCalls: number;
+    lastCallDate: string;
+    estimatedCost: number; // in cents
+}
+
 class AIService {
     private session: AISession | null = null;
     private provider: AIProvider = 'none';
     private config: AIConfig = {};
     private nanoStatus: NanoStatus = { available: false, status: 'not_available', message: 'Not checked' };
+    private usageStats: APIUsageStats = { totalCalls: 0, todayCalls: 0, lastCallDate: '', estimatedCost: 0 };
 
     async initialize(): Promise<AIProvider> {
-        const stored = await chrome.storage.local.get(['aiConfig']);
+        const stored = await chrome.storage.local.get(['aiConfig', 'apiUsageStats']);
         if (stored.aiConfig) {
             this.config = stored.aiConfig;
+        }
+        if (stored.apiUsageStats) {
+            this.usageStats = stored.apiUsageStats;
+            // Reset daily counter if it's a new day
+            const today = new Date().toISOString().split('T')[0];
+            if (this.usageStats.lastCallDate !== today) {
+                this.usageStats.todayCalls = 0;
+                this.usageStats.lastCallDate = today;
+            }
         }
 
         if (await this.initializeNano()) {
@@ -217,6 +235,38 @@ class AIService {
         return this.nanoStatus;
     }
 
+    // Track API usage (cost estimates in cents per call)
+    private async trackAPIUsage(provider: string): Promise<void> {
+        const today = new Date().toISOString().split('T')[0];
+
+        // Reset daily counter if new day
+        if (this.usageStats.lastCallDate !== today) {
+            this.usageStats.todayCalls = 0;
+            this.usageStats.lastCallDate = today;
+        }
+
+        this.usageStats.totalCalls++;
+        this.usageStats.todayCalls++;
+
+        // Estimate cost per call (in cents) - rough estimates for typical usage
+        // Nano is free, cloud providers vary
+        const costPerCall: { [key: string]: number } = {
+            'nano': 0,
+            'gemini': 0.01,  // ~$0.0001 for flash
+            'openai': 0.05,  // ~$0.0005 for gpt-4o-mini
+            'anthropic': 0.03 // ~$0.0003 for haiku
+        };
+        this.usageStats.estimatedCost += costPerCall[provider] || 0;
+
+        // Save to storage
+        await chrome.storage.local.set({ apiUsageStats: this.usageStats });
+    }
+
+    // Get API usage stats
+    getUsageStats(): APIUsageStats {
+        return { ...this.usageStats };
+    }
+
     async prompt(text: string): Promise<string> {
         const useResult = await licenseService.checkAndUse();
 
@@ -229,6 +279,9 @@ class AIService {
             }
             throw new Error('LICENSE_ERROR:Unable to verify license.');
         }
+
+        // Track usage before making call
+        await this.trackAPIUsage(this.provider);
 
         if (this.provider === 'nano' && this.session) {
             return await this.session.prompt(text);
