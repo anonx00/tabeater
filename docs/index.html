@@ -31,6 +31,8 @@
             --accent-glow: rgba(0, 255, 136, 0.6);
             --cyan: #00FFFF;
             --magenta: #FF00FF;
+            --orange: #FF6B35;
+            --gold: #FFD700;
             --purple: #8B5CF6;
             --bg-dark: #000000;
             --bg-card: rgba(10, 10, 10, 0.95);
@@ -236,28 +238,84 @@
 
         .scroll-indicator svg { width: 16px; height: 16px; opacity: 0.4; }
 
-        /* Stats Counter */
-        .stats-counter {
+        /* Stats Panel */
+        .stats-panel {
             position: fixed;
             top: 20px;
             right: 20px;
-            background: rgba(0, 0, 0, 0.8);
+            background: rgba(0, 0, 0, 0.85);
             backdrop-filter: blur(20px);
-            padding: 12px 20px;
-            border-radius: 12px;
+            padding: 16px 20px;
+            border-radius: 16px;
             border: 1px solid rgba(0, 255, 136, 0.2);
-            font-size: 0.75rem;
-            color: var(--accent);
             z-index: 100;
             font-family: 'Inter', monospace;
+            min-width: 160px;
+        }
+
+        .stats-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 4px 0;
+        }
+
+        .stats-row:not(:last-child) {
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            margin-bottom: 4px;
+            padding-bottom: 8px;
+        }
+
+        .stats-label {
+            font-size: 0.65rem;
+            color: var(--text-muted);
             text-transform: uppercase;
             letter-spacing: 0.1em;
         }
 
-        .stats-counter span {
-            color: var(--text);
+        .stats-value {
+            font-size: 1.1rem;
             font-weight: 700;
-            font-size: 1rem;
+            color: var(--accent);
+        }
+
+        .stats-value.score {
+            color: var(--gold);
+        }
+
+        .stats-value.combo {
+            color: var(--magenta);
+            font-size: 0.9rem;
+        }
+
+        .combo-multiplier {
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .combo-multiplier.active {
+            opacity: 1;
+        }
+
+        /* Game notification */
+        .game-notification {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0);
+            font-size: 2rem;
+            font-weight: 800;
+            color: var(--gold);
+            text-shadow: 0 0 30px var(--gold), 0 0 60px var(--orange);
+            pointer-events: none;
+            z-index: 1000;
+            opacity: 0;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .game-notification.show {
+            transform: translate(-50%, -50%) scale(1);
+            opacity: 1;
         }
 
         /* Sections */
@@ -509,7 +567,12 @@
             .cta-group { flex-direction: column; width: 100%; max-width: 260px; }
             .btn { width: 100%; justify-content: center; }
             .features-grid { grid-template-columns: 1fr; }
-            .stats-counter { display: none; }
+            .stats-panel {
+                top: 10px;
+                right: 10px;
+                padding: 12px 14px;
+                min-width: 140px;
+            }
             .interaction-hint { display: none; }
         }
 
@@ -525,9 +588,23 @@
     <!-- Phase 1: Canvas immediately after body -->
     <canvas id="bg-canvas"></canvas>
 
-    <!-- Stats Counter for eaten tabs -->
-    <div class="stats-counter">
-        Tabs Eaten: <span id="eaten-count">0</span>
+    <!-- Game notification -->
+    <div class="game-notification" id="game-notification"></div>
+
+    <!-- Stats Panel -->
+    <div class="stats-panel">
+        <div class="stats-row">
+            <span class="stats-label">Score</span>
+            <span class="stats-value score" id="score-count">0</span>
+        </div>
+        <div class="stats-row">
+            <span class="stats-label">Interested</span>
+            <span class="stats-value" id="click-count">0</span>
+        </div>
+        <div class="stats-row combo-multiplier" id="combo-row">
+            <span class="stats-label">Combo</span>
+            <span class="stats-value combo" id="combo-count">x1</span>
+        </div>
     </div>
 
     <div class="content">
@@ -553,9 +630,9 @@
                 </div>
                 <h1 class="headline">Tame Your<br><span class="headline-accent">Browser Chaos</span></h1>
                 <p class="subheadline">AI-powered tab intelligence for Chrome. Organize, analyze, and manage your tabs instantly.</p>
-                <p class="interaction-hint">Move your cursor to consume floating tabs</p>
+                <p class="interaction-hint">Move cursor to catch tabs & earn points</p>
                 <div class="cta-group">
-                    <a href="https://chromewebstore.google.com/detail/tabeater/khehjgmppbfpmibjcjeffbndjcnbogfj" class="btn btn-primary" target="_blank">
+                    <a href="https://chromewebstore.google.com/detail/tabeater/khehjgmppbfpmibjcjeffbndjcnbogfj" class="btn btn-primary cta-track" target="_blank">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/><line x1="21.17" y1="8" x2="12" y2="8"/><line x1="3.95" y1="6.06" x2="8.54" y2="14"/><line x1="10.88" y1="21.94" x2="15.46" y2="14"/></svg>
                         Add to Chrome
                     </a>
@@ -640,7 +717,7 @@
         <section class="cta-section section-backdrop">
             <h2>Ready to take control?</h2>
             <p>Join thousands of users who've tamed their browser chaos with TabEater.</p>
-            <a href="https://chromewebstore.google.com/detail/tabeater/khehjgmppbfpmibjcjeffbndjcnbogfj" class="btn btn-primary" target="_blank">
+            <a href="https://chromewebstore.google.com/detail/tabeater/khehjgmppbfpmibjcjeffbndjcnbogfj" class="btn btn-primary cta-track" target="_blank">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/><line x1="21.17" y1="8" x2="12" y2="8"/><line x1="3.95" y1="6.06" x2="8.54" y2="14"/><line x1="10.88" y1="21.94" x2="15.46" y2="14"/></svg>
                 Add to Chrome — Free
             </a>
@@ -655,6 +732,45 @@
             <div class="footer-copy">© 2025 TabEater. Open source under ISC License.</div>
         </footer>
     </div>
+
+    <!-- Click tracking script -->
+    <script>
+        // Track CTA clicks in localStorage
+        const CLICK_KEY = 'tabeater_cta_clicks';
+
+        function getClickCount() {
+            return parseInt(localStorage.getItem(CLICK_KEY) || '0', 10);
+        }
+
+        function incrementClickCount() {
+            const count = getClickCount() + 1;
+            localStorage.setItem(CLICK_KEY, count.toString());
+            updateClickDisplay(count);
+            return count;
+        }
+
+        function updateClickDisplay(count) {
+            const el = document.getElementById('click-count');
+            if (el) el.textContent = count.toLocaleString();
+        }
+
+        // Initialize click count display
+        updateClickDisplay(getClickCount());
+
+        // Track clicks on CTA buttons
+        document.querySelectorAll('.cta-track').forEach(btn => {
+            btn.addEventListener('click', () => {
+                incrementClickCount();
+                // Also fire GA event
+                if (typeof gtag === 'function') {
+                    gtag('event', 'cta_click', {
+                        'event_category': 'engagement',
+                        'event_label': 'chrome_web_store'
+                    });
+                }
+            });
+        });
+    </script>
 
     <!-- Phase 1: ES Module imports via CDN -->
     <script type="importmap">
@@ -673,27 +789,70 @@
     import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 
     // ============================================
+    // GAME STATE
+    // ============================================
+
+    let score = 0;
+    let combo = 0;
+    let comboTimer = null;
+    const COMBO_TIMEOUT = 1500; // ms to maintain combo
+
+    const scoreEl = document.getElementById('score-count');
+    const comboEl = document.getElementById('combo-count');
+    const comboRowEl = document.getElementById('combo-row');
+    const notificationEl = document.getElementById('game-notification');
+
+    function addScore(points) {
+        const multiplier = Math.min(combo + 1, 10);
+        const totalPoints = points * multiplier;
+        score += totalPoints;
+        scoreEl.textContent = score.toLocaleString();
+
+        // Update combo
+        combo++;
+        comboEl.textContent = `x${Math.min(combo, 10)}`;
+        comboRowEl.classList.add('active');
+
+        // Reset combo timer
+        clearTimeout(comboTimer);
+        comboTimer = setTimeout(() => {
+            combo = 0;
+            comboRowEl.classList.remove('active');
+        }, COMBO_TIMEOUT);
+
+        // Show notification for milestones
+        if (combo === 5) showNotification('5x COMBO!');
+        else if (combo === 10) showNotification('MAX COMBO!');
+        else if (score >= 1000 && score - totalPoints < 1000) showNotification('1000 POINTS!');
+        else if (score >= 5000 && score - totalPoints < 5000) showNotification('5000 POINTS!');
+
+        return totalPoints;
+    }
+
+    function showNotification(text) {
+        notificationEl.textContent = text;
+        notificationEl.classList.add('show');
+        setTimeout(() => notificationEl.classList.remove('show'), 1000);
+    }
+
+    // ============================================
     // PHASE 1: Canvas Lifecycle & Renderer Setup
     // ============================================
 
     const canvas = document.getElementById('bg-canvas');
-    const eatenCountEl = document.getElementById('eaten-count');
     const isMobile = window.innerWidth < 768;
 
-    // Renderer with alpha: true, antialias: false (retro look + performance)
     const renderer = new THREE.WebGLRenderer({
         canvas: canvas,
         alpha: true,
         antialias: false
     });
 
-    // Pixel ratio capped at 2 for performance
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.2;
+    renderer.toneMappingExposure = 1.5;
 
-    // Scene & Camera
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(
         60,
@@ -705,75 +864,101 @@
     camera.lookAt(0, 0, 0);
 
     // ============================================
-    // PHASE 2: Cyberpunk Lighting
+    // PHASE 2: Enhanced Cyberpunk Lighting
     // ============================================
 
-    // Ambient Light - Low intensity, deep purple
-    const ambientLight = new THREE.AmbientLight(0x220033, 0.3);
+    // Ambient Light - Deep purple/blue
+    const ambientLight = new THREE.AmbientLight(0x1a0033, 0.4);
     scene.add(ambientLight);
 
-    // Point Light 1 - Cyan (Synthwave rim lighting)
-    const cyanLight = new THREE.PointLight(0x00FFFF, 2, 50);
+    // Dynamic Point Lights - More vibrant
+    const cyanLight = new THREE.PointLight(0x00FFFF, 3, 60);
     cyanLight.position.set(-15, 10, 10);
     scene.add(cyanLight);
 
-    // Point Light 2 - Magenta
-    const magentaLight = new THREE.PointLight(0xFF00FF, 2, 50);
+    const magentaLight = new THREE.PointLight(0xFF00FF, 3, 60);
     magentaLight.position.set(15, -5, 10);
     scene.add(magentaLight);
 
+    const goldLight = new THREE.PointLight(0xFFD700, 2, 40);
+    goldLight.position.set(0, 15, 5);
+    scene.add(goldLight);
+
     // ============================================
-    // PHASE 2: Instanced "Tabs" (Browser Tab Geometry)
+    // PHASE 2: Tab Types with Different Values
     // ============================================
 
-    const TAB_COUNT = isMobile ? 100 : 200;
-    const tabGeometry = new THREE.BoxGeometry(1.2, 0.8, 0.1); // Browser tab shape
+    const TAB_TYPES = [
+        { color: 0x00FF88, points: 10, size: 1, name: 'normal', emissive: 0.5 },
+        { color: 0x00FFFF, points: 25, size: 0.8, name: 'cyan', emissive: 0.7 },
+        { color: 0xFF00FF, points: 25, size: 0.8, name: 'magenta', emissive: 0.7 },
+        { color: 0xFFD700, points: 50, size: 1.2, name: 'gold', emissive: 1.0 },
+        { color: 0xFF6B35, points: 100, size: 0.6, name: 'rare', emissive: 1.2 },
+    ];
+
+    function getRandomTabType() {
+        const rand = Math.random();
+        if (rand < 0.5) return TAB_TYPES[0];      // 50% normal
+        if (rand < 0.7) return TAB_TYPES[1];      // 20% cyan
+        if (rand < 0.85) return TAB_TYPES[2];     // 15% magenta
+        if (rand < 0.95) return TAB_TYPES[3];     // 10% gold
+        return TAB_TYPES[4];                       // 5% rare
+    }
+
+    // ============================================
+    // PHASE 2: Instanced "Tabs"
+    // ============================================
+
+    const TAB_COUNT = isMobile ? 80 : 150;
+    const tabGeometry = new THREE.BoxGeometry(1.2, 0.8, 0.15);
     const tabMaterial = new THREE.MeshStandardMaterial({
         color: 0x00FF88,
         wireframe: true,
         emissive: 0x00FF88,
         emissiveIntensity: 0.5,
-        metalness: 0.8,
-        roughness: 0.2
+        metalness: 0.9,
+        roughness: 0.1
     });
 
     const tabMesh = new THREE.InstancedMesh(tabGeometry, tabMaterial, TAB_COUNT);
     tabMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     scene.add(tabMesh);
 
-    // Dummy object for matrix calculations
     const dummy = new THREE.Object3D();
 
-    // Tab instance data
+    // Tab instance data with types
     const tabData = [];
     for (let i = 0; i < TAB_COUNT; i++) {
+        const type = getRandomTabType();
         const theta = Math.random() * Math.PI * 2;
         const phi = Math.acos(2 * Math.random() - 1);
-        const radius = 8 + Math.random() * 18;
+        const radius = 10 + Math.random() * 20;
 
         tabData.push({
             position: new THREE.Vector3(
                 radius * Math.sin(phi) * Math.cos(theta),
                 radius * Math.sin(phi) * Math.sin(theta),
-                radius * Math.cos(phi) - 10
+                radius * Math.cos(phi) - 8
             ),
+            velocity: new THREE.Vector3(0, 0, 0),
             rotation: new THREE.Euler(
                 Math.random() * Math.PI,
                 Math.random() * Math.PI,
                 Math.random() * Math.PI
             ),
-            scale: 0.5 + Math.random() * 0.8,
+            scale: type.size * (0.6 + Math.random() * 0.5),
             rotSpeed: new THREE.Vector3(
-                (Math.random() - 0.5) * 0.02,
-                (Math.random() - 0.5) * 0.02,
-                (Math.random() - 0.5) * 0.02
+                (Math.random() - 0.5) * 0.03,
+                (Math.random() - 0.5) * 0.03,
+                (Math.random() - 0.5) * 0.03
             ),
-            floatSpeed: 0.3 + Math.random() * 0.5,
+            floatSpeed: 0.4 + Math.random() * 0.6,
             floatOffset: Math.random() * Math.PI * 2,
             originalY: 0,
             eaten: false,
             eatenScale: 1,
-            color: Math.random() < 0.5 ? 0x00FF88 : (Math.random() < 0.7 ? 0x00FFFF : 0xFF00FF)
+            type: type,
+            pulseOffset: Math.random() * Math.PI * 2
         });
         tabData[i].originalY = tabData[i].position.y;
     }
@@ -788,7 +973,7 @@
         dummy.updateMatrix();
         tabMesh.setMatrixAt(i, dummy.matrix);
 
-        const color = new THREE.Color(d.color);
+        const color = new THREE.Color(d.type.color);
         colorArray[i * 3] = color.r;
         colorArray[i * 3 + 1] = color.g;
         colorArray[i * 3 + 2] = color.b;
@@ -797,57 +982,61 @@
     tabMesh.instanceMatrix.needsUpdate = true;
 
     // ============================================
-    // PHASE 2: Retro Grid Floor
+    // PHASE 2: Enhanced Retro Grid
     // ============================================
 
-    const gridSize = 80;
-    const gridDivisions = 40;
-    const gridHelper = new THREE.GridHelper(gridSize, gridDivisions, 0x00FF88, 0x003311);
-    gridHelper.position.y = -15;
-    gridHelper.material.opacity = 0.25;
+    const gridSize = 100;
+    const gridDivisions = 50;
+
+    // Main grid
+    const gridHelper = new THREE.GridHelper(gridSize, gridDivisions, 0x00FF88, 0x002211);
+    gridHelper.position.y = -18;
+    gridHelper.material.opacity = 0.3;
     gridHelper.material.transparent = true;
     scene.add(gridHelper);
 
-    // Grid wave vertices for animation
+    // Animated wave grid
     const gridPlane = new THREE.PlaneGeometry(gridSize, gridSize, gridDivisions, gridDivisions);
     const gridMaterial = new THREE.MeshBasicMaterial({
-        color: 0x00FF88,
+        color: 0x00FFFF,
         wireframe: true,
         transparent: true,
-        opacity: 0.1
+        opacity: 0.15
     });
     const gridMesh = new THREE.Mesh(gridPlane, gridMaterial);
     gridMesh.rotation.x = -Math.PI / 2;
-    gridMesh.position.y = -15;
+    gridMesh.position.y = -18;
     scene.add(gridMesh);
 
     // ============================================
-    // PHASE 3: Particle Explosion Pool
+    // PHASE 3: Enhanced Particle System
     // ============================================
 
-    const PARTICLE_POOL_SIZE = 500;
+    const PARTICLE_POOL_SIZE = 800;
     const particleGeometry = new THREE.BufferGeometry();
     const particlePositions = new Float32Array(PARTICLE_POOL_SIZE * 3);
     const particleVelocities = [];
     const particleLifetimes = [];
     const particleColors = new Float32Array(PARTICLE_POOL_SIZE * 3);
+    const particleSizes = new Float32Array(PARTICLE_POOL_SIZE);
 
     for (let i = 0; i < PARTICLE_POOL_SIZE; i++) {
         particlePositions[i * 3] = 0;
-        particlePositions[i * 3 + 1] = -1000; // Hidden below scene
+        particlePositions[i * 3 + 1] = -1000;
         particlePositions[i * 3 + 2] = 0;
         particleVelocities.push(new THREE.Vector3());
         particleLifetimes.push(0);
         particleColors[i * 3] = 0;
         particleColors[i * 3 + 1] = 1;
         particleColors[i * 3 + 2] = 0.53;
+        particleSizes[i] = 1;
     }
 
     particleGeometry.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
     particleGeometry.setAttribute('color', new THREE.BufferAttribute(particleColors, 3));
 
     const particleMaterial = new THREE.PointsMaterial({
-        size: 0.15,
+        size: 0.2,
         vertexColors: true,
         transparent: true,
         opacity: 0.9,
@@ -860,43 +1049,50 @@
 
     let nextParticleIndex = 0;
 
-    function spawnExplosion(position, color) {
-        const particleCount = 15;
-        for (let i = 0; i < particleCount; i++) {
+    function spawnExplosion(position, color, count = 20) {
+        for (let i = 0; i < count; i++) {
             const idx = nextParticleIndex;
             nextParticleIndex = (nextParticleIndex + 1) % PARTICLE_POOL_SIZE;
 
-            particlePositions[idx * 3] = position.x;
-            particlePositions[idx * 3 + 1] = position.y;
-            particlePositions[idx * 3 + 2] = position.z;
+            particlePositions[idx * 3] = position.x + (Math.random() - 0.5) * 0.5;
+            particlePositions[idx * 3 + 1] = position.y + (Math.random() - 0.5) * 0.5;
+            particlePositions[idx * 3 + 2] = position.z + (Math.random() - 0.5) * 0.5;
 
             const c = new THREE.Color(color);
+            // Add some variation
+            c.r = Math.min(1, c.r + (Math.random() - 0.5) * 0.3);
+            c.g = Math.min(1, c.g + (Math.random() - 0.5) * 0.3);
+            c.b = Math.min(1, c.b + (Math.random() - 0.5) * 0.3);
+
             particleColors[idx * 3] = c.r;
             particleColors[idx * 3 + 1] = c.g;
             particleColors[idx * 3 + 2] = c.b;
 
+            const speed = 1.5 + Math.random() * 2;
+            const theta = Math.random() * Math.PI * 2;
+            const phi = Math.acos(2 * Math.random() - 1);
+
             particleVelocities[idx].set(
-                (Math.random() - 0.5) * 2,
-                (Math.random() - 0.5) * 2,
-                (Math.random() - 0.5) * 2
+                Math.sin(phi) * Math.cos(theta) * speed,
+                Math.sin(phi) * Math.sin(theta) * speed,
+                Math.cos(phi) * speed
             );
-            particleLifetimes[idx] = 1.0;
+            particleLifetimes[idx] = 1.0 + Math.random() * 0.5;
         }
         particleGeometry.attributes.position.needsUpdate = true;
         particleGeometry.attributes.color.needsUpdate = true;
     }
 
     // ============================================
-    // PHASE 3: Mouse Tracking & Eater Mechanics
+    // PHASE 3: Mouse & Eater
     // ============================================
 
     const mouse = new THREE.Vector2(0, 0);
     const mouse3D = new THREE.Vector3();
-    let eatenCount = 0;
-    const EAT_RADIUS = 3.5;
-    const EAT_SPEED = 0.08;
+    const EAT_RADIUS = 4;
+    const ATTRACT_RADIUS = 8;
+    const EAT_SPEED = 0.12;
 
-    // Attach event listeners to window (not canvas due to pointer-events: none)
     window.addEventListener('mousemove', (e) => {
         mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
         mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
@@ -910,50 +1106,65 @@
     });
 
     // ============================================
-    // PHASE 2: Central "Eater" Entity
+    // PHASE 2: Enhanced Central "Eater" Entity
     // ============================================
 
     const eaterGroup = new THREE.Group();
 
-    // Inner core - icosahedron
+    // Inner core
     const innerCore = new THREE.Mesh(
-        new THREE.IcosahedronGeometry(0.8, 2),
+        new THREE.IcosahedronGeometry(0.6, 2),
         new THREE.MeshStandardMaterial({
             color: 0x00FF88,
             wireframe: true,
             emissive: 0x00FF88,
-            emissiveIntensity: 1
+            emissiveIntensity: 1.5
         })
     );
     eaterGroup.add(innerCore);
 
+    // Middle layer
+    const middleLayer = new THREE.Mesh(
+        new THREE.IcosahedronGeometry(1.0, 1),
+        new THREE.MeshStandardMaterial({
+            color: 0xFFD700,
+            wireframe: true,
+            emissive: 0xFFD700,
+            emissiveIntensity: 0.5,
+            transparent: true,
+            opacity: 0.6
+        })
+    );
+    eaterGroup.add(middleLayer);
+
     // Outer shell
     const outerShell = new THREE.Mesh(
-        new THREE.IcosahedronGeometry(1.5, 1),
+        new THREE.IcosahedronGeometry(1.6, 1),
         new THREE.MeshStandardMaterial({
             color: 0x00FFFF,
             wireframe: true,
             emissive: 0x00FFFF,
             emissiveIntensity: 0.3,
             transparent: true,
-            opacity: 0.4
+            opacity: 0.3
         })
     );
     eaterGroup.add(outerShell);
 
-    // Energy rings around eater
+    // Energy rings
     const eaterRings = [];
-    for (let i = 0; i < 3; i++) {
+    const ringColors = [0x00FF88, 0xFF00FF, 0x00FFFF, 0xFFD700];
+    for (let i = 0; i < 4; i++) {
         const ring = new THREE.Mesh(
-            new THREE.TorusGeometry(2 + i * 0.8, 0.03, 8, 64),
+            new THREE.TorusGeometry(2.2 + i * 0.7, 0.04, 8, 64),
             new THREE.MeshBasicMaterial({
-                color: i % 2 === 0 ? 0x00FF88 : 0xFF00FF,
+                color: ringColors[i],
                 transparent: true,
-                opacity: 0.5 - i * 0.1
+                opacity: 0.6 - i * 0.1
             })
         );
-        ring.rotation.x = Math.PI / 2 + i * 0.4;
-        ring.rotation.y = i * 0.3;
+        ring.rotation.x = Math.PI / 2 + i * 0.5;
+        ring.rotation.y = i * 0.4;
         eaterRings.push(ring);
         eaterGroup.add(ring);
     }
@@ -961,37 +1172,70 @@
     scene.add(eaterGroup);
 
     // ============================================
-    // PHASE 4: Post-Processing Pipeline (Bloom)
+    // Background Stars
+    // ============================================
+
+    const starCount = isMobile ? 300 : 600;
+    const starGeometry = new THREE.BufferGeometry();
+    const starPositions = new Float32Array(starCount * 3);
+    const starColors = new Float32Array(starCount * 3);
+
+    for (let i = 0; i < starCount; i++) {
+        starPositions[i * 3] = (Math.random() - 0.5) * 200;
+        starPositions[i * 3 + 1] = (Math.random() - 0.5) * 200;
+        starPositions[i * 3 + 2] = -50 - Math.random() * 100;
+
+        const colorChoice = Math.random();
+        if (colorChoice < 0.6) {
+            starColors[i * 3] = 1; starColors[i * 3 + 1] = 1; starColors[i * 3 + 2] = 1;
+        } else if (colorChoice < 0.8) {
+            starColors[i * 3] = 0; starColors[i * 3 + 1] = 1; starColors[i * 3 + 2] = 1;
+        } else {
+            starColors[i * 3] = 1; starColors[i * 3 + 1] = 0; starColors[i * 3 + 2] = 1;
+        }
+    }
+
+    starGeometry.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
+    starGeometry.setAttribute('color', new THREE.BufferAttribute(starColors, 3));
+
+    const starMaterial = new THREE.PointsMaterial({
+        size: 0.5,
+        vertexColors: true,
+        transparent: true,
+        opacity: 0.8,
+        blending: THREE.AdditiveBlending
+    });
+
+    const stars = new THREE.Points(starGeometry, starMaterial);
+    scene.add(stars);
+
+    // ============================================
+    // PHASE 4: Post-Processing
     // ============================================
 
     const composer = new EffectComposer(renderer);
-
-    // Pass 1: Base scene render
     const renderPass = new RenderPass(scene, camera);
     composer.addPass(renderPass);
 
-    // Pass 2: Unreal Bloom for cyberpunk glow
     const bloomPass = new UnrealBloomPass(
         new THREE.Vector2(window.innerWidth, window.innerHeight),
-        1.5,   // Strength
-        0.4,   // Radius
-        0.8    // Threshold (high = only bright things glow)
+        2.0,    // Increased strength
+        0.5,    // Radius
+        0.7     // Threshold
     );
     composer.addPass(bloomPass);
 
     // ============================================
-    // PHASE 5: Optimization & Animation Loop
+    // PHASE 5: Animation Loop
     // ============================================
 
     let time = 0;
+    let eaterPulse = 0;
     let lowPowerMode = false;
 
-    // Detect low power mode (simplified check)
     if ('getBattery' in navigator) {
         navigator.getBattery().then(battery => {
-            if (battery.level < 0.2 && !battery.charging) {
-                lowPowerMode = true;
-            }
+            lowPowerMode = battery.level < 0.2 && !battery.charging;
             battery.addEventListener('levelchange', () => {
                 lowPowerMode = battery.level < 0.2 && !battery.charging;
             });
@@ -1002,123 +1246,167 @@
         requestAnimationFrame(animate);
         time += 0.016;
 
-        // Project mouse to 3D space at z = 0
+        // Project mouse to 3D
         mouse3D.set(mouse.x, mouse.y, 0.5);
         mouse3D.unproject(camera);
         const dir = mouse3D.sub(camera.position).normalize();
         const distance = -camera.position.z / dir.z;
         mouse3D.copy(camera.position).add(dir.multiplyScalar(distance));
 
-        // Animate tabs and check for eating
+        // Animate tabs
         for (let i = 0; i < TAB_COUNT; i++) {
             const d = tabData[i];
 
             if (!d.eaten) {
-                // Rotate
-                d.rotation.x += d.rotSpeed.x;
-                d.rotation.y += d.rotSpeed.y;
-                d.rotation.z += d.rotSpeed.z;
+                // Rotate with pulsing
+                const pulseFactor = 1 + Math.sin(time * 3 + d.pulseOffset) * 0.1;
+                d.rotation.x += d.rotSpeed.x * pulseFactor;
+                d.rotation.y += d.rotSpeed.y * pulseFactor;
+                d.rotation.z += d.rotSpeed.z * pulseFactor;
 
                 // Float
-                d.position.y = d.originalY + Math.sin(time * d.floatSpeed + d.floatOffset) * 1.5;
+                d.position.y = d.originalY + Math.sin(time * d.floatSpeed + d.floatOffset) * 2;
 
-                // Check distance to cursor for eating
+                // Check distance to cursor
                 const dist = d.position.distanceTo(mouse3D);
+
+                // Attract toward eater when close
+                if (dist < ATTRACT_RADIUS && dist > EAT_RADIUS) {
+                    const attractForce = (ATTRACT_RADIUS - dist) / ATTRACT_RADIUS * 0.15;
+                    const direction = new THREE.Vector3().subVectors(mouse3D, d.position).normalize();
+                    d.velocity.add(direction.multiplyScalar(attractForce));
+                }
+
+                // Apply velocity with damping
+                d.position.add(d.velocity);
+                d.velocity.multiplyScalar(0.95);
+
+                // Eat if close enough
                 if (dist < EAT_RADIUS) {
                     d.eaten = true;
-                    eatenCount++;
-                    eatenCountEl.textContent = eatenCount;
-                    spawnExplosion(d.position.clone(), d.color);
+                    const points = addScore(d.type.points);
+                    spawnExplosion(d.position.clone(), d.type.color, d.type.points >= 50 ? 35 : 20);
+                    eaterPulse = 1;
                 }
             } else {
-                // Shrink eaten tabs (don't delete - expensive)
                 d.eatenScale = Math.max(0, d.eatenScale - EAT_SPEED);
             }
 
-            // Update instance matrix
+            // Update matrix
             dummy.position.copy(d.position);
             dummy.rotation.copy(d.rotation);
-            dummy.scale.setScalar(d.scale * d.eatenScale);
+            const pulseScale = d.eaten ? d.eatenScale : (1 + Math.sin(time * 2 + d.pulseOffset) * 0.05);
+            dummy.scale.setScalar(d.scale * pulseScale * d.eatenScale);
             dummy.updateMatrix();
             tabMesh.setMatrixAt(i, dummy.matrix);
         }
         tabMesh.instanceMatrix.needsUpdate = true;
 
-        // Respawn eaten tabs after delay
+        // Respawn eaten tabs
         for (let i = 0; i < TAB_COUNT; i++) {
             const d = tabData[i];
             if (d.eaten && d.eatenScale <= 0) {
-                // Respawn at random position
+                const newType = getRandomTabType();
                 const theta = Math.random() * Math.PI * 2;
                 const phi = Math.acos(2 * Math.random() - 1);
-                const radius = 12 + Math.random() * 15;
+                const radius = 15 + Math.random() * 18;
 
                 d.position.set(
                     radius * Math.sin(phi) * Math.cos(theta),
                     radius * Math.sin(phi) * Math.sin(theta),
-                    radius * Math.cos(phi) - 10
+                    radius * Math.cos(phi) - 8
                 );
+                d.velocity.set(0, 0, 0);
                 d.originalY = d.position.y;
                 d.eaten = false;
                 d.eatenScale = 1;
+                d.type = newType;
+                d.scale = newType.size * (0.6 + Math.random() * 0.5);
+
+                // Update color
+                const color = new THREE.Color(newType.color);
+                colorArray[i * 3] = color.r;
+                colorArray[i * 3 + 1] = color.g;
+                colorArray[i * 3 + 2] = color.b;
+                tabGeometry.attributes.color.needsUpdate = true;
             }
         }
 
         // Animate particles
         for (let i = 0; i < PARTICLE_POOL_SIZE; i++) {
             if (particleLifetimes[i] > 0) {
-                particleLifetimes[i] -= 0.03;
-                particlePositions[i * 3] += particleVelocities[i].x * 0.3;
-                particlePositions[i * 3 + 1] += particleVelocities[i].y * 0.3;
-                particlePositions[i * 3 + 2] += particleVelocities[i].z * 0.3;
-
-                // Gravity
-                particleVelocities[i].y -= 0.02;
+                particleLifetimes[i] -= 0.025;
+                particlePositions[i * 3] += particleVelocities[i].x * 0.25;
+                particlePositions[i * 3 + 1] += particleVelocities[i].y * 0.25;
+                particlePositions[i * 3 + 2] += particleVelocities[i].z * 0.25;
+                particleVelocities[i].y -= 0.015;
+                particleVelocities[i].multiplyScalar(0.98);
 
                 if (particleLifetimes[i] <= 0) {
-                    particlePositions[i * 3 + 1] = -1000; // Hide
+                    particlePositions[i * 3 + 1] = -1000;
                 }
             }
         }
         particleGeometry.attributes.position.needsUpdate = true;
 
-        // Animate eater (follows cursor smoothly)
-        eaterGroup.position.lerp(mouse3D, 0.08);
-        innerCore.rotation.x += 0.02;
-        innerCore.rotation.y += 0.03;
-        innerCore.scale.setScalar(1 + Math.sin(time * 4) * 0.15);
+        // Animate eater
+        eaterGroup.position.lerp(mouse3D, 0.1);
+
+        // Pulse effect when eating
+        eaterPulse *= 0.9;
+        const eaterScale = 1 + eaterPulse * 0.5 + Math.sin(time * 4) * 0.05;
+
+        innerCore.rotation.x += 0.025;
+        innerCore.rotation.y += 0.035;
+        innerCore.scale.setScalar(eaterScale);
+
+        middleLayer.rotation.x -= 0.015;
+        middleLayer.rotation.z += 0.02;
+        middleLayer.scale.setScalar(eaterScale * 0.95);
 
         outerShell.rotation.x -= 0.01;
-        outerShell.rotation.y -= 0.015;
-        outerShell.scale.setScalar(1 + Math.sin(time * 2) * 0.1);
+        outerShell.rotation.y -= 0.012;
+        outerShell.scale.setScalar(eaterScale * 0.9 + Math.sin(time * 2) * 0.1);
 
-        // Animate eater rings
+        // Animate rings
         eaterRings.forEach((ring, i) => {
-            ring.rotation.z += 0.02 * (i % 2 === 0 ? 1 : -1);
-            ring.scale.setScalar(1 + Math.sin(time * 1.5 + i) * 0.15);
+            ring.rotation.z += 0.025 * (i % 2 === 0 ? 1 : -1);
+            ring.scale.setScalar(eaterScale + Math.sin(time * 1.5 + i * 0.5) * 0.15);
         });
 
         // Animate lights
-        cyanLight.position.x = Math.sin(time * 0.5) * 20;
-        cyanLight.position.z = Math.cos(time * 0.5) * 20;
-        magentaLight.position.x = Math.sin(time * 0.5 + Math.PI) * 20;
-        magentaLight.position.z = Math.cos(time * 0.5 + Math.PI) * 20;
+        const lightRadius = 25;
+        cyanLight.position.x = Math.sin(time * 0.4) * lightRadius;
+        cyanLight.position.z = Math.cos(time * 0.4) * lightRadius;
+        cyanLight.position.y = 10 + Math.sin(time * 0.8) * 5;
 
-        // Grid wave animation
+        magentaLight.position.x = Math.sin(time * 0.4 + Math.PI) * lightRadius;
+        magentaLight.position.z = Math.cos(time * 0.4 + Math.PI) * lightRadius;
+        magentaLight.position.y = -5 + Math.cos(time * 0.6) * 5;
+
+        goldLight.position.x = Math.sin(time * 0.3) * 15;
+        goldLight.position.z = Math.cos(time * 0.5) * 10;
+        goldLight.intensity = 2 + Math.sin(time * 2) * 0.5;
+
+        // Grid wave
         const positions = gridMesh.geometry.attributes.position.array;
         for (let i = 0; i < positions.length; i += 3) {
             const x = positions[i];
             const z = positions[i + 1];
-            positions[i + 2] = Math.sin(x * 0.1 + time) * Math.cos(z * 0.1 + time) * 0.5;
+            positions[i + 2] = Math.sin(x * 0.08 + time * 1.5) * Math.cos(z * 0.08 + time) * 1.5;
         }
         gridMesh.geometry.attributes.position.needsUpdate = true;
 
-        // Camera subtle movement
-        camera.position.x += (mouse.x * 3 - camera.position.x) * 0.02;
-        camera.position.y += (2 + mouse.y * 2 - camera.position.y) * 0.02;
+        // Animate stars
+        stars.rotation.y += 0.0002;
+        stars.rotation.x += 0.0001;
+
+        // Camera movement
+        camera.position.x += (mouse.x * 4 - camera.position.x) * 0.025;
+        camera.position.y += (2 + mouse.y * 3 - camera.position.y) * 0.025;
         camera.lookAt(0, 0, -5);
 
-        // Render (use composer for bloom, or standard render in low power mode)
+        // Render
         if (lowPowerMode) {
             renderer.render(scene, camera);
         } else {
@@ -1129,7 +1417,7 @@
     animate();
 
     // ============================================
-    // PHASE 5: ResizeObserver for proper resize handling
+    // PHASE 5: Resize Handling
     // ============================================
 
     const resizeObserver = new ResizeObserver((entries) => {
@@ -1143,7 +1431,6 @@
 
     resizeObserver.observe(document.body);
 
-    // Fallback resize listener
     window.addEventListener('resize', () => {
         camera.aspect = window.innerWidth / window.innerHeight;
         camera.updateProjectionMatrix();
@@ -1153,29 +1440,29 @@
     });
 
     // ============================================
-    // PHASE 5: Resource Disposal (for SPA navigation)
+    // Resource Disposal
     // ============================================
 
     window.disposeThreeJS = function() {
         resizeObserver.disconnect();
-
-        // Dispose geometries
         tabGeometry.dispose();
-        particleGeometry.dispose();
-        gridPlane.dispose();
-        innerCore.geometry.dispose();
-        outerShell.geometry.dispose();
-        eaterRings.forEach(ring => ring.geometry.dispose());
-
-        // Dispose materials
         tabMaterial.dispose();
+        particleGeometry.dispose();
         particleMaterial.dispose();
+        gridPlane.dispose();
         gridMaterial.dispose();
+        starGeometry.dispose();
+        starMaterial.dispose();
+        innerCore.geometry.dispose();
         innerCore.material.dispose();
+        middleLayer.geometry.dispose();
+        middleLayer.material.dispose();
+        outerShell.geometry.dispose();
         outerShell.material.dispose();
-        eaterRings.forEach(ring => ring.material.dispose());
-
-        // Dispose renderer
+        eaterRings.forEach(ring => {
+            ring.geometry.dispose();
+            ring.material.dispose();
+        });
         renderer.dispose();
         composer.dispose();
     };
