@@ -1,43 +1,40 @@
 <svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <!-- Glow filter for pixel effect -->
   <defs>
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="128" y2="128" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#18181c"/>
+      <stop offset="100%" stop-color="#0f0f12"/>
+    </linearGradient>
+    <linearGradient id="accentGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#fb923c"/>
+      <stop offset="100%" stop-color="#f97316"/>
+    </linearGradient>
     <filter id="glow">
-      <feGaussianBlur stdDeviation="2.5" result="coloredBlur"/>
+      <feGaussianBlur stdDeviation="3" result="blur"/>
       <feMerge>
-        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="blur"/>
         <feMergeNode in="SourceGraphic"/>
       </feMerge>
     </filter>
-    <linearGradient id="scanGrad" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#39ff14" stop-opacity="0.1"/>
-      <stop offset="50%" stop-color="#39ff14" stop-opacity="0.3"/>
-      <stop offset="100%" stop-color="#39ff14" stop-opacity="0.1"/>
-    </linearGradient>
   </defs>
 
   <!-- Background -->
-  <rect width="128" height="128" rx="16" fill="#0a0a0a"/>
+  <rect width="128" height="128" rx="28" fill="url(#bgGrad)"/>
+  <rect x="1" y="1" width="126" height="126" rx="27" fill="none" stroke="#27272f" stroke-width="2"/>
 
-  <!-- Browser Tab Shape with bite mark -->
-  <path d="M20 108H108V48H68L56 36H20V108Z" fill="#111111" stroke="#39ff14" stroke-width="4"/>
+  <!-- Tab shape - stylized -->
+  <path d="M24 96V44C24 40.686 26.686 38 30 38H54L62 30H98C101.314 30 104 32.686 104 36V96C104 99.314 101.314 102 98 102H30C26.686 102 24 99.314 24 96Z" fill="#1c1c22" stroke="#323240" stroke-width="2"/>
 
-  <!-- Pixelated Bite Mark -->
-  <path d="M110 36H96V48H110V36Z" fill="#39ff14" fill-opacity="0.2"/>
-  <rect x="84" y="24" width="12" height="12" fill="#39ff14"/>
-  <rect x="96" y="36" width="12" height="12" fill="#39ff14"/>
-  <rect x="96" y="24" width="12" height="12" fill="#39ff14" fill-opacity="0.5"/>
+  <!-- Bite mark - angular chunks -->
+  <path d="M104 30L104 54L78 54L78 30L104 30Z" fill="#0f0f12"/>
+  <rect x="78" y="30" width="14" height="12" fill="url(#accentGrad)" filter="url(#glow)"/>
+  <rect x="92" y="42" width="12" height="12" fill="url(#accentGrad)" opacity="0.8"/>
+  <rect x="78" y="42" width="14" height="12" fill="url(#accentGrad)" opacity="0.5"/>
 
-  <!-- Scanlines inside tab -->
-  <path d="M24 50H104" stroke="#39ff14" stroke-width="1" stroke-opacity="0.3"/>
-  <path d="M24 60H104" stroke="#39ff14" stroke-width="1" stroke-opacity="0.25"/>
-  <path d="M24 70H104" stroke="#39ff14" stroke-width="1" stroke-opacity="0.2"/>
-  <path d="M24 80H104" stroke="#39ff14" stroke-width="1" stroke-opacity="0.25"/>
-  <path d="M24 90H104" stroke="#39ff14" stroke-width="1" stroke-opacity="0.3"/>
-  <path d="M24 100H104" stroke="#39ff14" stroke-width="1" stroke-opacity="0.2"/>
+  <!-- Inner content lines -->
+  <rect x="36" y="52" width="40" height="4" rx="2" fill="#323240"/>
+  <rect x="36" y="62" width="32" height="4" rx="2" fill="#27272f"/>
+  <rect x="36" y="72" width="48" height="4" rx="2" fill="#27272f"/>
 
-  <!-- Glowing cursor/active indicator -->
-  <rect x="36" y="56" width="12" height="12" fill="#39ff14" filter="url(#glow)"/>
-
-  <!-- "TE" text hint -->
-  <text x="56" y="88" font-family="Consolas, monospace" font-size="24" font-weight="bold" fill="#39ff14" fill-opacity="0.6">TE</text>
+  <!-- Active indicator dot -->
+  <circle cx="88" cy="82" r="6" fill="url(#accentGrad)" filter="url(#glow)"/>
 </svg>

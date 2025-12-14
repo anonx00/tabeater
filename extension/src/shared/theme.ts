@@ -1,43 +1,43 @@
-// TabEater - Minimalist Consumer-Grade Theme
-// Clean, professional design inspired by Linear, Notion, and Apple
+// TabEater - Premium MGS-Inspired Theme
+// Tactical, professional design with orange accent
 
 export const colors = {
-    // Primary palette - Clean blue accent
-    primary: '#3b82f6',
-    primaryLight: '#60a5fa',
-    primaryDark: '#2563eb',
-    primaryBg: 'rgba(59, 130, 246, 0.08)',
-    primaryHover: 'rgba(59, 130, 246, 0.12)',
+    // Primary - Tactical Orange
+    primary: '#f97316',
+    primaryLight: '#fb923c',
+    primaryDark: '#ea580c',
+    primaryBg: 'rgba(249, 115, 22, 0.08)',
+    primaryHover: 'rgba(249, 115, 22, 0.12)',
 
-    // Accent colors
-    accent: '#8b5cf6',
-    accentLight: '#a78bfa',
-    accentBg: 'rgba(139, 92, 246, 0.08)',
+    // Accent - Electric Blue
+    accent: '#06b6d4',
+    accentLight: '#22d3ee',
+    accentBg: 'rgba(6, 182, 212, 0.08)',
 
-    // Background colors - Solid, no transparency
-    bgDarkest: '#0a0a0a',
-    bgDarker: '#111111',
-    bgDark: '#161616',
-    bgCard: '#1a1a1a',
-    bgCardHover: '#1f1f1f',
-    bgInput: '#1a1a1a',
-    bgElevated: '#222222',
+    // Background colors - Deep tactical blacks
+    bgDarkest: '#09090b',
+    bgDarker: '#0f0f12',
+    bgDark: '#141418',
+    bgCard: '#18181c',
+    bgCardHover: '#1e1e24',
+    bgInput: '#141418',
+    bgElevated: '#1c1c22',
 
-    // Border colors - Clean and subtle
-    borderDark: '#1f1f1f',
-    borderMedium: '#2a2a2a',
-    borderLight: '#333333',
-    borderFocus: '#3b82f6',
+    // Border colors
+    borderDark: '#1c1c22',
+    borderMedium: '#27272f',
+    borderLight: '#323240',
+    borderFocus: '#f97316',
 
-    // Text colors - Clear hierarchy
-    textPrimary: '#ffffff',
-    textSecondary: '#e5e5e5',
-    textMuted: '#a3a3a3',
-    textDim: '#737373',
-    textDimmer: '#525252',
-    textDimmest: '#404040',
+    // Text colors
+    textPrimary: '#fafafa',
+    textSecondary: '#e4e4e7',
+    textMuted: '#a1a1aa',
+    textDim: '#71717a',
+    textDimmer: '#52525b',
+    textDimmest: '#3f3f46',
 
-    // Status colors - Softer tones
+    // Status colors
     success: '#22c55e',
     successBg: 'rgba(34, 197, 94, 0.1)',
     successText: '#4ade80',
@@ -47,8 +47,8 @@ export const colors = {
     error: '#ef4444',
     errorBg: 'rgba(239, 68, 68, 0.1)',
     errorText: '#f87171',
-    info: '#3b82f6',
-    infoBg: 'rgba(59, 130, 246, 0.1)',
+    info: '#06b6d4',
+    infoBg: 'rgba(6, 182, 212, 0.1)',
 
     // Provider colors
     providerNano: '#22c55e',
@@ -57,7 +57,7 @@ export const colors = {
     providerAnthropic: '#d4a574',
 
     // License colors
-    licensePro: '#3b82f6',
+    licensePro: '#f97316',
     licenseTrial: '#f59e0b',
     licenseExpired: '#ef4444',
 };
@@ -73,11 +73,9 @@ export const spacing = {
 };
 
 export const typography = {
-    // Clean system font stack
-    fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', Roboto, sans-serif",
-    fontMono: "'SF Mono', 'Fira Code', 'Consolas', monospace",
+    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+    fontMono: "'JetBrains Mono', 'SF Mono', 'Fira Code', 'Consolas', monospace",
 
-    // Font sizes - Refined scale
     sizeXs: 11,
     sizeSm: 12,
     sizeMd: 13,
@@ -88,16 +86,14 @@ export const typography = {
     sizeDisplay: 20,
     sizeHero: 24,
 
-    // Font weights
     normal: 400,
     medium: 500,
     semibold: 600,
     bold: 700,
 
-    // Letter spacing - Minimal
-    letterTight: -0.2,
+    letterTight: -0.3,
     letterNormal: 0,
-    letterWide: 0.3,
+    letterWide: 0.5,
 };
 
 export const borderRadius = {
@@ -109,14 +105,14 @@ export const borderRadius = {
     full: 9999,
 };
 
-// Clean shadows - No glows
 export const shadows = {
-    xs: '0 1px 2px rgba(0, 0, 0, 0.1)',
-    sm: '0 1px 3px rgba(0, 0, 0, 0.12)',
-    md: '0 4px 6px rgba(0, 0, 0, 0.15)',
-    lg: '0 10px 15px rgba(0, 0, 0, 0.2)',
-    xl: '0 20px 25px rgba(0, 0, 0, 0.25)',
-    focus: '0 0 0 2px rgba(59, 130, 246, 0.4)',
+    xs: '0 1px 2px rgba(0, 0, 0, 0.2)',
+    sm: '0 2px 4px rgba(0, 0, 0, 0.25)',
+    md: '0 4px 8px rgba(0, 0, 0, 0.3)',
+    lg: '0 8px 16px rgba(0, 0, 0, 0.35)',
+    xl: '0 16px 32px rgba(0, 0, 0, 0.4)',
+    glow: '0 0 20px rgba(249, 115, 22, 0.15)',
+    focus: '0 0 0 2px rgba(249, 115, 22, 0.3)',
 };
 
 export const transitions = {
@@ -125,16 +121,13 @@ export const transitions = {
     slow: '0.3s ease',
 };
 
-// No glass effects - solid backgrounds only
 export const effects = {
-    // Keeping for backwards compatibility but not used
     glassLight: 'none',
     glassMedium: 'none',
     glassHeavy: 'none',
     glassSubtle: 'none',
 };
 
-// Common button base styles
 export const buttonBase: React.CSSProperties = {
     cursor: 'pointer',
     border: 'none',
@@ -145,7 +138,6 @@ export const buttonBase: React.CSSProperties = {
     outline: 'none',
 };
 
-// Common input base styles
 export const inputBase: React.CSSProperties = {
     fontFamily: typography.fontFamily,
     fontSize: typography.sizeBase,
@@ -158,7 +150,6 @@ export const inputBase: React.CSSProperties = {
     boxSizing: 'border-box' as const,
 };
 
-// Simple favicon fallback
 export const faviconFallback = `data:image/svg+xml,${encodeURIComponent(`
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="${colors.textDimmest}">
   <rect x="2" y="2" width="12" height="12" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/>
@@ -166,7 +157,6 @@ export const faviconFallback = `data:image/svg+xml,${encodeURIComponent(`
 </svg>
 `)}`;
 
-// Export common style objects for reuse
 export const commonStyles = {
     scrollbarHidden: {
         scrollbarWidth: 'none' as const,

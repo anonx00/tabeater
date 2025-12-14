@@ -1,15 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
-import '../ui/theme.css';
+import { colors, spacing, typography, borderRadius, shadows, transitions } from '../shared/theme';
 
-// ============================================
-// TYPES
-// ============================================
-
+// Types
 type CloudProvider = 'gemini' | 'openai' | 'anthropic';
-type TabId = 'brain' | 'pilot' | 'display' | 'license';
-type ConnectionStatus = 'idle' | 'testing' | 'success' | 'error';
 type AutoPilotMode = 'manual' | 'auto-cleanup' | 'fly-mode';
+type ConnectionStatus = 'idle' | 'testing' | 'success' | 'error';
 
 interface LicenseStatus {
     status: 'trial' | 'pro' | 'expired' | 'none';
@@ -18,12 +14,6 @@ interface LicenseStatus {
     dailyLimit?: number;
     trialEndDate?: string;
     canUse: boolean;
-}
-
-interface NanoStatus {
-    available: boolean;
-    status: 'ready' | 'downloading' | 'not_available' | 'error';
-    message: string;
 }
 
 interface AutoPilotSettings {
@@ -37,153 +27,60 @@ interface AutoPilotSettings {
     showNotifications: boolean;
 }
 
-// ============================================
-// CONSTANTS
-// ============================================
-
-const PROVIDER_INFO = {
-    gemini: {
-        name: 'Google Gemini',
-        defaultModel: 'gemini-2.0-flash',
-        models: ['gemini-2.0-flash', 'gemini-1.5-flash-latest', 'gemini-1.5-pro-latest'],
-        getKeyUrl: 'https://aistudio.google.com/app/apikey',
-        description: 'RECOMMENDED',
-        color: '#4285f4',
-    },
-    openai: {
-        name: 'OpenAI',
-        defaultModel: 'gpt-4o-mini',
-        models: ['gpt-4o-mini', 'gpt-4o', 'gpt-4-turbo', 'gpt-3.5-turbo'],
-        getKeyUrl: 'https://platform.openai.com/api-keys',
-        description: 'PAY-AS-YOU-GO',
-        color: '#10a37f',
-    },
-    anthropic: {
-        name: 'Claude',
-        defaultModel: 'claude-3-5-haiku-latest',
-        models: ['claude-3-5-haiku-latest', 'claude-3-5-sonnet-latest', 'claude-3-opus-latest'],
-        getKeyUrl: 'https://console.anthropic.com/settings/keys',
-        description: 'PAY-AS-YOU-GO',
-        color: '#d4a574',
-    }
+// Constants
+const PROVIDERS = {
+    gemini: { name: 'Gemini', color: '#4285f4', models: ['gemini-2.0-flash', 'gemini-1.5-flash-latest', 'gemini-1.5-pro-latest'], default: 'gemini-2.0-flash', url: 'https://aistudio.google.com/app/apikey' },
+    openai: { name: 'OpenAI', color: '#10a37f', models: ['gpt-4o-mini', 'gpt-4o', 'gpt-4-turbo'], default: 'gpt-4o-mini', url: 'https://platform.openai.com/api-keys' },
+    anthropic: { name: 'Claude', color: '#d4a574', models: ['claude-3-5-haiku-latest', 'claude-3-5-sonnet-latest'], default: 'claude-3-5-haiku-latest', url: 'https://console.anthropic.com/settings/keys' },
 };
 
-// ============================================
-// COMPONENTS
-// ============================================
-
-// Status LED Component
-const StatusLED: React.FC<{ status: ConnectionStatus }> = ({ status }) => {
-    const statusClass = {
-        idle: 'idle',
-        testing: 'testing',
-        success: 'online',
-        error: 'offline'
-    }[status];
-
-    return <div className={`status-led ${statusClass}`} />;
+// Icons (Lucide-style SVG paths)
+const Icons = {
+    brain: <path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/>,
+    zap: <><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></>,
+    shield: <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>,
+    check: <polyline points="20 6 9 17 4 12"/>,
+    eye: <><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></>,
+    eyeOff: <><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></>,
+    link: <><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></>,
+    loader: <><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/></>,
+    star: <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>,
+    refresh: <><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></>,
 };
 
-// Section Header Component
-const SectionHeader: React.FC<{ title: string; subtitle: string }> = ({ title, subtitle }) => (
-    <div className="section-header">
-        <h2 className="section-title">{title}</h2>
-        <p className="section-subtitle">&gt;&gt; {subtitle}</p>
-    </div>
-);
-
-// Navigation Item Component
-const NavItem: React.FC<{
-    id: TabId;
-    label: string;
-    icon: string;
-    active: boolean;
-    badge?: string;
-    onClick: () => void;
-}> = ({ id, label, icon, active, badge, onClick }) => (
-    <button
-        className={`nav-item ${active ? 'active' : ''}`}
-        onClick={onClick}
-    >
-        <span style={{ fontSize: '16px' }}>{icon}</span>
-        <span style={{ flex: 1 }}>{label}</span>
-        {badge && <span className={`badge ${badge === 'PRO' ? 'badge-pro' : 'badge-trial'}`}>{badge}</span>}
-    </button>
-);
-
-// Glitch Logo Component
-const GlitchLogo: React.FC = () => (
-    <svg width="40" height="40" viewBox="0 0 128 128" fill="none">
-        <rect width="128" height="128" rx="16" fill="#0a0a0a"/>
-        <path d="M20 108H108V48H68L56 36H20V108Z" fill="#111111" stroke="#39ff14" strokeWidth="4"/>
-        <rect x="84" y="24" width="12" height="12" fill="#39ff14"/>
-        <rect x="96" y="36" width="12" height="12" fill="#39ff14"/>
-        <rect x="36" y="56" width="12" height="12" fill="#39ff14" style={{ filter: 'drop-shadow(0 0 4px rgba(57, 255, 20, 0.8))' }}/>
+const Icon: React.FC<{ name: keyof typeof Icons; size?: number; color?: string }> = ({ name, size = 20, color = 'currentColor' }) => (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        {Icons[name]}
     </svg>
 );
 
-// ============================================
-// MAIN OPTIONS PAGE COMPONENT
-// ============================================
-
+// Main Options Page
 const OptionsPage: React.FC = () => {
-    // Tab State
-    const [activeTab, setActiveTab] = useState<TabId>('brain');
-
-    // AI Configuration State
-    const [activeProvider, setActiveProvider] = useState<string>('none');
+    // State
     const [cloudProvider, setCloudProvider] = useState<CloudProvider>('gemini');
     const [apiKey, setApiKey] = useState('');
     const [model, setModel] = useState('');
     const [showApiKey, setShowApiKey] = useState(false);
     const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('idle');
-    const [testResult, setTestResult] = useState<string | null>(null);
+    const [activeProvider, setActiveProvider] = useState('none');
     const [saved, setSaved] = useState(false);
-    const [confirmDelete, setConfirmDelete] = useState(false);
-
-    // Nano State
-    const [nanoStatus, setNanoStatus] = useState<NanoStatus | null>(null);
-    const [checkingNano, setCheckingNano] = useState(false);
-
-    // License State
     const [license, setLicense] = useState<LicenseStatus | null>(null);
+    const [autoPilotSettings, setAutoPilotSettings] = useState<AutoPilotSettings>({
+        mode: 'manual', staleDaysThreshold: 7, autoCloseStale: false, autoGroupByCategory: false,
+        excludePinned: true, excludeActive: true, flyModeDebounceMs: 5000, showNotifications: true,
+    });
+    const [autoPilotSaved, setAutoPilotSaved] = useState(false);
     const [showEmailVerify, setShowEmailVerify] = useState(false);
     const [verifyEmail, setVerifyEmail] = useState('');
     const [verifyError, setVerifyError] = useState('');
     const [verifyLoading, setVerifyLoading] = useState(false);
 
-    // Auto Pilot State
-    const [autoPilotSettings, setAutoPilotSettings] = useState<AutoPilotSettings>({
-        mode: 'manual',
-        staleDaysThreshold: 7,
-        autoCloseStale: false,
-        autoGroupByCategory: false,
-        excludePinned: true,
-        excludeActive: true,
-        flyModeDebounceMs: 5000,
-        showNotifications: true,
-    });
-    const [autoPilotSaved, setAutoPilotSaved] = useState(false);
-
-    // Display State
-    const [cleanMode, setCleanMode] = useState(true);
-
-    // ============================================
-    // EFFECTS & DATA LOADING
-    // ============================================
-
+    // Load data
     useEffect(() => {
         loadConfig();
         loadLicense();
-        checkNanoStatus();
         loadAutoPilotSettings();
-        loadDisplaySettings();
     }, []);
-
-    const loadDisplaySettings = async () => {
-        const stored = await chrome.storage.local.get(['cleanMode']);
-        setCleanMode(stored.cleanMode !== false);
-    };
 
     const loadConfig = async () => {
         const stored = await chrome.storage.local.get(['aiConfig']);
@@ -192,17 +89,6 @@ const OptionsPage: React.FC = () => {
             setCloudProvider(stored.aiConfig.cloudProvider || 'gemini');
             setModel(stored.aiConfig.model || '');
         }
-        checkProvider();
-    };
-
-    const loadLicense = async () => {
-        const response = await chrome.runtime.sendMessage({ action: 'getLicenseStatus', payload: { forceRefresh: true } });
-        if (response.success) {
-            setLicense(response.data);
-        }
-    };
-
-    const checkProvider = async () => {
         const response = await chrome.runtime.sendMessage({ action: 'getAIProvider' });
         if (response.success) {
             setActiveProvider(response.data.provider);
@@ -210,656 +96,313 @@ const OptionsPage: React.FC = () => {
         }
     };
 
-    const checkNanoStatus = async () => {
-        setCheckingNano(true);
-        try {
-            const statusResponse = await chrome.runtime.sendMessage({ action: 'checkNanoStatus' });
-            if (statusResponse.success) {
-                setNanoStatus(statusResponse.data);
-            }
-            const reinitResponse = await chrome.runtime.sendMessage({ action: 'reinitializeAI' });
-            if (reinitResponse.success) {
-                setActiveProvider(reinitResponse.data.provider);
-                if (reinitResponse.data.nanoStatus) {
-                    setNanoStatus(reinitResponse.data.nanoStatus);
-                }
-            }
-        } catch (err) {
-            console.error('Failed to check Nano status:', err);
-        }
-        setCheckingNano(false);
+    const loadLicense = async () => {
+        const response = await chrome.runtime.sendMessage({ action: 'getLicenseStatus', payload: { forceRefresh: true } });
+        if (response.success) setLicense(response.data);
     };
 
     const loadAutoPilotSettings = async () => {
         const response = await chrome.runtime.sendMessage({ action: 'getAutoPilotSettings' });
-        if (response.success) {
-            setAutoPilotSettings(response.data);
-        }
+        if (response.success) setAutoPilotSettings(response.data);
     };
 
-    // ============================================
-    // ACTIONS
-    // ============================================
-
-    const toggleCleanMode = async () => {
-        const newValue = !cleanMode;
-        setCleanMode(newValue);
-        await chrome.storage.local.set({ cleanMode: newValue });
-    };
-
+    // Actions
     const saveConfig = async () => {
-        const selectedModel = model || PROVIDER_INFO[cloudProvider].defaultModel;
-        await chrome.runtime.sendMessage({
-            action: 'setAIConfig',
-            payload: { cloudProvider, apiKey, model: selectedModel }
-        });
+        const selectedModel = model || PROVIDERS[cloudProvider].default;
+        await chrome.runtime.sendMessage({ action: 'setAIConfig', payload: { cloudProvider, apiKey, model: selectedModel } });
         setSaved(true);
         setTimeout(() => setSaved(false), 2000);
-        checkProvider();
+        loadConfig();
     };
 
     const testConnection = async () => {
         setConnectionStatus('testing');
-        setTestResult(null);
-
         try {
-            const response = await chrome.runtime.sendMessage({
-                action: 'askAI',
-                payload: { prompt: 'Respond with exactly: "Connection OK"' }
-            });
-
-            if (response.success) {
-                setConnectionStatus('success');
-                setTestResult('success');
-            } else {
-                setConnectionStatus('error');
-                setTestResult(response.error || 'Test failed');
-            }
-        } catch (err: any) {
+            const response = await chrome.runtime.sendMessage({ action: 'askAI', payload: { prompt: 'Say OK' } });
+            setConnectionStatus(response.success ? 'success' : 'error');
+        } catch {
             setConnectionStatus('error');
-            setTestResult(err.message);
         }
-    };
-
-    const deleteApiKey = async () => {
-        if (!confirmDelete) {
-            setConfirmDelete(true);
-            setTimeout(() => setConfirmDelete(false), 3000);
-            return;
-        }
-        setApiKey('');
-        await chrome.runtime.sendMessage({
-            action: 'setAIConfig',
-            payload: { cloudProvider, apiKey: '', model: '' }
-        });
-        setConfirmDelete(false);
-        setConnectionStatus('idle');
-        checkProvider();
     };
 
     const saveAutoPilotSettings = useCallback(async () => {
-        await chrome.runtime.sendMessage({
-            action: 'setAutoPilotSettings',
-            payload: autoPilotSettings
-        });
+        await chrome.runtime.sendMessage({ action: 'setAutoPilotSettings', payload: autoPilotSettings });
         setAutoPilotSaved(true);
         setTimeout(() => setAutoPilotSaved(false), 2000);
     }, [autoPilotSettings]);
 
-    const updateAutoPilotSetting = <K extends keyof AutoPilotSettings>(key: K, value: AutoPilotSettings[K]) => {
-        setAutoPilotSettings(prev => ({ ...prev, [key]: value }));
-    };
-
     const verifyByEmail = async () => {
-        if (!verifyEmail.trim()) {
-            setVerifyError('Please enter your payment email');
-            return;
-        }
-        setVerifyLoading(true);
-        setVerifyError('');
+        if (!verifyEmail.trim()) { setVerifyError('Enter your payment email'); return; }
+        setVerifyLoading(true); setVerifyError('');
         try {
-            const response = await chrome.runtime.sendMessage({
-                action: 'verifyByEmail',
-                payload: { email: verifyEmail.trim().toLowerCase() }
-            });
+            const response = await chrome.runtime.sendMessage({ action: 'verifyByEmail', payload: { email: verifyEmail.trim().toLowerCase() } });
             if (response.success && response.data.verified) {
-                await loadLicense();
-                setShowEmailVerify(false);
-                setVerifyEmail('');
-            } else if (response.data?.error === 'DEVICE_LIMIT') {
-                setVerifyError('Device limit reached. Contact support.');
-            } else if (response.data?.error === 'NOT_FOUND') {
-                setVerifyError('No purchase found for this email');
+                await loadLicense(); setShowEmailVerify(false); setVerifyEmail('');
             } else {
-                setVerifyError(response.data?.message || 'Verification failed');
+                setVerifyError(response.data?.error === 'DEVICE_LIMIT' ? 'Device limit reached' : response.data?.error === 'NOT_FOUND' ? 'No purchase found' : 'Verification failed');
             }
-        } catch {
-            setVerifyError('Failed to verify. Please try again.');
-        }
+        } catch { setVerifyError('Failed to verify'); }
         setVerifyLoading(false);
     };
 
-    // ============================================
-    // HELPER FUNCTIONS
-    // ============================================
-
-    const getProviderLabel = (p: string) => {
-        if (p === 'nano') return 'Chrome Nano (Local)';
-        if (p === 'gemini') return 'Google Gemini';
-        if (p === 'openai') return 'OpenAI';
-        if (p === 'anthropic') return 'Anthropic Claude';
-        return 'Not Configured';
+    // Styles
+    const s = {
+        page: { minHeight: '100vh', background: colors.bgDarker, color: colors.textPrimary, fontFamily: typography.fontFamily, padding: spacing.xxxl, display: 'flex', justifyContent: 'center' } as React.CSSProperties,
+        container: { width: '100%', maxWidth: 680 } as React.CSSProperties,
+        header: { marginBottom: spacing.xxxl, display: 'flex', alignItems: 'center', gap: spacing.lg } as React.CSSProperties,
+        logo: { width: 48, height: 48, background: `linear-gradient(135deg, ${colors.primary}, ${colors.primaryDark})`, borderRadius: borderRadius.lg, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: shadows.glow } as React.CSSProperties,
+        logoInner: { color: '#fff', fontWeight: typography.bold, fontSize: typography.sizeXl } as React.CSSProperties,
+        title: { fontSize: typography.sizeHero, fontWeight: typography.bold, color: colors.textPrimary, margin: 0, letterSpacing: typography.letterTight } as React.CSSProperties,
+        subtitle: { fontSize: typography.sizeSm, color: colors.textDim, marginTop: 2 } as React.CSSProperties,
+        section: { background: colors.bgCard, border: `1px solid ${colors.borderMedium}`, borderRadius: borderRadius.lg, marginBottom: spacing.xxl, overflow: 'hidden' } as React.CSSProperties,
+        sectionHeader: { padding: `${spacing.lg}px ${spacing.xl}px`, borderBottom: `1px solid ${colors.borderMedium}`, display: 'flex', alignItems: 'center', gap: spacing.md } as React.CSSProperties,
+        sectionIcon: { width: 32, height: 32, background: colors.primaryBg, borderRadius: borderRadius.sm, display: 'flex', alignItems: 'center', justifyContent: 'center', color: colors.primary } as React.CSSProperties,
+        sectionTitle: { fontSize: typography.sizeLg, fontWeight: typography.semibold, color: colors.textPrimary } as React.CSSProperties,
+        sectionBody: { padding: spacing.xl } as React.CSSProperties,
+        row: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: `${spacing.md}px 0`, borderBottom: `1px solid ${colors.borderDark}` } as React.CSSProperties,
+        rowLast: { borderBottom: 'none' } as React.CSSProperties,
+        label: { fontSize: typography.sizeSm, color: colors.textSecondary } as React.CSSProperties,
+        labelSub: { fontSize: typography.sizeXs, color: colors.textDim, marginTop: 2 } as React.CSSProperties,
+        input: { background: colors.bgInput, border: `1px solid ${colors.borderLight}`, borderRadius: borderRadius.sm, padding: `${spacing.sm}px ${spacing.md}px`, color: colors.textPrimary, fontSize: typography.sizeBase, outline: 'none', fontFamily: typography.fontFamily, transition: `border-color ${transitions.fast}`, width: '100%' } as React.CSSProperties,
+        select: { background: colors.bgInput, border: `1px solid ${colors.borderLight}`, borderRadius: borderRadius.sm, padding: `${spacing.sm}px ${spacing.md}px`, color: colors.textPrimary, fontSize: typography.sizeBase, outline: 'none', fontFamily: typography.fontFamily, cursor: 'pointer', minWidth: 140 } as React.CSSProperties,
+        checkbox: { width: 18, height: 18, accentColor: colors.primary, cursor: 'pointer' } as React.CSSProperties,
+        btn: { background: colors.primary, color: '#fff', border: 'none', borderRadius: borderRadius.sm, padding: `${spacing.sm}px ${spacing.lg}px`, fontSize: typography.sizeSm, fontWeight: typography.semibold, cursor: 'pointer', transition: `all ${transitions.fast}`, display: 'inline-flex', alignItems: 'center', gap: spacing.sm } as React.CSSProperties,
+        btnSecondary: { background: colors.bgElevated, color: colors.textSecondary, border: `1px solid ${colors.borderLight}` } as React.CSSProperties,
+        btnSuccess: { background: colors.success } as React.CSSProperties,
+        btnSmall: { padding: `${spacing.xs}px ${spacing.md}px` } as React.CSSProperties,
+        providerGrid: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: spacing.md, marginBottom: spacing.xl } as React.CSSProperties,
+        providerCard: { background: colors.bgElevated, border: `2px solid ${colors.borderMedium}`, borderRadius: borderRadius.md, padding: spacing.lg, textAlign: 'center', cursor: 'pointer', transition: `all ${transitions.fast}` } as React.CSSProperties,
+        providerCardActive: { borderColor: colors.primary, background: colors.primaryBg } as React.CSSProperties,
+        providerName: { fontSize: typography.sizeSm, fontWeight: typography.semibold, color: colors.textPrimary, marginTop: spacing.sm } as React.CSSProperties,
+        modeGrid: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: spacing.md, marginBottom: spacing.xl } as React.CSSProperties,
+        modeCard: { background: colors.bgElevated, border: `2px solid ${colors.borderMedium}`, borderRadius: borderRadius.md, padding: spacing.lg, textAlign: 'center', cursor: 'pointer', transition: `all ${transitions.fast}` } as React.CSSProperties,
+        modeCardActive: { borderColor: colors.primary, background: colors.primaryBg } as React.CSSProperties,
+        modeCardDanger: { borderColor: colors.error } as React.CSSProperties,
+        modeIcon: { fontSize: 24, marginBottom: spacing.sm } as React.CSSProperties,
+        modeName: { fontSize: typography.sizeSm, fontWeight: typography.semibold, color: colors.textPrimary } as React.CSSProperties,
+        modeDesc: { fontSize: typography.sizeXs, color: colors.textDim, marginTop: 4 } as React.CSSProperties,
+        status: { display: 'flex', alignItems: 'center', gap: spacing.sm, fontSize: typography.sizeSm } as React.CSSProperties,
+        statusDot: { width: 8, height: 8, borderRadius: '50%', background: colors.textDim } as React.CSSProperties,
+        statusDotSuccess: { background: colors.success, boxShadow: `0 0 8px ${colors.success}` } as React.CSSProperties,
+        statusDotError: { background: colors.error } as React.CSSProperties,
+        statusDotTesting: { background: colors.warning, animation: 'pulse 1s infinite' } as React.CSSProperties,
+        inputGroup: { display: 'flex', gap: spacing.sm, marginBottom: spacing.md } as React.CSSProperties,
+        link: { color: colors.primary, fontSize: typography.sizeSm, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 } as React.CSSProperties,
+        badge: { fontSize: typography.sizeXs, fontWeight: typography.semibold, padding: `2px ${spacing.sm}px`, borderRadius: borderRadius.xs, textTransform: 'uppercase' } as React.CSSProperties,
+        badgePro: { background: colors.primary, color: '#fff' } as React.CSSProperties,
+        badgeTrial: { background: colors.warningBg, color: colors.warning, border: `1px solid ${colors.warning}` } as React.CSSProperties,
+        licenseCard: { background: colors.bgElevated, border: `1px solid ${colors.borderMedium}`, borderRadius: borderRadius.md, padding: spacing.xl, textAlign: 'center' } as React.CSSProperties,
+        licensePrice: { fontSize: typography.sizeHero, fontWeight: typography.bold, color: colors.textPrimary, marginTop: spacing.md } as React.CSSProperties,
+        licenseFeatures: { listStyle: 'none', padding: 0, margin: `${spacing.lg}px 0`, textAlign: 'left' } as React.CSSProperties,
+        licenseFeature: { padding: `${spacing.sm}px 0`, fontSize: typography.sizeSm, color: colors.textMuted, display: 'flex', alignItems: 'center', gap: spacing.sm } as React.CSSProperties,
     };
 
-    const getLicenseBadge = () => {
-        if (!license) return null;
-        if (license.paid) return 'PRO';
-        if (license.status === 'trial') return 'TRIAL';
-        return null;
+    const getStatusDotStyle = () => {
+        if (connectionStatus === 'success') return { ...s.statusDot, ...s.statusDotSuccess };
+        if (connectionStatus === 'error') return { ...s.statusDot, ...s.statusDotError };
+        if (connectionStatus === 'testing') return { ...s.statusDot, ...s.statusDotTesting };
+        return s.statusDot;
     };
-
-    // ============================================
-    // SECTION RENDERERS
-    // ============================================
-
-    const renderBrainSection = () => (
-        <div className="animate-fade-in">
-            <SectionHeader title="AI Core" subtitle="Configure Neural Link" />
-
-            {/* Current Status Card */}
-            <div className="card" style={{ marginBottom: '24px' }}>
-                <div className="card-body">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                        <span style={{ color: 'var(--text-secondary)', textTransform: 'uppercase', fontSize: '12px', letterSpacing: '1px' }}>
-                            Active Provider
-                        </span>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <StatusLED status={connectionStatus} />
-                            <span className={`badge ${connectionStatus === 'success' ? 'badge-online' : 'badge-offline'}`}>
-                                {connectionStatus === 'success' ? 'ONLINE' : 'OFFLINE'}
-                            </span>
-                        </div>
-                    </div>
-                    <div style={{ fontSize: '18px', fontWeight: 'bold', color: 'var(--terminal-green)' }}>
-                        {getProviderLabel(activeProvider)}
-                    </div>
-                </div>
-            </div>
-
-            {/* Provider Selection */}
-            <div className="card" style={{ marginBottom: '24px' }}>
-                <div className="card-body">
-                    <label style={{ display: 'block', color: 'var(--text-dim)', textTransform: 'uppercase', fontSize: '11px', letterSpacing: '1px', marginBottom: '12px' }}>
-                        Cloud Provider
-                    </label>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '24px' }}>
-                        {(Object.keys(PROVIDER_INFO) as CloudProvider[]).map(p => (
-                            <button
-                                key={p}
-                                className={`provider-card ${p} ${cloudProvider === p ? 'selected' : ''}`}
-                                onClick={() => {
-                                    setCloudProvider(p);
-                                    setModel(PROVIDER_INFO[p].defaultModel);
-                                }}
-                                style={{
-                                    borderColor: cloudProvider === p ? PROVIDER_INFO[p].color : undefined
-                                }}
-                            >
-                                <div style={{ fontWeight: 'bold', color: PROVIDER_INFO[p].color, marginBottom: '4px' }}>
-                                    {PROVIDER_INFO[p].name}
-                                </div>
-                                <div style={{ fontSize: '10px', color: 'var(--text-dim)' }}>
-                                    {PROVIDER_INFO[p].description}
-                                </div>
-                            </button>
-                        ))}
-                    </div>
-
-                    {/* API Key Input */}
-                    <label style={{ display: 'block', color: 'var(--text-dim)', textTransform: 'uppercase', fontSize: '11px', letterSpacing: '1px', marginBottom: '8px' }}>
-                        API Key
-                    </label>
-                    <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
-                        <input
-                            type={showApiKey ? 'text' : 'password'}
-                            value={apiKey}
-                            onChange={(e) => setApiKey(e.target.value)}
-                            placeholder="sk-..."
-                            style={{ flex: 1 }}
-                        />
-                        <button
-                            className="btn-ghost"
-                            onClick={() => setShowApiKey(!showApiKey)}
-                            style={{ padding: '8px 12px' }}
-                            title={showApiKey ? 'Hide' : 'Show'}
-                        >
-                            {showApiKey ? '◠' : '◡'}
-                        </button>
-                        {apiKey && (
-                            <button
-                                className={confirmDelete ? 'btn-danger' : 'btn-ghost'}
-                                onClick={deleteApiKey}
-                                style={{ padding: '8px 12px' }}
-                                title={confirmDelete ? 'Confirm delete' : 'Delete key'}
-                            >
-                                ✕
-                            </button>
-                        )}
-                        <button
-                            className="btn-primary"
-                            onClick={testConnection}
-                            disabled={connectionStatus === 'testing' || !apiKey}
-                            style={{ padding: '8px 16px' }}
-                        >
-                            {connectionStatus === 'testing' ? 'TESTING...' : 'TEST'}
-                        </button>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '16px' }}>
-                        <a
-                            href={PROVIDER_INFO[cloudProvider].getKeyUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            style={{ color: 'var(--info-blue)', fontSize: '12px', textDecoration: 'none' }}
-                        >
-                            ↗ Get API key
-                        </a>
-                        <span style={{ color: 'var(--terminal-green)', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <span style={{ fontSize: '8px' }}>🔒</span> Encrypted locally
-                        </span>
-                    </div>
-
-                    {/* Model Selection */}
-                    <label style={{ display: 'block', color: 'var(--text-dim)', textTransform: 'uppercase', fontSize: '11px', letterSpacing: '1px', marginBottom: '8px' }}>
-                        Model
-                    </label>
-                    <select
-                        value={model || PROVIDER_INFO[cloudProvider].defaultModel}
-                        onChange={(e) => setModel(e.target.value)}
-                        style={{ width: '100%', marginBottom: '16px' }}
-                    >
-                        {PROVIDER_INFO[cloudProvider].models.map(m => (
-                            <option key={m} value={m}>{m}</option>
-                        ))}
-                    </select>
-
-                    {/* Test Result */}
-                    {testResult && (
-                        <div style={{
-                            padding: '12px',
-                            marginBottom: '16px',
-                            borderRadius: '4px',
-                            background: testResult === 'success' ? 'rgba(57, 255, 20, 0.1)' : 'rgba(255, 0, 85, 0.1)',
-                            border: `1px solid ${testResult === 'success' ? 'var(--terminal-green-dim)' : 'var(--alert-red-dim)'}`,
-                            color: testResult === 'success' ? 'var(--terminal-green)' : 'var(--alert-red)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px'
-                        }}>
-                            <StatusLED status={testResult === 'success' ? 'success' : 'error'} />
-                            {testResult === 'success' ? 'Connection successful!' : testResult}
-                        </div>
-                    )}
-
-                    {/* Save Button */}
-                    <button
-                        className="btn-primary"
-                        onClick={saveConfig}
-                        style={{ width: '100%', padding: '12px' }}
-                    >
-                        {saved ? '✓ SAVED!' : 'SAVE CONFIGURATION'}
-                    </button>
-                </div>
-            </div>
-
-            {/* Local AI Section */}
-            {(activeProvider === 'nano' || nanoStatus?.status === 'ready' || nanoStatus?.status === 'downloading') && (
-                <div className="card">
-                    <div className="card-body">
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <div>
-                                <div style={{ color: 'var(--terminal-green)', fontWeight: 'bold', marginBottom: '4px' }}>
-                                    Gemini Nano (Local)
-                                </div>
-                                <div style={{ color: 'var(--text-dim)', fontSize: '12px' }}>
-                                    Runs on device • No API key needed • Free & Private
-                                </div>
-                            </div>
-                            <span className={`badge ${activeProvider === 'nano' ? 'badge-online' : 'badge-trial'}`}>
-                                {activeProvider === 'nano' ? 'ACTIVE' : nanoStatus?.status === 'ready' ? 'READY' : 'DOWNLOADING'}
-                            </span>
-                        </div>
-                    </div>
-                </div>
-            )}
-        </div>
-    );
-
-    const renderAutoPilotSection = () => (
-        <div className="animate-fade-in">
-            <SectionHeader title="Auto Pilot" subtitle="Automated Cleanup Protocols" />
-
-            {/* Mode Selection */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '24px' }}>
-                <button
-                    className={`mode-card ${autoPilotSettings.mode === 'manual' ? 'selected' : ''}`}
-                    onClick={() => updateAutoPilotSetting('mode', 'manual')}
-                >
-                    <span style={{ fontSize: '24px' }}>🔔</span>
-                    <span style={{ fontWeight: 'bold', fontSize: '14px' }}>MANUAL</span>
-                    <span style={{ fontSize: '11px', color: 'var(--text-dim)' }}>AI suggests, you confirm</span>
-                </button>
-                <button
-                    className={`mode-card ${autoPilotSettings.mode === 'auto-cleanup' ? 'selected' : ''}`}
-                    onClick={() => updateAutoPilotSetting('mode', 'auto-cleanup')}
-                >
-                    <span style={{ fontSize: '24px' }}>🧹</span>
-                    <span style={{ fontWeight: 'bold', fontSize: '14px' }}>AUTO-CLEAN</span>
-                    <span style={{ fontSize: '11px', color: 'var(--text-dim)' }}>Auto-closes duplicates</span>
-                </button>
-                <button
-                    className={`mode-card danger ${autoPilotSettings.mode === 'fly-mode' ? 'selected' : ''}`}
-                    onClick={() => updateAutoPilotSetting('mode', 'fly-mode')}
-                >
-                    <span style={{ fontSize: '24px' }}>🚀</span>
-                    <span style={{ fontWeight: 'bold', fontSize: '14px', color: 'var(--alert-red)' }}>FLY MODE</span>
-                    <span style={{ fontSize: '11px', color: 'var(--alert-red)' }}>Full autonomy • EXPERIMENTAL</span>
-                </button>
-            </div>
-
-            {autoPilotSettings.mode === 'fly-mode' && (
-                <div style={{
-                    padding: '12px',
-                    marginBottom: '24px',
-                    background: 'rgba(255, 0, 85, 0.1)',
-                    border: '1px solid var(--alert-red-dim)',
-                    borderRadius: '4px',
-                    color: 'var(--alert-red)',
-                    fontSize: '12px'
-                }}>
-                    ⚠ FLY MODE: Automatically closes duplicates and groups tabs. Use with caution.
-                </div>
-            )}
-
-            {/* Settings Card */}
-            <div className="card">
-                <div className="card-body">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', paddingBottom: '16px', borderBottom: '1px solid var(--border-subtle)' }}>
-                        <div>
-                            <div style={{ color: 'var(--text-primary)', marginBottom: '4px' }}>Stale Tab Threshold</div>
-                            <div style={{ color: 'var(--text-dim)', fontSize: '12px' }}>Tabs not accessed for this period</div>
-                        </div>
-                        <select
-                            value={autoPilotSettings.staleDaysThreshold}
-                            onChange={(e) => updateAutoPilotSetting('staleDaysThreshold', parseInt(e.target.value))}
-                            style={{ minWidth: '120px' }}
-                        >
-                            <option value={1}>1 Day</option>
-                            <option value={3}>3 Days</option>
-                            <option value={7}>7 Days</option>
-                            <option value={14}>14 Days</option>
-                            <option value={30}>30 Days</option>
-                        </select>
-                    </div>
-
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px', cursor: 'pointer', padding: '8px', borderRadius: '4px' }}>
-                        <input
-                            type="checkbox"
-                            checked={autoPilotSettings.excludePinned}
-                            onChange={(e) => updateAutoPilotSetting('excludePinned', e.target.checked)}
-                        />
-                        <span style={{ color: 'var(--text-primary)' }}>Exclude pinned tabs</span>
-                    </label>
-
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px', cursor: 'pointer', padding: '8px', borderRadius: '4px' }}>
-                        <input
-                            type="checkbox"
-                            checked={autoPilotSettings.excludeActive}
-                            onChange={(e) => updateAutoPilotSetting('excludeActive', e.target.checked)}
-                        />
-                        <span style={{ color: 'var(--text-primary)' }}>Exclude currently active tabs</span>
-                    </label>
-
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px', cursor: 'pointer', padding: '8px', borderRadius: '4px' }}>
-                        <input
-                            type="checkbox"
-                            checked={autoPilotSettings.showNotifications}
-                            onChange={(e) => updateAutoPilotSetting('showNotifications', e.target.checked)}
-                        />
-                        <span style={{ color: 'var(--text-primary)' }}>Show notifications for auto actions</span>
-                    </label>
-
-                    <button
-                        className="btn-primary"
-                        onClick={saveAutoPilotSettings}
-                        style={{ width: '100%', padding: '12px' }}
-                    >
-                        {autoPilotSaved ? '✓ SAVED!' : 'SAVE AUTO PILOT SETTINGS'}
-                    </button>
-                </div>
-            </div>
-        </div>
-    );
-
-    const renderDisplaySection = () => (
-        <div className="animate-fade-in">
-            <SectionHeader title="Display" subtitle="Visual Configuration" />
-
-            <div className="card">
-                <div className="card-body">
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', padding: '8px', borderRadius: '4px' }}>
-                        <input
-                            type="checkbox"
-                            checked={!cleanMode}
-                            onChange={toggleCleanMode}
-                        />
-                        <div>
-                            <div style={{ color: 'var(--text-primary)', marginBottom: '4px' }}>Retro Mode (CRT Scanlines)</div>
-                            <div style={{ color: 'var(--text-dim)', fontSize: '12px' }}>Enable classic CRT monitor effects for tactical aesthetic</div>
-                        </div>
-                    </label>
-                </div>
-            </div>
-
-            <div style={{ marginTop: '24px', padding: '16px', border: '1px dashed var(--border-medium)', borderRadius: '4px', textAlign: 'center', color: 'var(--text-dim)' }}>
-                <div style={{ fontSize: '24px', marginBottom: '8px' }}>🎨</div>
-                <div>More display settings coming soon</div>
-            </div>
-        </div>
-    );
-
-    const renderLicenseSection = () => {
-        const getLicenseStatus = () => {
-            if (!license) return { text: 'Loading...', color: 'var(--text-dim)' };
-            if (license.paid) return { text: 'PRO - Unlimited Access', color: 'var(--terminal-green)' };
-            if (license.status === 'trial') {
-                const daysLeft = license.trialEndDate
-                    ? Math.ceil((new Date(license.trialEndDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
-                    : 0;
-                return { text: `Free Trial - ${daysLeft} days left (${license.usageRemaining}/${license.dailyLimit || 20} uses today)`, color: 'var(--warning-amber)' };
-            }
-            if (license.status === 'expired') return { text: 'Trial Expired', color: 'var(--alert-red)' };
-            return { text: 'Not Registered', color: 'var(--alert-red)' };
-        };
-
-        const status = getLicenseStatus();
-
-        return (
-            <div className="animate-fade-in">
-                <SectionHeader title="License" subtitle="Account Status" />
-
-                <div className="card">
-                    <div className="card-body">
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                            <span style={{ color: status.color, fontWeight: 'bold', fontSize: '16px' }}>
-                                {status.text}
-                            </span>
-                            <button
-                                className="btn-ghost"
-                                onClick={loadLicense}
-                                style={{ padding: '6px 12px', fontSize: '12px' }}
-                            >
-                                ↻ REFRESH
-                            </button>
-                        </div>
-
-                        {license && !license.paid && (
-                            <>
-                                {!showEmailVerify ? (
-                                    <button
-                                        className="btn-secondary"
-                                        onClick={() => setShowEmailVerify(true)}
-                                        style={{ width: '100%', padding: '12px', marginTop: '16px' }}
-                                    >
-                                        ✉ Already paid? Verify by email
-                                    </button>
-                                ) : (
-                                    <div style={{ marginTop: '16px', padding: '16px', background: 'var(--bg-card)', borderRadius: '4px' }}>
-                                        <div style={{ color: 'var(--text-dim)', fontSize: '12px', marginBottom: '8px' }}>
-                                            Enter the email you used for payment:
-                                        </div>
-                                        <input
-                                            type="email"
-                                            placeholder="your@email.com"
-                                            value={verifyEmail}
-                                            onChange={(e) => setVerifyEmail(e.target.value)}
-                                            onKeyDown={(e) => e.key === 'Enter' && verifyByEmail()}
-                                            style={{ width: '100%', marginBottom: '8px' }}
-                                        />
-                                        <div style={{ color: 'var(--text-dimmer)', fontSize: '11px', marginBottom: '8px' }}>
-                                            Each purchase can be activated on up to 3 devices
-                                        </div>
-                                        {verifyError && (
-                                            <div style={{ color: 'var(--alert-red)', fontSize: '12px', marginBottom: '8px' }}>
-                                                {verifyError}
-                                            </div>
-                                        )}
-                                        <div style={{ display: 'flex', gap: '8px' }}>
-                                            <button
-                                                className="btn-primary"
-                                                onClick={verifyByEmail}
-                                                disabled={verifyLoading}
-                                                style={{ flex: 1, padding: '10px' }}
-                                            >
-                                                {verifyLoading ? 'VERIFYING...' : 'VERIFY'}
-                                            </button>
-                                            <button
-                                                className="btn-ghost"
-                                                onClick={() => {
-                                                    setShowEmailVerify(false);
-                                                    setVerifyError('');
-                                                    setVerifyEmail('');
-                                                }}
-                                                style={{ flex: 1, padding: '10px' }}
-                                            >
-                                                CANCEL
-                                            </button>
-                                        </div>
-                                    </div>
-                                )}
-                            </>
-                        )}
-                    </div>
-                </div>
-            </div>
-        );
-    };
-
-    // ============================================
-    // MAIN RENDER
-    // ============================================
 
     return (
-        <div style={{
-            minHeight: '100vh',
-            display: 'flex',
-            background: 'var(--bg-dark)',
-            color: 'var(--terminal-green)',
-            fontFamily: 'var(--font-mono)',
-        }}>
-            {/* Sidebar */}
-            <div style={{
-                width: '260px',
-                borderRight: '1px solid var(--terminal-green-dim)',
-                padding: '24px',
-                display: 'flex',
-                flexDirection: 'column',
-                background: '#000',
-            }}>
-                {/* Logo Section */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '32px' }}>
-                    <GlitchLogo />
+        <div style={s.page}>
+            <div style={s.container}>
+                {/* Header */}
+                <div style={s.header}>
+                    <div style={s.logo}><span style={s.logoInner}>TE</span></div>
                     <div>
-                        <h1 style={{ margin: 0, fontSize: '20px', fontWeight: 'bold', letterSpacing: '-0.5px' }}>
-                            TabEater
-                        </h1>
-                        <p style={{ margin: 0, fontSize: '10px', color: 'var(--text-dim)' }}>
-                            SYS.V.1.0.0
-                        </p>
+                        <h1 style={s.title}>TabEater</h1>
+                        <p style={s.subtitle}>Settings & Configuration</p>
+                    </div>
+                    {license?.paid && <span style={{ ...s.badge, ...s.badgePro, marginLeft: 'auto' }}>PRO</span>}
+                    {license?.status === 'trial' && !license.paid && <span style={{ ...s.badge, ...s.badgeTrial, marginLeft: 'auto' }}>TRIAL</span>}
+                </div>
+
+                {/* AI Provider Section */}
+                <div style={s.section}>
+                    <div style={s.sectionHeader}>
+                        <div style={s.sectionIcon}><Icon name="brain" size={18} /></div>
+                        <span style={s.sectionTitle}>AI Provider</span>
+                        <div style={{ ...s.status, marginLeft: 'auto' }}>
+                            <div style={getStatusDotStyle()} />
+                            <span style={{ color: connectionStatus === 'success' ? colors.success : connectionStatus === 'error' ? colors.error : colors.textDim }}>
+                                {connectionStatus === 'success' ? 'Connected' : connectionStatus === 'error' ? 'Error' : connectionStatus === 'testing' ? 'Testing...' : 'Not connected'}
+                            </span>
+                        </div>
+                    </div>
+                    <div style={s.sectionBody}>
+                        <div style={s.providerGrid}>
+                            {(Object.keys(PROVIDERS) as CloudProvider[]).map(p => (
+                                <div key={p} style={{ ...s.providerCard, ...(cloudProvider === p ? s.providerCardActive : {}), borderColor: cloudProvider === p ? PROVIDERS[p].color : undefined }} onClick={() => { setCloudProvider(p); setModel(PROVIDERS[p].default); }}>
+                                    <div style={{ width: 40, height: 40, borderRadius: borderRadius.full, background: `${PROVIDERS[p].color}20`, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <div style={{ width: 20, height: 20, borderRadius: borderRadius.full, background: PROVIDERS[p].color }} />
+                                    </div>
+                                    <div style={s.providerName}>{PROVIDERS[p].name}</div>
+                                </div>
+                            ))}
+                        </div>
+
+                        <div style={{ marginBottom: spacing.lg }}>
+                            <div style={{ ...s.label, marginBottom: spacing.sm }}>API Key</div>
+                            <div style={s.inputGroup}>
+                                <input type={showApiKey ? 'text' : 'password'} value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="Enter your API key..." style={{ ...s.input, flex: 1, fontFamily: typography.fontMono }} />
+                                <button style={{ ...s.btn, ...s.btnSecondary, ...s.btnSmall }} onClick={() => setShowApiKey(!showApiKey)}><Icon name={showApiKey ? 'eyeOff' : 'eye'} size={16} /></button>
+                                <button style={{ ...s.btn, ...s.btnSmall }} onClick={testConnection} disabled={!apiKey || connectionStatus === 'testing'}>
+                                    {connectionStatus === 'testing' ? <Icon name="loader" size={16} /> : 'Test'}
+                                </button>
+                            </div>
+                            <a href={PROVIDERS[cloudProvider].url} target="_blank" rel="noopener noreferrer" style={s.link}><Icon name="link" size={14} /> Get API key from {PROVIDERS[cloudProvider].name}</a>
+                        </div>
+
+                        <div style={{ marginBottom: spacing.xl }}>
+                            <div style={{ ...s.label, marginBottom: spacing.sm }}>Model</div>
+                            <select value={model || PROVIDERS[cloudProvider].default} onChange={(e) => setModel(e.target.value)} style={s.select}>
+                                {PROVIDERS[cloudProvider].models.map(m => <option key={m} value={m}>{m}</option>)}
+                            </select>
+                        </div>
+
+                        <button style={{ ...s.btn, width: '100%', justifyContent: 'center', ...(saved ? s.btnSuccess : {}) }} onClick={saveConfig}>
+                            {saved ? <><Icon name="check" size={16} /> Saved!</> : 'Save Configuration'}
+                        </button>
                     </div>
                 </div>
 
-                {/* Navigation */}
-                <nav style={{ flex: 1 }}>
-                    <NavItem
-                        id="brain"
-                        label="AI CONNECTION"
-                        icon="🧠"
-                        active={activeTab === 'brain'}
-                        onClick={() => setActiveTab('brain')}
-                    />
-                    <NavItem
-                        id="pilot"
-                        label="AUTO PILOT"
-                        icon="✈️"
-                        active={activeTab === 'pilot'}
-                        badge="PRO"
-                        onClick={() => setActiveTab('pilot')}
-                    />
-                    <NavItem
-                        id="display"
-                        label="DISPLAY / UX"
-                        icon="🖥️"
-                        active={activeTab === 'display'}
-                        onClick={() => setActiveTab('display')}
-                    />
-                    <NavItem
-                        id="license"
-                        label={`LICENSE${getLicenseBadge() ? `: ${getLicenseBadge()}` : ''}`}
-                        icon="💎"
-                        active={activeTab === 'license'}
-                        onClick={() => setActiveTab('license')}
-                    />
-                </nav>
+                {/* Auto Pilot Section */}
+                <div style={s.section}>
+                    <div style={s.sectionHeader}>
+                        <div style={s.sectionIcon}><Icon name="zap" size={18} /></div>
+                        <span style={s.sectionTitle}>Auto Pilot</span>
+                        {!license?.paid && <span style={{ ...s.badge, ...s.badgePro, marginLeft: 'auto' }}>PRO</span>}
+                    </div>
+                    <div style={s.sectionBody}>
+                        <div style={s.modeGrid}>
+                            <div style={{ ...s.modeCard, ...(autoPilotSettings.mode === 'manual' ? s.modeCardActive : {}) }} onClick={() => setAutoPilotSettings(p => ({ ...p, mode: 'manual' }))}>
+                                <div style={s.modeIcon}>🔔</div>
+                                <div style={s.modeName}>Manual</div>
+                                <div style={s.modeDesc}>AI suggests, you confirm</div>
+                            </div>
+                            <div style={{ ...s.modeCard, ...(autoPilotSettings.mode === 'auto-cleanup' ? s.modeCardActive : {}) }} onClick={() => setAutoPilotSettings(p => ({ ...p, mode: 'auto-cleanup' }))}>
+                                <div style={s.modeIcon}>🧹</div>
+                                <div style={s.modeName}>Auto Clean</div>
+                                <div style={s.modeDesc}>Auto-closes duplicates</div>
+                            </div>
+                            <div style={{ ...s.modeCard, ...(autoPilotSettings.mode === 'fly-mode' ? { ...s.modeCardActive, ...s.modeCardDanger } : {}) }} onClick={() => setAutoPilotSettings(p => ({ ...p, mode: 'fly-mode' }))}>
+                                <div style={s.modeIcon}>🚀</div>
+                                <div style={{ ...s.modeName, color: autoPilotSettings.mode === 'fly-mode' ? colors.error : undefined }}>Fly Mode</div>
+                                <div style={{ ...s.modeDesc, color: autoPilotSettings.mode === 'fly-mode' ? colors.error : undefined }}>Full autonomy</div>
+                            </div>
+                        </div>
 
-                {/* Footer Stats */}
-                <div style={{ fontSize: '10px', color: 'var(--text-dimmer)', borderTop: '1px solid var(--border-subtle)', paddingTop: '16px' }}>
-                    <div style={{ marginBottom: '4px' }}>STATUS: {connectionStatus === 'success' ? 'CONNECTED' : 'DISCONNECTED'}</div>
-                    <div>PROVIDER: {activeProvider.toUpperCase()}</div>
+                        {autoPilotSettings.mode === 'fly-mode' && (
+                            <div style={{ background: colors.errorBg, border: `1px solid ${colors.error}`, borderRadius: borderRadius.sm, padding: spacing.md, marginBottom: spacing.lg, fontSize: typography.sizeSm, color: colors.error }}>
+                                Fly Mode automatically closes duplicates and groups tabs without confirmation.
+                            </div>
+                        )}
+
+                        <div style={s.row}>
+                            <div><div style={s.label}>Stale Tab Threshold</div><div style={s.labelSub}>Tabs not accessed for this period are marked stale</div></div>
+                            <select value={autoPilotSettings.staleDaysThreshold} onChange={(e) => setAutoPilotSettings(p => ({ ...p, staleDaysThreshold: parseInt(e.target.value) }))} style={s.select}>
+                                <option value={1}>1 day</option><option value={3}>3 days</option><option value={7}>7 days</option><option value={14}>14 days</option><option value={30}>30 days</option>
+                            </select>
+                        </div>
+                        <div style={s.row}>
+                            <div><div style={s.label}>Exclude Pinned Tabs</div><div style={s.labelSub}>Never auto-close pinned tabs</div></div>
+                            <input type="checkbox" checked={autoPilotSettings.excludePinned} onChange={(e) => setAutoPilotSettings(p => ({ ...p, excludePinned: e.target.checked }))} style={s.checkbox} />
+                        </div>
+                        <div style={s.row}>
+                            <div><div style={s.label}>Exclude Active Tabs</div><div style={s.labelSub}>Never auto-close the current tab</div></div>
+                            <input type="checkbox" checked={autoPilotSettings.excludeActive} onChange={(e) => setAutoPilotSettings(p => ({ ...p, excludeActive: e.target.checked }))} style={s.checkbox} />
+                        </div>
+                        <div style={{ ...s.row, ...s.rowLast }}>
+                            <div><div style={s.label}>Show Notifications</div><div style={s.labelSub}>Get notified when tabs are auto-managed</div></div>
+                            <input type="checkbox" checked={autoPilotSettings.showNotifications} onChange={(e) => setAutoPilotSettings(p => ({ ...p, showNotifications: e.target.checked }))} style={s.checkbox} />
+                        </div>
+
+                        <button style={{ ...s.btn, width: '100%', justifyContent: 'center', marginTop: spacing.xl, ...(autoPilotSaved ? s.btnSuccess : {}) }} onClick={saveAutoPilotSettings}>
+                            {autoPilotSaved ? <><Icon name="check" size={16} /> Saved!</> : 'Save Auto Pilot Settings'}
+                        </button>
+                    </div>
                 </div>
-            </div>
 
-            {/* Main Content */}
-            <div style={{ flex: 1, padding: '32px 48px', position: 'relative', overflowY: 'auto' }}>
-                {/* Scanline Overlay */}
-                {!cleanMode && <div className="scanline-overlay" />}
+                {/* License Section */}
+                <div style={s.section}>
+                    <div style={s.sectionHeader}>
+                        <div style={s.sectionIcon}><Icon name="shield" size={18} /></div>
+                        <span style={s.sectionTitle}>License</span>
+                    </div>
+                    <div style={s.sectionBody}>
+                        {license?.paid ? (
+                            <div style={s.licenseCard}>
+                                <Icon name="star" size={32} color={colors.primary} />
+                                <div style={{ ...s.licensePrice, color: colors.primary }}>PRO</div>
+                                <div style={{ color: colors.textMuted, marginTop: spacing.sm }}>Unlimited access to all features</div>
+                            </div>
+                        ) : (
+                            <>
+                                <div style={s.licenseCard}>
+                                    <Icon name="star" size={32} color={colors.textDim} />
+                                    <div style={s.licensePrice}>A$6<span style={{ fontSize: typography.sizeSm, fontWeight: typography.normal, color: colors.textDim }}> one-time</span></div>
+                                    <ul style={s.licenseFeatures}>
+                                        <li style={s.licenseFeature}><Icon name="check" size={16} color={colors.success} /> Unlimited AI scans</li>
+                                        <li style={s.licenseFeature}><Icon name="check" size={16} color={colors.success} /> Auto Pilot mode</li>
+                                        <li style={s.licenseFeature}><Icon name="check" size={16} color={colors.success} /> Smart tab grouping</li>
+                                        <li style={s.licenseFeature}><Icon name="check" size={16} color={colors.success} /> Priority support</li>
+                                    </ul>
+                                    <button style={{ ...s.btn, width: '100%', justifyContent: 'center' }} onClick={async () => { const r = await chrome.runtime.sendMessage({ action: 'getCheckoutUrl' }); if (r.success) chrome.tabs.create({ url: r.data.url }); }}>
+                                        Upgrade to Pro
+                                    </button>
+                                </div>
 
-                <div style={{ maxWidth: '640px', margin: '0 auto' }}>
-                    {activeTab === 'brain' && renderBrainSection()}
-                    {activeTab === 'pilot' && renderAutoPilotSection()}
-                    {activeTab === 'display' && renderDisplaySection()}
-                    {activeTab === 'license' && renderLicenseSection()}
+                                {license?.status === 'trial' && (
+                                    <div style={{ marginTop: spacing.lg, padding: spacing.md, background: colors.warningBg, border: `1px solid ${colors.warning}`, borderRadius: borderRadius.sm, fontSize: typography.sizeSm, color: colors.warning }}>
+                                        Trial: {license.usageRemaining}/{license.dailyLimit || 20} uses remaining today
+                                    </div>
+                                )}
+
+                                <div style={{ marginTop: spacing.lg, textAlign: 'center' }}>
+                                    {!showEmailVerify ? (
+                                        <button style={{ ...s.btn, ...s.btnSecondary }} onClick={() => setShowEmailVerify(true)}>Already purchased? Verify by email</button>
+                                    ) : (
+                                        <div style={{ background: colors.bgElevated, padding: spacing.lg, borderRadius: borderRadius.md }}>
+                                            <input type="email" placeholder="your@email.com" value={verifyEmail} onChange={(e) => setVerifyEmail(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && verifyByEmail()} style={{ ...s.input, marginBottom: spacing.sm }} />
+                                            {verifyError && <div style={{ color: colors.error, fontSize: typography.sizeSm, marginBottom: spacing.sm }}>{verifyError}</div>}
+                                            <div style={{ display: 'flex', gap: spacing.sm }}>
+                                                <button style={{ ...s.btn, flex: 1 }} onClick={verifyByEmail} disabled={verifyLoading}>{verifyLoading ? 'Verifying...' : 'Verify'}</button>
+                                                <button style={{ ...s.btn, ...s.btnSecondary, flex: 1 }} onClick={() => { setShowEmailVerify(false); setVerifyError(''); setVerifyEmail(''); }}>Cancel</button>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </>
+                        )}
+
+                        <button style={{ ...s.btn, ...s.btnSecondary, width: '100%', justifyContent: 'center', marginTop: spacing.lg }} onClick={loadLicense}>
+                            <Icon name="refresh" size={16} /> Refresh License Status
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
     );
 };
 
-// ============================================
-// MOUNT
-// ============================================
+// Inject CSS
+const styleSheet = document.createElement('style');
+styleSheet.textContent = `
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: ${colors.bgDarker}; }
+    input:focus, select:focus { border-color: ${colors.primary} !important; box-shadow: ${shadows.focus}; }
+    button:hover:not(:disabled) { opacity: 0.9; transform: translateY(-1px); }
+    button:active:not(:disabled) { transform: translateY(0); }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-track { background: ${colors.bgDark}; }
+    ::-webkit-scrollbar-thumb { background: ${colors.borderLight}; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: ${colors.textDimmest}; }
+    ::selection { background: ${colors.primary}; color: #fff; }
+`;
+document.head.appendChild(styleSheet);
 
 const container = document.getElementById('root');
-if (container) {
-    const root = createRoot(container);
-    root.render(<OptionsPage />);
-}
+if (container) createRoot(container).render(<OptionsPage />);

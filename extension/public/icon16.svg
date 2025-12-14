@@ -1,14 +1,7 @@
 <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <!-- Background -->
-  <rect width="16" height="16" rx="2" fill="#0a0a0a"/>
-
-  <!-- Tab Shape -->
-  <path d="M2 14H14V6H9L7 4H2V14Z" fill="#111111" stroke="#39ff14" stroke-width="1"/>
-
-  <!-- Bite -->
-  <rect x="11" y="2" width="2" height="2" fill="#39ff14"/>
-  <rect x="13" y="4" width="2" height="2" fill="#39ff14"/>
-
-  <!-- Cursor -->
-  <rect x="4" y="7" width="2" height="2" fill="#39ff14"/>
+  <rect width="16" height="16" rx="3" fill="#0f0f12"/>
+  <rect x="0.5" y="0.5" width="15" height="15" rx="2.5" fill="none" stroke="#27272f"/>
+  <path d="M3 12V6C3 5.448 3.448 5 4 5H7L8 4H12C12.552 4 13 4.448 13 5V12C13 12.552 12.552 13 12 13H4C3.448 13 3 12.552 3 12Z" fill="#1c1c22" stroke="#323240" stroke-width="0.5"/>
+  <rect x="10" y="4" width="2" height="2" fill="#f97316"/>
+  <circle cx="10" cy="10" r="1.5" fill="#f97316"/>
 </svg>
