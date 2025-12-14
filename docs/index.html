@@ -3,27 +3,44 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TabEater - AI Tab Manager</title>
-    <meta name="description" content="AI-powered Chrome extension for intelligent tab management. Smart grouping, duplicate detection, and auto-pilot mode.">
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%230a0a0a' rx='4'/%3E%3Cpath d='M4 8.5V26C4 27 5 28 6 28H26C27 28 28 27 28 26V11C28 10 27 9 26 9H16L13 5H6C5 5 4 6 4 7V8.5Z' fill='none' stroke='%2300FF88' stroke-width='2'/%3E%3Crect x='8' y='13' width='6' height='6' fill='%2300FF88'/%3E%3Cline x1='8' y1='22' x2='24' y2='22' stroke='%2300FF88' stroke-width='1.5' opacity='0.7'/%3E%3C/svg%3E">
+    <title>TabEater - Tame Your Browser Chaos</title>
+    <meta name="description" content="AI-powered tab intelligence for Chrome. Organize, analyze, and manage your tabs instantly with privacy-first local AI.">
+    <meta property="og:title" content="TabEater - AI Tab Intelligence">
+    <meta property="og:description" content="Tame your browser chaos with AI-powered tab management">
+    <meta property="og:type" content="website">
+    <meta name="theme-color" content="#0a0a0a">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%230a0a0a' rx='4'/%3E%3Cpath d='M4 8.5V26C4 27 5 28 6 28H26C27 28 28 27 28 26V11C28 10 27 9 26 9H16L13 5H6C5 5 4 6 4 7V8.5Z' fill='none' stroke='%2300FF88' stroke-width='2'/%3E%3Crect x='8' y='13' width='6' height='6' fill='%2300FF88'/%3E%3C/svg%3E">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        
+
         :root {
-            --green: #00FF88;
+            --accent: #00FF88;
+            --accent-dim: rgba(0, 255, 136, 0.15);
+            --accent-glow: rgba(0, 255, 136, 0.4);
             --cyan: #00D4FF;
-            --dark: #0a0a0a;
-            --gray: #1a1a1a;
+            --bg-dark: #050505;
+            --bg-card: rgba(255, 255, 255, 0.02);
+            --border: rgba(255, 255, 255, 0.06);
+            --text: #f0f0f0;
+            --text-dim: #707070;
+            --text-muted: #404040;
         }
-        
+
+        html { scroll-behavior: smooth; }
+
         body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            background: var(--dark);
-            color: #e0e0e0;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg-dark);
+            color: var(--text);
             min-height: 100vh;
             overflow-x: hidden;
+            line-height: 1.6;
         }
-        
+
+        /* Canvas Container */
         #canvas-container {
             position: fixed;
             top: 0;
@@ -31,284 +48,919 @@
             width: 100%;
             height: 100%;
             z-index: 0;
-            opacity: 0.4;
+            pointer-events: none;
         }
-        
+
+        /* Main Content */
         .content {
             position: relative;
             z-index: 1;
+        }
+
+        /* Hero Section */
+        .hero {
             min-height: 100vh;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             padding: 2rem;
+            text-align: center;
         }
-        
+
+        .logo-container {
+            position: relative;
+            margin-bottom: 2rem;
+        }
+
         .logo {
-            width: 80px;
-            height: 80px;
-            margin-bottom: 1.5rem;
-            filter: drop-shadow(0 0 20px rgba(0, 255, 136, 0.3));
+            width: 100px;
+            height: 100px;
+            filter: drop-shadow(0 0 30px var(--accent-glow));
+            animation: float 6s ease-in-out infinite;
         }
-        
-        h1 {
-            font-size: clamp(2.5rem, 8vw, 4rem);
-            font-weight: 700;
-            letter-spacing: -0.02em;
-            margin-bottom: 0.5rem;
-            background: linear-gradient(135deg, #fff 0%, var(--green) 100%);
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        .logo-glow {
+            position: absolute;
+            width: 200px;
+            height: 200px;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: radial-gradient(circle, var(--accent-dim) 0%, transparent 70%);
+            pointer-events: none;
+            animation: pulse 4s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.5; transform: translate(-50%, -50%) scale(1); }
+            50% { opacity: 0.8; transform: translate(-50%, -50%) scale(1.1); }
+        }
+
+        .headline {
+            font-size: clamp(2.5rem, 7vw, 4.5rem);
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            line-height: 1.1;
+            margin-bottom: 1rem;
+            background: linear-gradient(135deg, #ffffff 0%, #a0a0a0 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
         }
-        
-        .tagline {
-            font-size: 1.1rem;
-            color: #888;
-            margin-bottom: 3rem;
-            text-align: center;
+
+        .headline-accent {
+            background: linear-gradient(135deg, var(--accent) 0%, var(--cyan) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
         }
-        
-        .features {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1.5rem;
-            max-width: 700px;
-            width: 100%;
-            margin-bottom: 3rem;
+
+        .subheadline {
+            font-size: clamp(1rem, 2.5vw, 1.25rem);
+            color: var(--text-dim);
+            max-width: 500px;
+            margin-bottom: 2.5rem;
+            font-weight: 400;
         }
-        
-        .feature {
-            padding: 1.5rem;
-            background: rgba(255, 255, 255, 0.02);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            border-radius: 12px;
-            text-align: center;
-            transition: all 0.3s ease;
-        }
-        
-        .feature:hover {
-            border-color: var(--green);
-            transform: translateY(-4px);
-            box-shadow: 0 10px 40px rgba(0, 255, 136, 0.1);
-        }
-        
-        .feature-icon {
-            font-size: 1.5rem;
-            margin-bottom: 0.75rem;
-            display: block;
-        }
-        
-        .feature h3 {
-            font-size: 0.9rem;
-            font-weight: 600;
-            margin-bottom: 0.25rem;
-            color: #fff;
-        }
-        
-        .feature p {
-            font-size: 0.8rem;
-            color: #666;
-        }
-        
+
         .cta-group {
             display: flex;
             gap: 1rem;
             flex-wrap: wrap;
             justify-content: center;
+            margin-bottom: 4rem;
         }
-        
+
         .btn {
-            padding: 0.875rem 2rem;
-            border-radius: 8px;
-            font-size: 0.9rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 1rem 2rem;
+            border-radius: 12px;
+            font-size: 1rem;
             font-weight: 600;
             text-decoration: none;
-            transition: all 0.2s ease;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             cursor: pointer;
             border: none;
         }
-        
+
         .btn-primary {
-            background: var(--green);
-            color: var(--dark);
+            background: var(--accent);
+            color: #000;
+            box-shadow: 0 4px 20px var(--accent-dim);
         }
-        
+
         .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 30px rgba(0, 255, 136, 0.3);
+            transform: translateY(-3px);
+            box-shadow: 0 8px 40px var(--accent-glow);
         }
-        
+
+        .btn-primary svg {
+            width: 20px;
+            height: 20px;
+        }
+
         .btn-secondary {
-            background: transparent;
-            color: #888;
-            border: 1px solid #333;
+            background: var(--bg-card);
+            color: var(--text-dim);
+            border: 1px solid var(--border);
         }
-        
+
         .btn-secondary:hover {
-            border-color: #555;
-            color: #fff;
+            border-color: rgba(255, 255, 255, 0.15);
+            color: var(--text);
+            background: rgba(255, 255, 255, 0.04);
         }
-        
-        .footer {
-            position: fixed;
-            bottom: 1.5rem;
+
+        .scroll-indicator {
+            position: absolute;
+            bottom: 2rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--text-muted);
             font-size: 0.75rem;
-            color: #444;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            animation: bounce 2s infinite;
         }
-        
-        .footer a {
-            color: #555;
+
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(8px); }
+            60% { transform: translateY(4px); }
+        }
+
+        .scroll-indicator svg {
+            width: 20px;
+            height: 20px;
+            opacity: 0.5;
+        }
+
+        /* Features Section */
+        .features {
+            padding: 6rem 2rem;
+            background: linear-gradient(180deg, transparent 0%, rgba(0, 255, 136, 0.02) 50%, transparent 100%);
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 4rem;
+        }
+
+        .section-label {
+            font-size: 0.75rem;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            color: var(--accent);
+            margin-bottom: 1rem;
+            font-weight: 600;
+        }
+
+        .section-title {
+            font-size: clamp(1.75rem, 4vw, 2.5rem);
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .feature-card {
+            padding: 2rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .feature-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--accent-dim), transparent);
+            opacity: 0;
+            transition: opacity 0.4s;
+        }
+
+        .feature-card:hover {
+            border-color: rgba(0, 255, 136, 0.2);
+            transform: translateY(-4px);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        .feature-card:hover::before {
+            opacity: 1;
+        }
+
+        .feature-icon {
+            width: 48px;
+            height: 48px;
+            margin-bottom: 1.25rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--accent-dim);
+            border-radius: 12px;
+            color: var(--accent);
+        }
+
+        .feature-icon svg {
+            width: 24px;
+            height: 24px;
+        }
+
+        .feature-card h3 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: var(--text);
+        }
+
+        .feature-card p {
+            font-size: 0.9rem;
+            color: var(--text-dim);
+            line-height: 1.6;
+        }
+
+        /* Privacy Section */
+        .privacy {
+            padding: 6rem 2rem;
+        }
+
+        .privacy-container {
+            max-width: 800px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 3rem;
+            align-items: center;
+        }
+
+        .privacy-visual {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .shield-icon {
+            width: 120px;
+            height: 120px;
+            color: var(--accent);
+            filter: drop-shadow(0 0 40px var(--accent-dim));
+        }
+
+        .privacy-content h2 {
+            font-size: 1.75rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            letter-spacing: -0.02em;
+        }
+
+        .privacy-content p {
+            color: var(--text-dim);
+            margin-bottom: 1.5rem;
+        }
+
+        .privacy-list {
+            list-style: none;
+        }
+
+        .privacy-list li {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.5rem 0;
+            color: var(--text-dim);
+            font-size: 0.9rem;
+        }
+
+        .privacy-list li svg {
+            width: 16px;
+            height: 16px;
+            color: var(--accent);
+            flex-shrink: 0;
+        }
+
+        /* Providers Section */
+        .providers {
+            padding: 4rem 2rem;
+            background: var(--bg-card);
+            border-top: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .providers-container {
+            max-width: 800px;
+            margin: 0 auto;
+            text-align: center;
+        }
+
+        .providers-label {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-bottom: 1.5rem;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+        }
+
+        .providers-grid {
+            display: flex;
+            justify-content: center;
+            gap: 3rem;
+            flex-wrap: wrap;
+        }
+
+        .provider {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            color: var(--text-dim);
+            font-weight: 500;
+            transition: color 0.3s;
+        }
+
+        .provider:hover {
+            color: var(--text);
+        }
+
+        .provider svg {
+            width: 24px;
+            height: 24px;
+            opacity: 0.7;
+        }
+
+        /* CTA Section */
+        .cta-section {
+            padding: 8rem 2rem;
+            text-align: center;
+        }
+
+        .cta-section h2 {
+            font-size: clamp(1.5rem, 4vw, 2.25rem);
+            font-weight: 700;
+            margin-bottom: 1rem;
+            letter-spacing: -0.02em;
+        }
+
+        .cta-section p {
+            color: var(--text-dim);
+            margin-bottom: 2rem;
+            max-width: 400px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        /* Footer */
+        .footer {
+            padding: 2rem;
+            text-align: center;
+            border-top: 1px solid var(--border);
+        }
+
+        .footer-links {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            margin-bottom: 1rem;
+        }
+
+        .footer-links a {
+            color: var(--text-muted);
             text-decoration: none;
+            font-size: 0.85rem;
+            transition: color 0.3s;
         }
-        
-        .footer a:hover {
-            color: var(--green);
+
+        .footer-links a:hover {
+            color: var(--accent);
         }
-        
+
+        .footer-copy {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .privacy-container {
+                grid-template-columns: 1fr;
+                text-align: center;
+            }
+
+            .privacy-visual {
+                order: -1;
+            }
+
+            .shield-icon {
+                width: 80px;
+                height: 80px;
+            }
+
+            .providers-grid {
+                gap: 1.5rem;
+            }
+
+            .cta-group {
+                flex-direction: column;
+                width: 100%;
+                max-width: 300px;
+            }
+
+            .btn {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .features-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Mobile Canvas Fallback */
         @media (max-width: 600px) {
-            .features { grid-template-columns: 1fr; }
-            .cta-group { flex-direction: column; width: 100%; max-width: 300px; }
-            .btn { width: 100%; text-align: center; }
+            #canvas-container {
+                opacity: 0.3;
+            }
+        }
+
+        /* Disable animations for reduced motion */
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                transition-duration: 0.01ms !important;
+            }
         }
     </style>
 </head>
 <body>
     <div id="canvas-container"></div>
-    
+
     <div class="content">
-        <svg class="logo" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect width="128" height="128" fill="#0a0a0a" rx="16"/>
-            <path d="M16 34V102C16 107 20 111 25 111H103C108 111 112 107 112 102V44C112 39 108 35 103 35H64L54 22H25C20 22 16 26 16 31V34Z"
-                  fill="none" stroke="#00FF88" stroke-width="5" stroke-linejoin="round"/>
-            <rect x="32" y="50" width="22" height="22" fill="#00FF88" rx="2"/>
-            <line x1="32" y1="88" x2="96" y2="88" stroke="#00FF88" stroke-width="4" stroke-linecap="round" opacity="0.7"/>
-            <line x1="32" y1="98" x2="80" y2="98" stroke="#00FF88" stroke-width="3" stroke-linecap="round" opacity="0.5"/>
-        </svg>
-        
-        <h1>TabEater</h1>
-        <p class="tagline">AI-powered tab management for Chrome</p>
-        
-        <div class="features">
-            <div class="feature">
-                <span class="feature-icon">◆</span>
-                <h3>Smart Grouping</h3>
-                <p>AI organizes tabs by context</p>
+        <!-- Hero Section -->
+        <section class="hero">
+            <div class="logo-container">
+                <div class="logo-glow"></div>
+                <svg class="logo" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect width="128" height="128" fill="#0a0a0a" rx="20"/>
+                    <defs>
+                        <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+                            <feGaussianBlur stdDeviation="2" result="blur"/>
+                            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+                        </filter>
+                    </defs>
+                    <g filter="url(#glow)">
+                        <path d="M20 36V100C20 106 25 111 31 111H97C103 111 108 106 108 100V46C108 40 103 35 97 35H64L54 22H31C25 22 20 27 20 33V36Z"
+                              fill="none" stroke="#00FF88" stroke-width="4" stroke-linejoin="round"/>
+                        <rect x="34" y="52" width="20" height="20" fill="#00FF88" rx="3"/>
+                        <line x1="34" y1="86" x2="94" y2="86" stroke="#00FF88" stroke-width="3" stroke-linecap="round" opacity="0.6"/>
+                        <line x1="34" y1="96" x2="76" y2="96" stroke="#00FF88" stroke-width="2.5" stroke-linecap="round" opacity="0.4"/>
+                    </g>
+                </svg>
             </div>
-            <div class="feature">
-                <span class="feature-icon">◇</span>
-                <h3>Duplicate Detection</h3>
-                <p>Find and close duplicates</p>
+
+            <h1 class="headline">
+                Tame Your<br><span class="headline-accent">Browser Chaos</span>
+            </h1>
+            <p class="subheadline">
+                AI-powered tab intelligence for Chrome. Organize, analyze, and manage your tabs instantly.
+            </p>
+
+            <div class="cta-group">
+                <a href="#" class="btn btn-primary" id="chrome-store-link">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"/>
+                        <circle cx="12" cy="12" r="4"/>
+                        <line x1="21.17" y1="8" x2="12" y2="8"/>
+                        <line x1="3.95" y1="6.06" x2="8.54" y2="14"/>
+                        <line x1="10.88" y1="21.94" x2="15.46" y2="14"/>
+                    </svg>
+                    Add to Chrome
+                </a>
+                <a href="#features" class="btn btn-secondary">Learn More</a>
             </div>
-            <div class="feature">
-                <span class="feature-icon">▲</span>
-                <h3>Auto-Pilot</h3>
-                <p>Hands-free tab management</p>
+
+            <div class="scroll-indicator">
+                <span>Scroll</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 5v14M19 12l-7 7-7-7"/>
+                </svg>
             </div>
-        </div>
-        
-        <div class="cta-group">
-            <a href="#" class="btn btn-primary" id="chrome-link">Add to Chrome</a>
-            <a href="https://github.com/anonx00/tabeater" class="btn btn-secondary">View Source</a>
-        </div>
-    </div>
-    
-    <div class="footer">
-        <a href="https://github.com/anonx00/tabeater">GitHub</a>
+        </section>
+
+        <!-- Features Section -->
+        <section class="features" id="features">
+            <div class="section-header">
+                <div class="section-label">Features</div>
+                <h2 class="section-title">Everything you need to stay organized</h2>
+            </div>
+
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="3" y="3" width="7" height="7" rx="1"/>
+                            <rect x="14" y="3" width="7" height="7" rx="1"/>
+                            <rect x="3" y="14" width="7" height="7" rx="1"/>
+                            <rect x="14" y="14" width="7" height="7" rx="1"/>
+                        </svg>
+                    </div>
+                    <h3>Smart Organize</h3>
+                    <p>Auto-group tabs by domain and topic. Turn clutter into clarity with one click. AI understands context and creates logical groups.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="2" y="6" width="20" height="12" rx="2"/>
+                            <path d="M12 12h.01"/>
+                            <path d="M17 12h.01"/>
+                            <path d="M7 12h.01"/>
+                        </svg>
+                    </div>
+                    <h3>Duplicate Detection</h3>
+                    <p>Instantly find and close duplicate tabs. Free up memory and reduce browser bloat without losing important pages.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                            <path d="M2 17l10 5 10-5"/>
+                            <path d="M2 12l10 5 10-5"/>
+                        </svg>
+                    </div>
+                    <h3>Auto-Pilot Mode</h3>
+                    <p>Set it and forget it. TabEater continuously organizes new tabs in the background. Your browser stays clean automatically.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                        </svg>
+                    </div>
+                    <h3>Tab Chat</h3>
+                    <p>Ask questions about your open tabs. Get AI-powered insights about your browsing session without reading every page.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="3" y="3" width="18" height="18" rx="2"/>
+                            <path d="M9 3v18"/>
+                        </svg>
+                    </div>
+                    <h3>Side Panel</h3>
+                    <p>Full command center in Chrome's side panel. Manage all your tabs without leaving your current page.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="3"/>
+                            <path d="M12 1v6M12 17v6M4.22 4.22l4.24 4.24M15.54 15.54l4.24 4.24M1 12h6M17 12h6M4.22 19.78l4.24-4.24M15.54 8.46l4.24-4.24"/>
+                        </svg>
+                    </div>
+                    <h3>Multiple AI Providers</h3>
+                    <p>Choose your AI: Local AI for privacy, or cloud providers like OpenAI, Gemini, and Claude for maximum power.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Privacy Section -->
+        <section class="privacy">
+            <div class="privacy-container">
+                <div class="privacy-visual">
+                    <svg class="shield-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                        <path d="M9 12l2 2 4-4" stroke-width="2"/>
+                    </svg>
+                </div>
+                <div class="privacy-content">
+                    <h2>Privacy First</h2>
+                    <p>Your browsing data stays on your device. TabEater prioritizes local AI processing—your tabs, your privacy.</p>
+                    <ul class="privacy-list">
+                        <li>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
+                            Local AI runs entirely on your device
+                        </li>
+                        <li>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
+                            No data collection or tracking
+                        </li>
+                        <li>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
+                            Cloud AI calls go directly to your chosen provider
+                        </li>
+                        <li>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
+                            API keys stored locally only
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- Providers Section -->
+        <section class="providers">
+            <div class="providers-container">
+                <div class="providers-label">Supported AI Providers</div>
+                <div class="providers-grid">
+                    <div class="provider">
+                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
+                        Chrome Local AI
+                    </div>
+                    <div class="provider">
+                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+                        Google Gemini
+                    </div>
+                    <div class="provider">
+                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M22.2819 9.8211a5.9847 5.9847 0 0 0-.5157-4.9108 6.0462 6.0462 0 0 0-6.5098-2.9A6.0651 6.0651 0 0 0 4.9807 4.1818a5.9847 5.9847 0 0 0-3.9977 2.9 6.0462 6.0462 0 0 0 .7427 7.0966 5.98 5.98 0 0 0 .511 4.9107 6.051 6.051 0 0 0 6.5146 2.9001A5.9847 5.9847 0 0 0 13.2599 24a6.0557 6.0557 0 0 0 5.7718-4.2058 5.9894 5.9894 0 0 0 3.9977-2.9001 6.0557 6.0557 0 0 0-.7475-7.0729zm-9.022 12.6081a4.4755 4.4755 0 0 1-2.8764-1.0408l.1419-.0804 4.7783-2.7582a.7948.7948 0 0 0 .3927-.6813v-6.7369l2.02 1.1686a.071.071 0 0 1 .038.052v5.5826a4.504 4.504 0 0 1-4.4945 4.4944zm-9.6607-4.1254a4.4708 4.4708 0 0 1-.5346-3.0137l.142.0852 4.783 2.7582a.7712.7712 0 0 0 .7806 0l5.8428-3.3685v2.3324a.0804.0804 0 0 1-.0332.0615L9.74 19.9502a4.4992 4.4992 0 0 1-6.1408-1.6464zM2.3408 7.8956a4.485 4.485 0 0 1 2.3655-1.9728V11.6a.7664.7664 0 0 0 .3879.6765l5.8144 3.3543-2.0201 1.1685a.0757.0757 0 0 1-.071 0l-4.8303-2.7865A4.504 4.504 0 0 1 2.3408 7.8956zm16.5963 3.8558L13.1038 8.364 15.1192 7.2a.0757.0757 0 0 1 .071 0l4.8303 2.7913a4.4944 4.4944 0 0 1-.6765 8.1042v-5.6772a.79.79 0 0 0-.407-.667zm2.0107-3.0231l-.142-.0852-4.7735-2.7818a.7759.7759 0 0 0-.7854 0L9.409 9.2297V6.8974a.0662.0662 0 0 1 .0284-.0615l4.8303-2.7866a4.4992 4.4992 0 0 1 6.6802 4.66zM8.3065 12.863l-2.02-1.1638a.0804.0804 0 0 1-.038-.0567V6.0742a4.4992 4.4992 0 0 1 7.3757-3.4537l-.142.0805L8.704 5.459a.7948.7948 0 0 0-.3927.6813zm1.0976-2.3654l2.602-1.4998 2.6069 1.4998v2.9994l-2.5974 1.4997-2.6067-1.4997Z"/></svg>
+                        OpenAI
+                    </div>
+                    <div class="provider">
+                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z"/><path d="M12 6a1 1 0 0 0-1 1v5a1 1 0 0 0 .29.71l3 3a1 1 0 0 0 1.42-1.42L13 11.59V7a1 1 0 0 0-1-1z"/></svg>
+                        Anthropic Claude
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Final CTA -->
+        <section class="cta-section">
+            <h2>Ready to take control?</h2>
+            <p>Join thousands of users who've tamed their browser chaos with TabEater.</p>
+            <a href="#" class="btn btn-primary" id="chrome-store-link-2">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                    <circle cx="12" cy="12" r="10"/>
+                    <circle cx="12" cy="12" r="4"/>
+                    <line x1="21.17" y1="8" x2="12" y2="8"/>
+                    <line x1="3.95" y1="6.06" x2="8.54" y2="14"/>
+                    <line x1="10.88" y1="21.94" x2="15.46" y2="14"/>
+                </svg>
+                Add to Chrome — Free
+            </a>
+        </section>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <div class="footer-links">
+                <a href="https://github.com/anonx00/tabeater">GitHub</a>
+                <a href="https://github.com/anonx00/tabeater/blob/main/LICENSE">License</a>
+                <a href="https://github.com/anonx00/tabeater/issues">Support</a>
+            </div>
+            <div class="footer-copy">© 2025 TabEater. Open source under ISC License.</div>
+        </footer>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script>
-        // Three.js Background
-        const container = document.getElementById('canvas-container');
-        const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-        
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-        container.appendChild(renderer.domElement);
-        
-        // Particles
-        const particleCount = 100;
-        const positions = new Float32Array(particleCount * 3);
-        const velocities = [];
-        
-        for (let i = 0; i < particleCount; i++) {
-            positions[i * 3] = (Math.random() - 0.5) * 20;
-            positions[i * 3 + 1] = (Math.random() - 0.5) * 20;
-            positions[i * 3 + 2] = (Math.random() - 0.5) * 10;
-            velocities.push({
-                x: (Math.random() - 0.5) * 0.01,
-                y: (Math.random() - 0.5) * 0.01,
-                z: (Math.random() - 0.5) * 0.005
-            });
-        }
-        
-        const geometry = new THREE.BufferGeometry();
-        geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-        
-        const material = new THREE.PointsMaterial({
-            color: 0x00FF88,
-            size: 0.05,
-            transparent: true,
-            opacity: 0.6
-        });
-        
-        const particles = new THREE.Points(geometry, material);
-        scene.add(particles);
-        
-        // Lines connecting nearby particles
-        const lineMaterial = new THREE.LineBasicMaterial({ 
-            color: 0x00FF88, 
-            transparent: true, 
-            opacity: 0.1 
-        });
-        
-        camera.position.z = 5;
-        
-        // Mouse interaction
-        let mouseX = 0, mouseY = 0;
-        document.addEventListener('mousemove', (e) => {
-            mouseX = (e.clientX / window.innerWidth - 0.5) * 2;
-            mouseY = (e.clientY / window.innerHeight - 0.5) * 2;
-        });
-        
-        function animate() {
-            requestAnimationFrame(animate);
-            
-            const positions = particles.geometry.attributes.position.array;
-            for (let i = 0; i < particleCount; i++) {
-                positions[i * 3] += velocities[i].x;
-                positions[i * 3 + 1] += velocities[i].y;
-                positions[i * 3 + 2] += velocities[i].z;
-                
-                // Wrap around
-                if (Math.abs(positions[i * 3]) > 10) velocities[i].x *= -1;
-                if (Math.abs(positions[i * 3 + 1]) > 10) velocities[i].y *= -1;
-                if (Math.abs(positions[i * 3 + 2]) > 5) velocities[i].z *= -1;
-            }
-            particles.geometry.attributes.position.needsUpdate = true;
-            
-            // Gentle camera movement
-            camera.position.x += (mouseX * 0.5 - camera.position.x) * 0.02;
-            camera.position.y += (-mouseY * 0.5 - camera.position.y) * 0.02;
-            camera.lookAt(scene.position);
-            
-            particles.rotation.y += 0.0005;
-            
-            renderer.render(scene, camera);
-        }
-        
-        animate();
-        
-        // Resize handler
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
+        // Tab Vortex - 3D animated tabs organizing themselves
+        (function() {
+            const container = document.getElementById('canvas-container');
+            if (!container) return;
+
+            // Reduce complexity on mobile
+            const isMobile = window.innerWidth < 768;
+            const tabCount = isMobile ? 15 : 30;
+
+            // Scene setup
+            const scene = new THREE.Scene();
+            const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+            const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+
             renderer.setSize(window.innerWidth, window.innerHeight);
-        });
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            container.appendChild(renderer.domElement);
+
+            // Colors
+            const accentColor = 0x00FF88;
+            const cyanColor = 0x00D4FF;
+
+            // Create floating tab planes
+            const tabs = [];
+            const tabGroup = new THREE.Group();
+
+            // Tab materials with glow effect
+            const tabMaterials = [
+                new THREE.MeshBasicMaterial({
+                    color: accentColor,
+                    transparent: true,
+                    opacity: 0.15,
+                    side: THREE.DoubleSide
+                }),
+                new THREE.MeshBasicMaterial({
+                    color: cyanColor,
+                    transparent: true,
+                    opacity: 0.12,
+                    side: THREE.DoubleSide
+                }),
+                new THREE.MeshBasicMaterial({
+                    color: 0xFFFFFF,
+                    transparent: true,
+                    opacity: 0.08,
+                    side: THREE.DoubleSide
+                })
+            ];
+
+            // Edge materials for tab outlines
+            const edgeMaterials = [
+                new THREE.LineBasicMaterial({ color: accentColor, transparent: true, opacity: 0.4 }),
+                new THREE.LineBasicMaterial({ color: cyanColor, transparent: true, opacity: 0.3 }),
+                new THREE.LineBasicMaterial({ color: 0xFFFFFF, transparent: true, opacity: 0.2 })
+            ];
+
+            for (let i = 0; i < tabCount; i++) {
+                // Random tab sizes (browser tab proportions)
+                const width = 0.8 + Math.random() * 0.6;
+                const height = 0.5 + Math.random() * 0.3;
+
+                const geometry = new THREE.PlaneGeometry(width, height);
+                const materialIndex = Math.floor(Math.random() * tabMaterials.length);
+                const tab = new THREE.Mesh(geometry, tabMaterials[materialIndex]);
+
+                // Create edge outline
+                const edges = new THREE.EdgesGeometry(geometry);
+                const line = new THREE.LineSegments(edges, edgeMaterials[materialIndex]);
+                tab.add(line);
+
+                // Random chaotic starting positions (the "chaos")
+                tab.position.x = (Math.random() - 0.5) * 25;
+                tab.position.y = (Math.random() - 0.5) * 20;
+                tab.position.z = (Math.random() - 0.5) * 15;
+
+                // Random rotations
+                tab.rotation.x = Math.random() * Math.PI;
+                tab.rotation.y = Math.random() * Math.PI;
+                tab.rotation.z = Math.random() * Math.PI;
+
+                // Store organized target positions (the "order")
+                const row = Math.floor(i / 6);
+                const col = i % 6;
+                tab.userData = {
+                    // Chaotic state
+                    chaosPos: tab.position.clone(),
+                    chaosRot: tab.rotation.clone(),
+                    // Organized state - neat grid
+                    organizedPos: new THREE.Vector3(
+                        (col - 2.5) * 1.2,
+                        (row - Math.floor(tabCount / 12)) * 0.8,
+                        0
+                    ),
+                    organizedRot: new THREE.Euler(0, 0, 0),
+                    // Animation
+                    phase: Math.random() * Math.PI * 2,
+                    speed: 0.3 + Math.random() * 0.4,
+                    floatAmplitude: 0.1 + Math.random() * 0.15
+                };
+
+                tabs.push(tab);
+                tabGroup.add(tab);
+            }
+
+            scene.add(tabGroup);
+
+            // Add ambient particles
+            const particleCount = isMobile ? 50 : 100;
+            const particleGeometry = new THREE.BufferGeometry();
+            const particlePositions = new Float32Array(particleCount * 3);
+
+            for (let i = 0; i < particleCount; i++) {
+                particlePositions[i * 3] = (Math.random() - 0.5) * 30;
+                particlePositions[i * 3 + 1] = (Math.random() - 0.5) * 25;
+                particlePositions[i * 3 + 2] = (Math.random() - 0.5) * 20;
+            }
+
+            particleGeometry.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
+            const particleMaterial = new THREE.PointsMaterial({
+                color: accentColor,
+                size: 0.03,
+                transparent: true,
+                opacity: 0.5
+            });
+            const particles = new THREE.Points(particleGeometry, particleMaterial);
+            scene.add(particles);
+
+            // Central organizing sphere (the "AI core")
+            const coreGeometry = new THREE.SphereGeometry(0.3, 16, 16);
+            const coreMaterial = new THREE.MeshBasicMaterial({
+                color: accentColor,
+                transparent: true,
+                opacity: 0.3,
+                wireframe: true
+            });
+            const core = new THREE.Mesh(coreGeometry, coreMaterial);
+            scene.add(core);
+
+            // Position camera
+            camera.position.z = 12;
+
+            // Mouse interaction
+            let mouseX = 0, mouseY = 0;
+            let targetRotationX = 0, targetRotationY = 0;
+
+            document.addEventListener('mousemove', (e) => {
+                mouseX = (e.clientX / window.innerWidth - 0.5) * 2;
+                mouseY = (e.clientY / window.innerHeight - 0.5) * 2;
+            });
+
+            // Scroll-based organization animation
+            let scrollProgress = 0;
+
+            function updateScrollProgress() {
+                const scrollY = window.scrollY;
+                const maxScroll = document.body.scrollHeight - window.innerHeight;
+                scrollProgress = Math.min(scrollY / (maxScroll * 0.3), 1); // Organize in first 30% of scroll
+            }
+
+            window.addEventListener('scroll', updateScrollProgress);
+            updateScrollProgress();
+
+            // Animation loop
+            let time = 0;
+
+            function animate() {
+                requestAnimationFrame(animate);
+                time += 0.01;
+
+                // Smoothly rotate scene based on mouse
+                targetRotationY = mouseX * 0.3;
+                targetRotationX = mouseY * 0.2;
+
+                tabGroup.rotation.y += (targetRotationY - tabGroup.rotation.y) * 0.02;
+                tabGroup.rotation.x += (targetRotationX - tabGroup.rotation.x) * 0.02;
+
+                // Animate tabs between chaos and organized states
+                tabs.forEach((tab, i) => {
+                    const data = tab.userData;
+                    const t = scrollProgress;
+
+                    // Interpolate position
+                    tab.position.lerpVectors(data.chaosPos, data.organizedPos, t);
+
+                    // Interpolate rotation
+                    tab.rotation.x = data.chaosRot.x * (1 - t) + data.organizedRot.x * t;
+                    tab.rotation.y = data.chaosRot.y * (1 - t) + data.organizedRot.y * t;
+                    tab.rotation.z = data.chaosRot.z * (1 - t) + data.organizedRot.z * t;
+
+                    // Add floating animation
+                    const floatOffset = Math.sin(time * data.speed + data.phase) * data.floatAmplitude * (1 - t * 0.7);
+                    tab.position.y += floatOffset;
+
+                    // Subtle rotation wobble in chaos state
+                    if (t < 1) {
+                        tab.rotation.x += Math.sin(time * 0.5 + data.phase) * 0.01 * (1 - t);
+                        tab.rotation.z += Math.cos(time * 0.3 + data.phase) * 0.01 * (1 - t);
+                    }
+                });
+
+                // Animate core
+                core.rotation.x += 0.005;
+                core.rotation.y += 0.01;
+                core.scale.setScalar(1 + Math.sin(time * 2) * 0.1);
+                core.material.opacity = 0.2 + scrollProgress * 0.3;
+
+                // Animate particles
+                particles.rotation.y += 0.0005;
+                particles.rotation.x += 0.0002;
+
+                // Camera slight movement
+                camera.position.x += (mouseX * 1 - camera.position.x) * 0.01;
+                camera.position.y += (-mouseY * 0.5 - camera.position.y) * 0.01;
+                camera.lookAt(scene.position);
+
+                renderer.render(scene, camera);
+            }
+
+            animate();
+
+            // Handle resize
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+        })();
     </script>
 </body>
 </html>
