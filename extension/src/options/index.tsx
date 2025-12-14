@@ -1,9 +1,15 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
-import { colors, spacing, typography, borderRadius, transitions } from '../shared/theme';
-import { ScanlineOverlay } from '../ui/components/ScanlineOverlay';
+import '../ui/theme.css';
+
+// ============================================
+// TYPES
+// ============================================
 
 type CloudProvider = 'gemini' | 'openai' | 'anthropic';
+type TabId = 'brain' | 'pilot' | 'display' | 'license';
+type ConnectionStatus = 'idle' | 'testing' | 'success' | 'error';
+type AutoPilotMode = 'manual' | 'auto-cleanup' | 'fly-mode';
 
 interface LicenseStatus {
     status: 'trial' | 'pro' | 'expired' | 'none';
@@ -20,8 +26,6 @@ interface NanoStatus {
     message: string;
 }
 
-type AutoPilotMode = 'manual' | 'auto-cleanup' | 'fly-mode';
-
 interface AutoPilotSettings {
     mode: AutoPilotMode;
     staleDaysThreshold: number;
@@ -33,44 +37,122 @@ interface AutoPilotSettings {
     showNotifications: boolean;
 }
 
+// ============================================
+// CONSTANTS
+// ============================================
+
 const PROVIDER_INFO = {
     gemini: {
         name: 'Google Gemini',
         defaultModel: 'gemini-2.0-flash',
         models: ['gemini-2.0-flash', 'gemini-1.5-flash-latest', 'gemini-1.5-pro-latest'],
         getKeyUrl: 'https://aistudio.google.com/app/apikey',
-        description: 'Free tier available',
-        color: colors.providerGemini,
+        description: 'RECOMMENDED',
+        color: '#4285f4',
     },
     openai: {
         name: 'OpenAI',
         defaultModel: 'gpt-4o-mini',
         models: ['gpt-4o-mini', 'gpt-4o', 'gpt-4-turbo', 'gpt-3.5-turbo'],
         getKeyUrl: 'https://platform.openai.com/api-keys',
-        description: 'Pay as you go',
-        color: colors.providerOpenai,
+        description: 'PAY-AS-YOU-GO',
+        color: '#10a37f',
     },
     anthropic: {
-        name: 'Anthropic Claude',
+        name: 'Claude',
         defaultModel: 'claude-3-5-haiku-latest',
         models: ['claude-3-5-haiku-latest', 'claude-3-5-sonnet-latest', 'claude-3-opus-latest'],
         getKeyUrl: 'https://console.anthropic.com/settings/keys',
-        description: 'Pay as you go',
-        color: colors.providerAnthropic,
+        description: 'PAY-AS-YOU-GO',
+        color: '#d4a574',
     }
 };
 
-const Options = () => {
+// ============================================
+// COMPONENTS
+// ============================================
+
+// Status LED Component
+const StatusLED: React.FC<{ status: ConnectionStatus }> = ({ status }) => {
+    const statusClass = {
+        idle: 'idle',
+        testing: 'testing',
+        success: 'online',
+        error: 'offline'
+    }[status];
+
+    return <div className={`status-led ${statusClass}`} />;
+};
+
+// Section Header Component
+const SectionHeader: React.FC<{ title: string; subtitle: string }> = ({ title, subtitle }) => (
+    <div className="section-header">
+        <h2 className="section-title">{title}</h2>
+        <p className="section-subtitle">&gt;&gt; {subtitle}</p>
+    </div>
+);
+
+// Navigation Item Component
+const NavItem: React.FC<{
+    id: TabId;
+    label: string;
+    icon: string;
+    active: boolean;
+    badge?: string;
+    onClick: () => void;
+}> = ({ id, label, icon, active, badge, onClick }) => (
+    <button
+        className={`nav-item ${active ? 'active' : ''}`}
+        onClick={onClick}
+    >
+        <span style={{ fontSize: '16px' }}>{icon}</span>
+        <span style={{ flex: 1 }}>{label}</span>
+        {badge && <span className={`badge ${badge === 'PRO' ? 'badge-pro' : 'badge-trial'}`}>{badge}</span>}
+    </button>
+);
+
+// Glitch Logo Component
+const GlitchLogo: React.FC = () => (
+    <svg width="40" height="40" viewBox="0 0 128 128" fill="none">
+        <rect width="128" height="128" rx="16" fill="#0a0a0a"/>
+        <path d="M20 108H108V48H68L56 36H20V108Z" fill="#111111" stroke="#39ff14" strokeWidth="4"/>
+        <rect x="84" y="24" width="12" height="12" fill="#39ff14"/>
+        <rect x="96" y="36" width="12" height="12" fill="#39ff14"/>
+        <rect x="36" y="56" width="12" height="12" fill="#39ff14" style={{ filter: 'drop-shadow(0 0 4px rgba(57, 255, 20, 0.8))' }}/>
+    </svg>
+);
+
+// ============================================
+// MAIN OPTIONS PAGE COMPONENT
+// ============================================
+
+const OptionsPage: React.FC = () => {
+    // Tab State
+    const [activeTab, setActiveTab] = useState<TabId>('brain');
+
+    // AI Configuration State
     const [activeProvider, setActiveProvider] = useState<string>('none');
     const [cloudProvider, setCloudProvider] = useState<CloudProvider>('gemini');
     const [apiKey, setApiKey] = useState('');
     const [model, setModel] = useState('');
-    const [saved, setSaved] = useState(false);
-    const [testing, setTesting] = useState(false);
+    const [showApiKey, setShowApiKey] = useState(false);
+    const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('idle');
     const [testResult, setTestResult] = useState<string | null>(null);
-    const [license, setLicense] = useState<LicenseStatus | null>(null);
+    const [saved, setSaved] = useState(false);
+    const [confirmDelete, setConfirmDelete] = useState(false);
+
+    // Nano State
     const [nanoStatus, setNanoStatus] = useState<NanoStatus | null>(null);
     const [checkingNano, setCheckingNano] = useState(false);
+
+    // License State
+    const [license, setLicense] = useState<LicenseStatus | null>(null);
+    const [showEmailVerify, setShowEmailVerify] = useState(false);
+    const [verifyEmail, setVerifyEmail] = useState('');
+    const [verifyError, setVerifyError] = useState('');
+    const [verifyLoading, setVerifyLoading] = useState(false);
+
+    // Auto Pilot State
     const [autoPilotSettings, setAutoPilotSettings] = useState<AutoPilotSettings>({
         mode: 'manual',
         staleDaysThreshold: 7,
@@ -82,14 +164,13 @@ const Options = () => {
         showNotifications: true,
     });
     const [autoPilotSaved, setAutoPilotSaved] = useState(false);
-    const [hoveredProvider, setHoveredProvider] = useState<string | null>(null);
-    const [showApiKey, setShowApiKey] = useState(false);
-    const [confirmDelete, setConfirmDelete] = useState(false);
-    const [cleanMode, setCleanMode] = useState(true); // Default ON for consumer-friendly experience
-    const [showEmailVerify, setShowEmailVerify] = useState(false);
-    const [verifyEmail, setVerifyEmail] = useState('');
-    const [verifyError, setVerifyError] = useState('');
-    const [verifyLoading, setVerifyLoading] = useState(false);
+
+    // Display State
+    const [cleanMode, setCleanMode] = useState(true);
+
+    // ============================================
+    // EFFECTS & DATA LOADING
+    // ============================================
 
     useEffect(() => {
         loadConfig();
@@ -101,14 +182,7 @@ const Options = () => {
 
     const loadDisplaySettings = async () => {
         const stored = await chrome.storage.local.get(['cleanMode']);
-        // Default to true (clean mode ON) if not set
         setCleanMode(stored.cleanMode !== false);
-    };
-
-    const toggleCleanMode = async () => {
-        const newValue = !cleanMode;
-        setCleanMode(newValue);
-        await chrome.storage.local.set({ cleanMode: newValue });
     };
 
     const loadConfig = async () => {
@@ -128,40 +202,11 @@ const Options = () => {
         }
     };
 
-    const verifyByEmail = async () => {
-        if (!verifyEmail.trim()) {
-            setVerifyError('Please enter your payment email');
-            return;
-        }
-        setVerifyLoading(true);
-        setVerifyError('');
-        try {
-            const response = await chrome.runtime.sendMessage({
-                action: 'verifyByEmail',
-                payload: { email: verifyEmail.trim().toLowerCase() }
-            });
-            if (response.success && response.data.verified) {
-                await loadLicense();
-                setShowEmailVerify(false);
-                setVerifyEmail('');
-                setVerifyError('');
-            } else if (response.data?.error === 'DEVICE_LIMIT') {
-                setVerifyError('Device limit reached for this purchase. Contact support.');
-            } else if (response.data?.error === 'NOT_FOUND') {
-                setVerifyError('No purchase found for this email');
-            } else {
-                setVerifyError(response.data?.message || 'Verification failed');
-            }
-        } catch {
-            setVerifyError('Failed to verify. Please try again.');
-        }
-        setVerifyLoading(false);
-    };
-
     const checkProvider = async () => {
         const response = await chrome.runtime.sendMessage({ action: 'getAIProvider' });
         if (response.success) {
             setActiveProvider(response.data.provider);
+            setConnectionStatus(response.data.provider !== 'none' ? 'success' : 'idle');
         }
     };
 
@@ -172,7 +217,6 @@ const Options = () => {
             if (statusResponse.success) {
                 setNanoStatus(statusResponse.data);
             }
-
             const reinitResponse = await chrome.runtime.sendMessage({ action: 'reinitializeAI' });
             if (reinitResponse.success) {
                 setActiveProvider(reinitResponse.data.provider);
@@ -193,28 +237,21 @@ const Options = () => {
         }
     };
 
-    const saveAutoPilotSettings = useCallback(async () => {
-        await chrome.runtime.sendMessage({
-            action: 'setAutoPilotSettings',
-            payload: autoPilotSettings
-        });
-        setAutoPilotSaved(true);
-        setTimeout(() => setAutoPilotSaved(false), 2000);
-    }, [autoPilotSettings]);
+    // ============================================
+    // ACTIONS
+    // ============================================
 
-    const updateAutoPilotSetting = <K extends keyof AutoPilotSettings>(key: K, value: AutoPilotSettings[K]) => {
-        setAutoPilotSettings(prev => ({ ...prev, [key]: value }));
+    const toggleCleanMode = async () => {
+        const newValue = !cleanMode;
+        setCleanMode(newValue);
+        await chrome.storage.local.set({ cleanMode: newValue });
     };
 
     const saveConfig = async () => {
         const selectedModel = model || PROVIDER_INFO[cloudProvider].defaultModel;
         await chrome.runtime.sendMessage({
             action: 'setAIConfig',
-            payload: {
-                cloudProvider,
-                apiKey,
-                model: selectedModel
-            }
+            payload: { cloudProvider, apiKey, model: selectedModel }
         });
         setSaved(true);
         setTimeout(() => setSaved(false), 2000);
@@ -222,7 +259,7 @@ const Options = () => {
     };
 
     const testConnection = async () => {
-        setTesting(true);
+        setConnectionStatus('testing');
         setTestResult(null);
 
         try {
@@ -232,15 +269,16 @@ const Options = () => {
             });
 
             if (response.success) {
+                setConnectionStatus('success');
                 setTestResult('success');
             } else {
+                setConnectionStatus('error');
                 setTestResult(response.error || 'Test failed');
             }
         } catch (err: any) {
+            setConnectionStatus('error');
             setTestResult(err.message);
         }
-
-        setTesting(false);
     };
 
     const deleteApiKey = async () => {
@@ -255,16 +293,55 @@ const Options = () => {
             payload: { cloudProvider, apiKey: '', model: '' }
         });
         setConfirmDelete(false);
+        setConnectionStatus('idle');
         checkProvider();
     };
 
-    const getProviderColor = (p: string) => {
-        if (p === 'nano') return colors.providerNano;
-        if (p === 'gemini') return colors.providerGemini;
-        if (p === 'openai') return colors.providerOpenai;
-        if (p === 'anthropic') return colors.providerAnthropic;
-        return colors.error;
+    const saveAutoPilotSettings = useCallback(async () => {
+        await chrome.runtime.sendMessage({
+            action: 'setAutoPilotSettings',
+            payload: autoPilotSettings
+        });
+        setAutoPilotSaved(true);
+        setTimeout(() => setAutoPilotSaved(false), 2000);
+    }, [autoPilotSettings]);
+
+    const updateAutoPilotSetting = <K extends keyof AutoPilotSettings>(key: K, value: AutoPilotSettings[K]) => {
+        setAutoPilotSettings(prev => ({ ...prev, [key]: value }));
     };
+
+    const verifyByEmail = async () => {
+        if (!verifyEmail.trim()) {
+            setVerifyError('Please enter your payment email');
+            return;
+        }
+        setVerifyLoading(true);
+        setVerifyError('');
+        try {
+            const response = await chrome.runtime.sendMessage({
+                action: 'verifyByEmail',
+                payload: { email: verifyEmail.trim().toLowerCase() }
+            });
+            if (response.success && response.data.verified) {
+                await loadLicense();
+                setShowEmailVerify(false);
+                setVerifyEmail('');
+            } else if (response.data?.error === 'DEVICE_LIMIT') {
+                setVerifyError('Device limit reached. Contact support.');
+            } else if (response.data?.error === 'NOT_FOUND') {
+                setVerifyError('No purchase found for this email');
+            } else {
+                setVerifyError(response.data?.message || 'Verification failed');
+            }
+        } catch {
+            setVerifyError('Failed to verify. Please try again.');
+        }
+        setVerifyLoading(false);
+    };
+
+    // ============================================
+    // HELPER FUNCTIONS
+    // ============================================
 
     const getProviderLabel = (p: string) => {
         if (p === 'nano') return 'Chrome Nano (Local)';
@@ -274,1133 +351,515 @@ const Options = () => {
         return 'Not Configured';
     };
 
-    const getNanoStatusColor = () => {
-        if (!nanoStatus) return colors.textDimmer;
-        if (nanoStatus.status === 'ready' || activeProvider === 'nano') return colors.success;
-        if (nanoStatus.status === 'downloading') return colors.warningText;
-        return colors.warning;
+    const getLicenseBadge = () => {
+        if (!license) return null;
+        if (license.paid) return 'PRO';
+        if (license.status === 'trial') return 'TRIAL';
+        return null;
     };
 
-    const getNanoStatusLabel = () => {
-        if (activeProvider === 'nano') return 'Active';
-        if (!nanoStatus) return 'Checking...';
-        if (nanoStatus.status === 'ready') return 'Ready';
-        if (nanoStatus.status === 'downloading') return 'Downloading...';
-        if (nanoStatus.status === 'error') return 'Error';
-        return 'Not Available';
-    };
+    // ============================================
+    // SECTION RENDERERS
+    // ============================================
 
-    const getLicenseDisplay = () => {
-        if (!license) return { text: 'Loading...', color: colors.textDimmer, icon: 'loading' };
-        if (license.paid) return { text: 'PRO - Unlimited Access', color: colors.licensePro, icon: 'star' };
-        if (license.status === 'trial') {
-            const daysLeft = license.trialEndDate
-                ? Math.ceil((new Date(license.trialEndDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
-                : 0;
-            const dailyLimit = license.dailyLimit || 20;
-            return { text: `Free Trial - ${daysLeft} days left (${license.usageRemaining}/${dailyLimit} uses today)`, color: colors.licenseTrial, icon: 'clock' };
-        }
-        if (license.status === 'expired') return { text: 'Trial Expired', color: colors.licenseExpired, icon: 'x' };
-        return { text: 'Not Registered', color: colors.licenseExpired, icon: 'x' };
-    };
+    const renderBrainSection = () => (
+        <div className="animate-fade-in">
+            <SectionHeader title="AI Core" subtitle="Configure Neural Link" />
 
-    const licenseDisplay = getLicenseDisplay();
-
-    return (
-        <div style={styles.container}>
-            <header style={styles.header}>
-                <div style={styles.headerContent}>
-                    <div style={styles.logoSection}>
-                        <div style={styles.logo}>TE</div>
-                        <h1 style={styles.title}>TabEater Settings</h1>
-                    </div>
-                    <div style={styles.version}>v1.0.0</div>
-                </div>
-            </header>
-
-            <main style={styles.main}>
-                {/* License Status */}
-                <section style={styles.section}>
-                    <div style={styles.sectionHeader}>
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={colors.primary} strokeWidth="2">
-                            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-                        </svg>
-                        <h2 style={styles.sectionTitle}>License</h2>
-                    </div>
-                    <div style={styles.licenseCard}>
-                        <div style={styles.licenseStatus}>
-                            <span style={{ color: licenseDisplay.color, fontWeight: typography.semibold, fontSize: typography.sizeXl }}>
-                                {licenseDisplay.text}
+            {/* Current Status Card */}
+            <div className="card" style={{ marginBottom: '24px' }}>
+                <div className="card-body">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                        <span style={{ color: 'var(--text-secondary)', textTransform: 'uppercase', fontSize: '12px', letterSpacing: '1px' }}>
+                            Active Provider
+                        </span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <StatusLED status={connectionStatus} />
+                            <span className={`badge ${connectionStatus === 'success' ? 'badge-online' : 'badge-offline'}`}>
+                                {connectionStatus === 'success' ? 'ONLINE' : 'OFFLINE'}
                             </span>
                         </div>
-                        <button style={styles.compactBtn} onClick={loadLicense}>
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16" />
-                            </svg>
-                            Refresh
+                    </div>
+                    <div style={{ fontSize: '18px', fontWeight: 'bold', color: 'var(--terminal-green)' }}>
+                        {getProviderLabel(activeProvider)}
+                    </div>
+                </div>
+            </div>
+
+            {/* Provider Selection */}
+            <div className="card" style={{ marginBottom: '24px' }}>
+                <div className="card-body">
+                    <label style={{ display: 'block', color: 'var(--text-dim)', textTransform: 'uppercase', fontSize: '11px', letterSpacing: '1px', marginBottom: '12px' }}>
+                        Cloud Provider
+                    </label>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '24px' }}>
+                        {(Object.keys(PROVIDER_INFO) as CloudProvider[]).map(p => (
+                            <button
+                                key={p}
+                                className={`provider-card ${p} ${cloudProvider === p ? 'selected' : ''}`}
+                                onClick={() => {
+                                    setCloudProvider(p);
+                                    setModel(PROVIDER_INFO[p].defaultModel);
+                                }}
+                                style={{
+                                    borderColor: cloudProvider === p ? PROVIDER_INFO[p].color : undefined
+                                }}
+                            >
+                                <div style={{ fontWeight: 'bold', color: PROVIDER_INFO[p].color, marginBottom: '4px' }}>
+                                    {PROVIDER_INFO[p].name}
+                                </div>
+                                <div style={{ fontSize: '10px', color: 'var(--text-dim)' }}>
+                                    {PROVIDER_INFO[p].description}
+                                </div>
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* API Key Input */}
+                    <label style={{ display: 'block', color: 'var(--text-dim)', textTransform: 'uppercase', fontSize: '11px', letterSpacing: '1px', marginBottom: '8px' }}>
+                        API Key
+                    </label>
+                    <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+                        <input
+                            type={showApiKey ? 'text' : 'password'}
+                            value={apiKey}
+                            onChange={(e) => setApiKey(e.target.value)}
+                            placeholder="sk-..."
+                            style={{ flex: 1 }}
+                        />
+                        <button
+                            className="btn-ghost"
+                            onClick={() => setShowApiKey(!showApiKey)}
+                            style={{ padding: '8px 12px' }}
+                            title={showApiKey ? 'Hide' : 'Show'}
+                        >
+                            {showApiKey ? '◠' : '◡'}
+                        </button>
+                        {apiKey && (
+                            <button
+                                className={confirmDelete ? 'btn-danger' : 'btn-ghost'}
+                                onClick={deleteApiKey}
+                                style={{ padding: '8px 12px' }}
+                                title={confirmDelete ? 'Confirm delete' : 'Delete key'}
+                            >
+                                ✕
+                            </button>
+                        )}
+                        <button
+                            className="btn-primary"
+                            onClick={testConnection}
+                            disabled={connectionStatus === 'testing' || !apiKey}
+                            style={{ padding: '8px 16px' }}
+                        >
+                            {connectionStatus === 'testing' ? 'TESTING...' : 'TEST'}
                         </button>
                     </div>
-                    {/* Purchase recovery - email verification */}
-                    {license && !license.paid && (
-                        <div style={{ marginTop: spacing.md }}>
-                            {!showEmailVerify ? (
-                                <button
-                                    style={{
-                                        ...styles.compactBtn,
-                                        width: '100%',
-                                        justifyContent: 'center',
-                                        background: colors.bgCard,
-                                        color: colors.textMuted,
-                                        fontSize: typography.sizeSm,
-                                        padding: `${spacing.sm}px ${spacing.md}px`,
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: spacing.sm,
-                                    }}
-                                    onClick={() => setShowEmailVerify(true)}
-                                >
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                        <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
-                                        <polyline points="22,6 12,13 2,6"/>
-                                    </svg>
-                                    Already paid? Verify by email
-                                </button>
-                            ) : (
-                                <div style={{
-                                    background: colors.bgCard,
-                                    padding: spacing.md,
-                                    borderRadius: borderRadius.lg,
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    gap: spacing.sm,
-                                }}>
-                                    <span style={{ color: colors.textMuted, fontSize: typography.sizeSm }}>
-                                        Enter the email you used for payment:
-                                    </span>
-                                    <input
-                                        type="email"
-                                        placeholder="your@email.com"
-                                        value={verifyEmail}
-                                        onChange={(e) => setVerifyEmail(e.target.value)}
-                                        onKeyDown={(e) => e.key === 'Enter' && verifyByEmail()}
-                                        style={{
-                                            padding: `${spacing.sm}px ${spacing.md}px`,
-                                            background: colors.bgInput,
-                                            border: `1px solid ${colors.borderLight}`,
-                                            borderRadius: borderRadius.md,
-                                            color: colors.textPrimary,
-                                            fontSize: typography.sizeMd,
-                                            outline: 'none',
-                                        }}
-                                    />
-                                    <span style={{ color: colors.textDimmest, fontSize: typography.sizeXs }}>
-                                        Each purchase can be activated on up to 3 devices
-                                    </span>
-                                    {verifyError && (
-                                        <span style={{ color: colors.error, fontSize: typography.sizeSm }}>
-                                            {verifyError}
-                                        </span>
-                                    )}
-                                    <div style={{ display: 'flex', gap: spacing.sm }}>
-                                        <button
-                                            style={{
-                                                ...styles.compactBtn,
-                                                flex: 1,
-                                                justifyContent: 'center',
-                                                background: colors.primary,
-                                                color: '#fff',
-                                                padding: `${spacing.sm}px ${spacing.md}px`,
-                                            }}
-                                            onClick={verifyByEmail}
-                                            disabled={verifyLoading}
-                                        >
-                                            {verifyLoading ? 'Verifying...' : 'Verify'}
-                                        </button>
-                                        <button
-                                            style={{
-                                                ...styles.compactBtn,
-                                                flex: 1,
-                                                justifyContent: 'center',
-                                                padding: `${spacing.sm}px ${spacing.md}px`,
-                                            }}
-                                            onClick={() => {
-                                                setShowEmailVerify(false);
-                                                setVerifyError('');
-                                                setVerifyEmail('');
-                                            }}
-                                        >
-                                            Cancel
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '16px' }}>
+                        <a
+                            href={PROVIDER_INFO[cloudProvider].getKeyUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{ color: 'var(--info-blue)', fontSize: '12px', textDecoration: 'none' }}
+                        >
+                            ↗ Get API key
+                        </a>
+                        <span style={{ color: 'var(--terminal-green)', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <span style={{ fontSize: '8px' }}>🔒</span> Encrypted locally
+                        </span>
+                    </div>
+
+                    {/* Model Selection */}
+                    <label style={{ display: 'block', color: 'var(--text-dim)', textTransform: 'uppercase', fontSize: '11px', letterSpacing: '1px', marginBottom: '8px' }}>
+                        Model
+                    </label>
+                    <select
+                        value={model || PROVIDER_INFO[cloudProvider].defaultModel}
+                        onChange={(e) => setModel(e.target.value)}
+                        style={{ width: '100%', marginBottom: '16px' }}
+                    >
+                        {PROVIDER_INFO[cloudProvider].models.map(m => (
+                            <option key={m} value={m}>{m}</option>
+                        ))}
+                    </select>
+
+                    {/* Test Result */}
+                    {testResult && (
+                        <div style={{
+                            padding: '12px',
+                            marginBottom: '16px',
+                            borderRadius: '4px',
+                            background: testResult === 'success' ? 'rgba(57, 255, 20, 0.1)' : 'rgba(255, 0, 85, 0.1)',
+                            border: `1px solid ${testResult === 'success' ? 'var(--terminal-green-dim)' : 'var(--alert-red-dim)'}`,
+                            color: testResult === 'success' ? 'var(--terminal-green)' : 'var(--alert-red)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px'
+                        }}>
+                            <StatusLED status={testResult === 'success' ? 'success' : 'error'} />
+                            {testResult === 'success' ? 'Connection successful!' : testResult}
                         </div>
                     )}
-                </section>
 
-                {/* Current AI Provider */}
-                <section style={styles.section}>
-                    <div style={styles.sectionHeader}>
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={colors.primary} strokeWidth="2">
-                            <path d="M12 2a10 10 0 1 0 10 10H12V2z" />
-                            <path d="M12 2a10 10 0 0 1 10 10" />
-                        </svg>
-                        <h2 style={styles.sectionTitle}>Active AI Provider</h2>
-                    </div>
-                    <div style={styles.compactCard}>
-                        <div style={styles.providerStatusRow}>
-                            <span style={{ ...styles.providerValue, color: getProviderColor(activeProvider) }}>
-                                {getProviderLabel(activeProvider)}
+                    {/* Save Button */}
+                    <button
+                        className="btn-primary"
+                        onClick={saveConfig}
+                        style={{ width: '100%', padding: '12px' }}
+                    >
+                        {saved ? '✓ SAVED!' : 'SAVE CONFIGURATION'}
+                    </button>
+                </div>
+            </div>
+
+            {/* Local AI Section */}
+            {(activeProvider === 'nano' || nanoStatus?.status === 'ready' || nanoStatus?.status === 'downloading') && (
+                <div className="card">
+                    <div className="card-body">
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div>
+                                <div style={{ color: 'var(--terminal-green)', fontWeight: 'bold', marginBottom: '4px' }}>
+                                    Gemini Nano (Local)
+                                </div>
+                                <div style={{ color: 'var(--text-dim)', fontSize: '12px' }}>
+                                    Runs on device • No API key needed • Free & Private
+                                </div>
+                            </div>
+                            <span className={`badge ${activeProvider === 'nano' ? 'badge-online' : 'badge-trial'}`}>
+                                {activeProvider === 'nano' ? 'ACTIVE' : nanoStatus?.status === 'ready' ? 'READY' : 'DOWNLOADING'}
                             </span>
                         </div>
                     </div>
-                </section>
+                </div>
+            )}
+        </div>
+    );
 
-                {/* Local AI (Gemini Nano) - Only show if browser supports it or is active */}
-                {(activeProvider === 'nano' || nanoStatus?.status === 'ready' || nanoStatus?.status === 'downloading') && (
-                    <section style={styles.section}>
-                        <div style={styles.sectionHeader}>
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={colors.primary} strokeWidth="2">
-                                <rect x="4" y="4" width="16" height="16" rx="2" ry="2" />
-                                <rect x="9" y="9" width="6" height="6" />
-                            </svg>
-                            <h2 style={styles.sectionTitle}>Local AI</h2>
-                            <span style={styles.recommendedBadge}>Free & Private</span>
-                        </div>
-                        <div style={styles.compactCard}>
-                            <div style={styles.compactRow}>
-                                <div style={styles.compactInfo}>
-                                    <span style={styles.compactLabel}>Gemini Nano</span>
-                                    <span style={styles.compactDesc}>Runs on device, no API key needed</span>
-                                </div>
-                                <div style={styles.compactActions}>
-                                    <span style={{ color: getNanoStatusColor(), fontSize: typography.sizeMd }}>
-                                        {getNanoStatusLabel()}
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-                    </section>
-                )}
+    const renderAutoPilotSection = () => (
+        <div className="animate-fade-in">
+            <SectionHeader title="Auto Pilot" subtitle="Automated Cleanup Protocols" />
 
-                {/* Cloud AI Configuration */}
-                <section style={styles.section}>
-                    <div style={styles.sectionHeader}>
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={colors.primary} strokeWidth="2">
-                            <path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z" />
-                        </svg>
-                        <h2 style={styles.sectionTitle}>Cloud AI</h2>
+            {/* Mode Selection */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '24px' }}>
+                <button
+                    className={`mode-card ${autoPilotSettings.mode === 'manual' ? 'selected' : ''}`}
+                    onClick={() => updateAutoPilotSetting('mode', 'manual')}
+                >
+                    <span style={{ fontSize: '24px' }}>🔔</span>
+                    <span style={{ fontWeight: 'bold', fontSize: '14px' }}>MANUAL</span>
+                    <span style={{ fontSize: '11px', color: 'var(--text-dim)' }}>AI suggests, you confirm</span>
+                </button>
+                <button
+                    className={`mode-card ${autoPilotSettings.mode === 'auto-cleanup' ? 'selected' : ''}`}
+                    onClick={() => updateAutoPilotSetting('mode', 'auto-cleanup')}
+                >
+                    <span style={{ fontSize: '24px' }}>🧹</span>
+                    <span style={{ fontWeight: 'bold', fontSize: '14px' }}>AUTO-CLEAN</span>
+                    <span style={{ fontSize: '11px', color: 'var(--text-dim)' }}>Auto-closes duplicates</span>
+                </button>
+                <button
+                    className={`mode-card danger ${autoPilotSettings.mode === 'fly-mode' ? 'selected' : ''}`}
+                    onClick={() => updateAutoPilotSetting('mode', 'fly-mode')}
+                >
+                    <span style={{ fontSize: '24px' }}>🚀</span>
+                    <span style={{ fontWeight: 'bold', fontSize: '14px', color: 'var(--alert-red)' }}>FLY MODE</span>
+                    <span style={{ fontSize: '11px', color: 'var(--alert-red)' }}>Full autonomy • EXPERIMENTAL</span>
+                </button>
+            </div>
+
+            {autoPilotSettings.mode === 'fly-mode' && (
+                <div style={{
+                    padding: '12px',
+                    marginBottom: '24px',
+                    background: 'rgba(255, 0, 85, 0.1)',
+                    border: '1px solid var(--alert-red-dim)',
+                    borderRadius: '4px',
+                    color: 'var(--alert-red)',
+                    fontSize: '12px'
+                }}>
+                    ⚠ FLY MODE: Automatically closes duplicates and groups tabs. Use with caution.
+                </div>
+            )}
+
+            {/* Settings Card */}
+            <div className="card">
+                <div className="card-body">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', paddingBottom: '16px', borderBottom: '1px solid var(--border-subtle)' }}>
+                        <div>
+                            <div style={{ color: 'var(--text-primary)', marginBottom: '4px' }}>Stale Tab Threshold</div>
+                            <div style={{ color: 'var(--text-dim)', fontSize: '12px' }}>Tabs not accessed for this period</div>
+                        </div>
+                        <select
+                            value={autoPilotSettings.staleDaysThreshold}
+                            onChange={(e) => updateAutoPilotSetting('staleDaysThreshold', parseInt(e.target.value))}
+                            style={{ minWidth: '120px' }}
+                        >
+                            <option value={1}>1 Day</option>
+                            <option value={3}>3 Days</option>
+                            <option value={7}>7 Days</option>
+                            <option value={14}>14 Days</option>
+                            <option value={30}>30 Days</option>
+                        </select>
                     </div>
-                    <div style={styles.card}>
-                        <div style={styles.formGroup}>
-                            <label style={styles.label}>Select Provider</label>
-                            <div style={styles.providerGrid}>
-                                {(Object.keys(PROVIDER_INFO) as CloudProvider[]).map(p => (
-                                    <button
-                                        key={p}
-                                        style={{
-                                            ...styles.providerBtn,
-                                            ...(cloudProvider === p ? styles.providerBtnActive : {}),
-                                            borderColor: cloudProvider === p ? PROVIDER_INFO[p].color : colors.borderLight,
-                                            ...(hoveredProvider === p && cloudProvider !== p ? styles.providerBtnHover : {}),
-                                        }}
-                                        onClick={() => {
-                                            setCloudProvider(p);
-                                            setModel(PROVIDER_INFO[p].defaultModel);
-                                        }}
-                                        onMouseEnter={() => setHoveredProvider(p)}
-                                        onMouseLeave={() => setHoveredProvider(null)}
-                                    >
-                                        <span style={{ color: PROVIDER_INFO[p].color, fontWeight: typography.semibold }}>
-                                            {PROVIDER_INFO[p].name}
-                                        </span>
-                                        <span style={styles.providerDesc}>
-                                            {PROVIDER_INFO[p].description}
-                                        </span>
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
 
-                        <div style={styles.formGroup}>
-                            <label style={styles.label}>API Key</label>
-                            <div style={styles.apiKeyRow}>
-                                <input
-                                    type={showApiKey ? 'text' : 'password'}
-                                    value={apiKey}
-                                    onChange={(e) => setApiKey(e.target.value)}
-                                    placeholder={`Enter your ${PROVIDER_INFO[cloudProvider].name} API key`}
-                                    style={{ ...styles.input, flex: 1 }}
-                                />
-                                <button
-                                    style={styles.iconBtn}
-                                    onClick={() => setShowApiKey(!showApiKey)}
-                                    title={showApiKey ? 'Hide API key' : 'Show API key'}
-                                    type="button"
-                                >
-                                    {showApiKey ? (
-                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
-                                            <line x1="1" y1="1" x2="23" y2="23"/>
-                                        </svg>
-                                    ) : (
-                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                                            <circle cx="12" cy="12" r="3"/>
-                                        </svg>
-                                    )}
-                                </button>
-                                {apiKey && (
-                                    <button
-                                        style={{ ...styles.iconBtn, ...(confirmDelete ? styles.iconBtnDanger : {}) }}
-                                        onClick={deleteApiKey}
-                                        title={confirmDelete ? 'Click again to confirm' : 'Delete API key'}
-                                        type="button"
-                                    >
-                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                            <polyline points="3 6 5 6 21 6"/>
-                                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-                                        </svg>
-                                    </button>
-                                )}
-                            </div>
-                            <div style={styles.apiKeyHelp}>
-                                <a
-                                    href={PROVIDER_INFO[cloudProvider].getKeyUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    style={styles.link}
-                                >
-                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-                                        <polyline points="15 3 21 3 21 9" />
-                                        <line x1="10" y1="14" x2="21" y2="3" />
-                                    </svg>
-                                    Get API key
-                                </a>
-                                <span style={styles.secureNote}>
-                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-                                        <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-                                    </svg>
-                                    Stored securely on device
-                                </span>
-                            </div>
-                        </div>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px', cursor: 'pointer', padding: '8px', borderRadius: '4px' }}>
+                        <input
+                            type="checkbox"
+                            checked={autoPilotSettings.excludePinned}
+                            onChange={(e) => updateAutoPilotSetting('excludePinned', e.target.checked)}
+                        />
+                        <span style={{ color: 'var(--text-primary)' }}>Exclude pinned tabs</span>
+                    </label>
 
-                        <div style={styles.formGroup}>
-                            <label style={styles.label}>Model</label>
-                            <select
-                                value={model || PROVIDER_INFO[cloudProvider].defaultModel}
-                                onChange={(e) => setModel(e.target.value)}
-                                style={styles.select}
-                            >
-                                {PROVIDER_INFO[cloudProvider].models.map(m => (
-                                    <option key={m} value={m}>{m}</option>
-                                ))}
-                            </select>
-                        </div>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px', cursor: 'pointer', padding: '8px', borderRadius: '4px' }}>
+                        <input
+                            type="checkbox"
+                            checked={autoPilotSettings.excludeActive}
+                            onChange={(e) => updateAutoPilotSetting('excludeActive', e.target.checked)}
+                        />
+                        <span style={{ color: 'var(--text-primary)' }}>Exclude currently active tabs</span>
+                    </label>
 
-                        <div style={styles.btnRow}>
-                            <button style={styles.primaryBtn} onClick={saveConfig}>
-                                {saved ? (
-                                    <>
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                            <polyline points="20 6 9 17 4 12" />
-                                        </svg>
-                                        Saved!
-                                    </>
-                                ) : 'Save Configuration'}
-                            </button>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px', cursor: 'pointer', padding: '8px', borderRadius: '4px' }}>
+                        <input
+                            type="checkbox"
+                            checked={autoPilotSettings.showNotifications}
+                            onChange={(e) => updateAutoPilotSetting('showNotifications', e.target.checked)}
+                        />
+                        <span style={{ color: 'var(--text-primary)' }}>Show notifications for auto actions</span>
+                    </label>
+
+                    <button
+                        className="btn-primary"
+                        onClick={saveAutoPilotSettings}
+                        style={{ width: '100%', padding: '12px' }}
+                    >
+                        {autoPilotSaved ? '✓ SAVED!' : 'SAVE AUTO PILOT SETTINGS'}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+
+    const renderDisplaySection = () => (
+        <div className="animate-fade-in">
+            <SectionHeader title="Display" subtitle="Visual Configuration" />
+
+            <div className="card">
+                <div className="card-body">
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', padding: '8px', borderRadius: '4px' }}>
+                        <input
+                            type="checkbox"
+                            checked={!cleanMode}
+                            onChange={toggleCleanMode}
+                        />
+                        <div>
+                            <div style={{ color: 'var(--text-primary)', marginBottom: '4px' }}>Retro Mode (CRT Scanlines)</div>
+                            <div style={{ color: 'var(--text-dim)', fontSize: '12px' }}>Enable classic CRT monitor effects for tactical aesthetic</div>
+                        </div>
+                    </label>
+                </div>
+            </div>
+
+            <div style={{ marginTop: '24px', padding: '16px', border: '1px dashed var(--border-medium)', borderRadius: '4px', textAlign: 'center', color: 'var(--text-dim)' }}>
+                <div style={{ fontSize: '24px', marginBottom: '8px' }}>🎨</div>
+                <div>More display settings coming soon</div>
+            </div>
+        </div>
+    );
+
+    const renderLicenseSection = () => {
+        const getLicenseStatus = () => {
+            if (!license) return { text: 'Loading...', color: 'var(--text-dim)' };
+            if (license.paid) return { text: 'PRO - Unlimited Access', color: 'var(--terminal-green)' };
+            if (license.status === 'trial') {
+                const daysLeft = license.trialEndDate
+                    ? Math.ceil((new Date(license.trialEndDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+                    : 0;
+                return { text: `Free Trial - ${daysLeft} days left (${license.usageRemaining}/${license.dailyLimit || 20} uses today)`, color: 'var(--warning-amber)' };
+            }
+            if (license.status === 'expired') return { text: 'Trial Expired', color: 'var(--alert-red)' };
+            return { text: 'Not Registered', color: 'var(--alert-red)' };
+        };
+
+        const status = getLicenseStatus();
+
+        return (
+            <div className="animate-fade-in">
+                <SectionHeader title="License" subtitle="Account Status" />
+
+                <div className="card">
+                    <div className="card-body">
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                            <span style={{ color: status.color, fontWeight: 'bold', fontSize: '16px' }}>
+                                {status.text}
+                            </span>
                             <button
-                                style={styles.secondaryBtn}
-                                onClick={testConnection}
-                                disabled={testing || !apiKey}
+                                className="btn-ghost"
+                                onClick={loadLicense}
+                                style={{ padding: '6px 12px', fontSize: '12px' }}
                             >
-                                {testing ? 'Testing...' : 'Test Connection'}
+                                ↻ REFRESH
                             </button>
                         </div>
 
-                        {testResult && (
-                            <div style={{
-                                ...styles.testResult,
-                                background: testResult === 'success' ? '#0d2818' : '#2a1010',
-                                borderColor: testResult === 'success' ? colors.success : colors.error,
-                                color: testResult === 'success' ? colors.success : colors.error,
-                            }}>
-                                {testResult === 'success' ? (
-                                    <>
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                            <polyline points="20 6 9 17 4 12" />
-                                        </svg>
-                                        Connection successful!
-                                    </>
-                                ) : testResult}
-                            </div>
+                        {license && !license.paid && (
+                            <>
+                                {!showEmailVerify ? (
+                                    <button
+                                        className="btn-secondary"
+                                        onClick={() => setShowEmailVerify(true)}
+                                        style={{ width: '100%', padding: '12px', marginTop: '16px' }}
+                                    >
+                                        ✉ Already paid? Verify by email
+                                    </button>
+                                ) : (
+                                    <div style={{ marginTop: '16px', padding: '16px', background: 'var(--bg-card)', borderRadius: '4px' }}>
+                                        <div style={{ color: 'var(--text-dim)', fontSize: '12px', marginBottom: '8px' }}>
+                                            Enter the email you used for payment:
+                                        </div>
+                                        <input
+                                            type="email"
+                                            placeholder="your@email.com"
+                                            value={verifyEmail}
+                                            onChange={(e) => setVerifyEmail(e.target.value)}
+                                            onKeyDown={(e) => e.key === 'Enter' && verifyByEmail()}
+                                            style={{ width: '100%', marginBottom: '8px' }}
+                                        />
+                                        <div style={{ color: 'var(--text-dimmer)', fontSize: '11px', marginBottom: '8px' }}>
+                                            Each purchase can be activated on up to 3 devices
+                                        </div>
+                                        {verifyError && (
+                                            <div style={{ color: 'var(--alert-red)', fontSize: '12px', marginBottom: '8px' }}>
+                                                {verifyError}
+                                            </div>
+                                        )}
+                                        <div style={{ display: 'flex', gap: '8px' }}>
+                                            <button
+                                                className="btn-primary"
+                                                onClick={verifyByEmail}
+                                                disabled={verifyLoading}
+                                                style={{ flex: 1, padding: '10px' }}
+                                            >
+                                                {verifyLoading ? 'VERIFYING...' : 'VERIFY'}
+                                            </button>
+                                            <button
+                                                className="btn-ghost"
+                                                onClick={() => {
+                                                    setShowEmailVerify(false);
+                                                    setVerifyError('');
+                                                    setVerifyEmail('');
+                                                }}
+                                                style={{ flex: 1, padding: '10px' }}
+                                            >
+                                                CANCEL
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                            </>
                         )}
                     </div>
-                </section>
+                </div>
+            </div>
+        );
+    };
 
-                {/* Auto Pilot Settings */}
-                <section style={styles.section}>
-                    <div style={styles.sectionHeader}>
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={colors.primary} strokeWidth="2">
-                            <circle cx="12" cy="12" r="10" />
-                            <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" />
-                        </svg>
-                        <h2 style={styles.sectionTitle}>Auto Pilot</h2>
-                        <span style={styles.proBadge}>PRO</span>
-                    </div>
-                    <div style={styles.card}>
-                        {/* Mode Selector */}
-                        <div style={styles.formGroup}>
-                            <label style={styles.label}>Operation Mode</label>
-                            <div style={styles.modeGrid}>
-                                <button
-                                    style={{
-                                        ...styles.modeBtn,
-                                        ...(autoPilotSettings.mode === 'manual' ? styles.modeBtnActive : {}),
-                                    }}
-                                    onClick={() => updateAutoPilotSetting('mode', 'manual')}
-                                >
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-                                        <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-                                    </svg>
-                                    <span style={styles.modeBtnTitle}>Manual</span>
-                                    <span style={styles.modeBtnDesc}>Click to analyze & clean</span>
-                                </button>
-                                <button
-                                    style={{
-                                        ...styles.modeBtn,
-                                        ...(autoPilotSettings.mode === 'auto-cleanup' ? styles.modeBtnActive : {}),
-                                    }}
-                                    onClick={() => updateAutoPilotSetting('mode', 'auto-cleanup')}
-                                >
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                        <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-                                    </svg>
-                                    <span style={styles.modeBtnTitle}>Auto Cleanup</span>
-                                    <span style={styles.modeBtnDesc}>Auto-close duplicates</span>
-                                </button>
-                                <button
-                                    style={{
-                                        ...styles.modeBtn,
-                                        ...(autoPilotSettings.mode === 'fly-mode' ? styles.modeBtnActive : {}),
-                                    }}
-                                    onClick={() => updateAutoPilotSetting('mode', 'fly-mode')}
-                                >
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                        <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
-                                    </svg>
-                                    <span style={styles.modeBtnTitle}>Fly Mode</span>
-                                    <span style={styles.modeBtnDesc}>Full auto + grouping</span>
-                                </button>
-                            </div>
-                            {autoPilotSettings.mode === 'fly-mode' && (
-                                <p style={{ color: colors.warning, fontSize: typography.sizeSm, marginTop: spacing.sm }}>
-                                    Fly Mode automatically closes duplicates and groups new tabs. Use with caution.
-                                </p>
-                            )}
-                        </div>
+    // ============================================
+    // MAIN RENDER
+    // ============================================
 
-                        <div style={styles.divider} />
-
-                        <div style={styles.settingRow}>
-                            <div style={styles.settingInfo}>
-                                <span style={styles.settingLabel}>Stale tab threshold</span>
-                                <span style={styles.settingDesc}>Tabs not accessed for this many days are considered stale</span>
-                            </div>
-                            <select
-                                style={{
-                                    ...styles.compactSelect,
-                                    minWidth: 120,
-                                }}
-                                value={autoPilotSettings.staleDaysThreshold}
-                                onChange={(e) => updateAutoPilotSetting('staleDaysThreshold', parseInt(e.target.value))}
-                            >
-                                <option value={1}>1 day</option>
-                                <option value={3}>3 days</option>
-                                <option value={7}>7 days</option>
-                                <option value={14}>14 days</option>
-                                <option value={30}>30 days</option>
-                            </select>
-                        </div>
-
-                        <div style={styles.checkboxRow}>
-                            <label style={styles.checkboxLabel}>
-                                <input
-                                    type="checkbox"
-                                    checked={autoPilotSettings.excludePinned}
-                                    onChange={(e) => updateAutoPilotSetting('excludePinned', e.target.checked)}
-                                    style={styles.checkbox}
-                                />
-                                <span>Exclude pinned tabs</span>
-                            </label>
-                        </div>
-
-                        <div style={styles.checkboxRow}>
-                            <label style={styles.checkboxLabel}>
-                                <input
-                                    type="checkbox"
-                                    checked={autoPilotSettings.excludeActive}
-                                    onChange={(e) => updateAutoPilotSetting('excludeActive', e.target.checked)}
-                                    style={styles.checkbox}
-                                />
-                                <span>Exclude currently active tabs</span>
-                            </label>
-                        </div>
-
-                        <div style={styles.checkboxRow}>
-                            <label style={styles.checkboxLabel}>
-                                <input
-                                    type="checkbox"
-                                    checked={autoPilotSettings.showNotifications}
-                                    onChange={(e) => updateAutoPilotSetting('showNotifications', e.target.checked)}
-                                    style={styles.checkbox}
-                                />
-                                <span>Show notifications for auto actions</span>
-                            </label>
-                        </div>
-
-                        <button style={{ ...styles.primaryBtn, marginTop: spacing.lg }} onClick={saveAutoPilotSettings}>
-                            {autoPilotSaved ? (
-                                <>
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                        <polyline points="20 6 9 17 4 12" />
-                                    </svg>
-                                    Saved!
-                                </>
-                            ) : 'Save Auto Pilot Settings'}
-                        </button>
-                    </div>
-                </section>
-
-                {/* Display & Accessibility */}
-                <section style={styles.section}>
-                    <div style={styles.sectionHeader}>
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={colors.primary} strokeWidth="2">
-                            <circle cx="12" cy="12" r="3" />
-                            <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
-                        </svg>
-                        <h2 style={styles.sectionTitle}>Display</h2>
-                    </div>
-                    <div style={styles.card}>
-                        <div style={styles.checkboxRow}>
-                            <label style={styles.checkboxLabel}>
-                                <input
-                                    type="checkbox"
-                                    checked={!cleanMode}
-                                    onChange={toggleCleanMode}
-                                    style={styles.checkbox}
-                                />
-                                <span>Retro Mode (CRT scanline effects)</span>
-                            </label>
-                        </div>
-                        <p style={{ color: colors.textDim, fontSize: typography.sizeSm, marginTop: spacing.sm, marginLeft: spacing.xl }}>
-                            Enable classic CRT monitor effects for a tactical aesthetic
+    return (
+        <div style={{
+            minHeight: '100vh',
+            display: 'flex',
+            background: 'var(--bg-dark)',
+            color: 'var(--terminal-green)',
+            fontFamily: 'var(--font-mono)',
+        }}>
+            {/* Sidebar */}
+            <div style={{
+                width: '260px',
+                borderRight: '1px solid var(--terminal-green-dim)',
+                padding: '24px',
+                display: 'flex',
+                flexDirection: 'column',
+                background: '#000',
+            }}>
+                {/* Logo Section */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '32px' }}>
+                    <GlitchLogo />
+                    <div>
+                        <h1 style={{ margin: 0, fontSize: '20px', fontWeight: 'bold', letterSpacing: '-0.5px' }}>
+                            TabEater
+                        </h1>
+                        <p style={{ margin: 0, fontSize: '10px', color: 'var(--text-dim)' }}>
+                            SYS.V.1.0.0
                         </p>
                     </div>
-                </section>
+                </div>
 
-            </main>
+                {/* Navigation */}
+                <nav style={{ flex: 1 }}>
+                    <NavItem
+                        id="brain"
+                        label="AI CONNECTION"
+                        icon="🧠"
+                        active={activeTab === 'brain'}
+                        onClick={() => setActiveTab('brain')}
+                    />
+                    <NavItem
+                        id="pilot"
+                        label="AUTO PILOT"
+                        icon="✈️"
+                        active={activeTab === 'pilot'}
+                        badge="PRO"
+                        onClick={() => setActiveTab('pilot')}
+                    />
+                    <NavItem
+                        id="display"
+                        label="DISPLAY / UX"
+                        icon="🖥️"
+                        active={activeTab === 'display'}
+                        onClick={() => setActiveTab('display')}
+                    />
+                    <NavItem
+                        id="license"
+                        label={`LICENSE${getLicenseBadge() ? `: ${getLicenseBadge()}` : ''}`}
+                        icon="💎"
+                        active={activeTab === 'license'}
+                        onClick={() => setActiveTab('license')}
+                    />
+                </nav>
 
-            {/* MGS Scanline Overlay */}
-            <ScanlineOverlay />
+                {/* Footer Stats */}
+                <div style={{ fontSize: '10px', color: 'var(--text-dimmer)', borderTop: '1px solid var(--border-subtle)', paddingTop: '16px' }}>
+                    <div style={{ marginBottom: '4px' }}>STATUS: {connectionStatus === 'success' ? 'CONNECTED' : 'DISCONNECTED'}</div>
+                    <div>PROVIDER: {activeProvider.toUpperCase()}</div>
+                </div>
+            </div>
+
+            {/* Main Content */}
+            <div style={{ flex: 1, padding: '32px 48px', position: 'relative', overflowY: 'auto' }}>
+                {/* Scanline Overlay */}
+                {!cleanMode && <div className="scanline-overlay" />}
+
+                <div style={{ maxWidth: '640px', margin: '0 auto' }}>
+                    {activeTab === 'brain' && renderBrainSection()}
+                    {activeTab === 'pilot' && renderAutoPilotSection()}
+                    {activeTab === 'display' && renderDisplaySection()}
+                    {activeTab === 'license' && renderLicenseSection()}
+                </div>
+            </div>
         </div>
     );
 };
 
-const styles: { [key: string]: React.CSSProperties } = {
-    container: {
-        minHeight: '100vh',
-        background: colors.bgDarker,
-        color: colors.textSecondary,
-        fontFamily: typography.fontFamily,
-    },
-    header: {
-        background: colors.bgCard,
-        borderBottom: `2px solid ${colors.primary}`,
-        position: 'sticky',
-        top: 0,
-        zIndex: 100,
-    },
-    headerContent: {
-        maxWidth: 720,
-        margin: '0 auto',
-        padding: `${spacing.xl}px ${spacing.xxxl}px`,
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-    },
-    logoSection: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: spacing.lg,
-    },
-    logo: {
-        width: 48,
-        height: 48,
-        background: colors.primary,
-        color: colors.bgDarkest,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        fontWeight: typography.bold,
-        fontSize: typography.sizeDisplay,
-        borderRadius: borderRadius.lg,
-    },
-    title: {
-        margin: 0,
-        fontSize: typography.sizeHero,
-        fontWeight: typography.semibold,
-        color: colors.textPrimary,
-        letterSpacing: typography.letterNormal,
-    },
-    version: {
-        fontSize: typography.sizeMd,
-        color: colors.textDimmest,
-        background: colors.bgCardHover,
-        padding: `${spacing.xs}px ${spacing.md}px`,
-        borderRadius: borderRadius.sm,
-    },
-    main: {
-        maxWidth: 720,
-        margin: '0 auto',
-        padding: `${spacing.xxl}px ${spacing.xxxl}px`,
-    },
-    section: {
-        marginBottom: spacing.xxxl,
-    },
-    sectionHeader: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: spacing.md,
-        marginBottom: spacing.lg,
-    },
-    sectionTitle: {
-        margin: 0,
-        fontSize: typography.sizeXxl,
-        fontWeight: typography.semibold,
-        color: colors.textPrimary,
-    },
-    recommendedBadge: {
-        fontSize: typography.sizeSm,
-        color: colors.success,
-        background: colors.primaryBg,
-        padding: `2px ${spacing.sm}px`,
-        borderRadius: borderRadius.sm,
-        marginLeft: 'auto',
-    },
-    proBadge: {
-        fontSize: typography.sizeSm,
-        color: colors.bgDarkest,
-        background: '#ffd700',
-        padding: `2px ${spacing.sm}px`,
-        borderRadius: borderRadius.sm,
-        fontWeight: typography.bold,
-    },
-    optionalBadge: {
-        fontSize: typography.sizeSm,
-        color: colors.textDim,
-        background: colors.bgCardHover,
-        padding: `2px ${spacing.sm}px`,
-        borderRadius: borderRadius.sm,
-        marginLeft: 'auto',
-    },
-    compactCard: {
-        background: colors.bgCard,
-        padding: spacing.lg,
-        borderRadius: borderRadius.md,
-        border: `1px solid ${colors.borderDark}`,
-    },
-    compactRow: {
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-    },
-    compactInfo: {
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 2,
-    },
-    compactLabel: {
-        fontSize: typography.sizeXl,
-        fontWeight: typography.medium,
-        color: colors.textSecondary,
-    },
-    compactDesc: {
-        fontSize: typography.sizeMd,
-        color: colors.textDimmest,
-    },
-    compactActions: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: spacing.md,
-    },
-    compactBtn: {
-        padding: `${spacing.xs}px ${spacing.md}px`,
-        background: colors.bgCardHover,
-        border: `1px solid ${colors.borderLight}`,
-        borderRadius: borderRadius.sm,
-        color: colors.textDim,
-        fontSize: typography.sizeMd,
-        cursor: 'pointer',
-    },
-    nanoDetails: {
-        marginTop: spacing.md,
-    },
-    nanoSummary: {
-        fontSize: typography.sizeMd,
-        color: colors.textDim,
-        cursor: 'pointer',
-        padding: `${spacing.sm}px 0`,
-    },
-    nanoSteps: {
-        fontSize: typography.sizeMd,
-        color: colors.textDimmest,
-        paddingLeft: spacing.md,
-        lineHeight: 1.8,
-    },
-    card: {
-        background: colors.bgCard,
-        padding: spacing.xl,
-        borderRadius: borderRadius.lg,
-        border: `1px solid ${colors.borderMedium}`,
-    },
-    licenseCard: {
-        background: colors.bgCard,
-        padding: spacing.lg,
-        borderRadius: borderRadius.md,
-        border: `1px solid ${colors.borderDark}`,
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-    },
-    licenseStatus: {},
-    providerStatusRow: {
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        fontSize: typography.sizeXl,
-    },
-    providerLabel: {
-        color: colors.textDim,
-    },
-    providerValue: {
-        fontWeight: typography.semibold,
-    },
-    providerInfo: {
-        fontSize: typography.sizeLg,
-        color: colors.textDim,
-        marginTop: spacing.md,
-        marginBottom: 0,
-    },
-    nanoStatusRow: {
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        fontSize: typography.sizeXl,
-        marginBottom: spacing.lg,
-    },
-    statusMessage: {
-        padding: `${spacing.md}px ${spacing.lg}px`,
-        border: '1px solid',
-        borderRadius: borderRadius.md,
-        fontSize: typography.sizeLg,
-        marginBottom: spacing.lg,
-    },
-    setupInstructions: {
-        background: colors.bgDarker,
-        padding: spacing.lg,
-        borderRadius: borderRadius.md,
-        marginTop: spacing.lg,
-    },
-    setupTitle: {
-        fontWeight: typography.semibold,
-        marginTop: 0,
-        marginBottom: spacing.md,
-        color: colors.textSecondary,
-    },
-    stepList: {
-        margin: 0,
-        paddingLeft: spacing.xl,
-        lineHeight: 2,
-        color: colors.textDim,
-    },
-    code: {
-        background: colors.bgCard,
-        padding: `2px ${spacing.sm}px`,
-        borderRadius: borderRadius.sm,
-        fontFamily: typography.fontMono,
-        fontSize: typography.sizeMd,
-        color: colors.primary,
-    },
-    setupNote: {
-        fontSize: typography.sizeLg,
-        color: colors.success,
-        marginBottom: 0,
-        marginTop: spacing.lg,
-    },
-    formGroup: {
-        marginBottom: spacing.xl,
-    },
-    label: {
-        display: 'block',
-        fontSize: typography.sizeLg,
-        marginBottom: spacing.md,
-        color: colors.textMuted,
-    },
-    providerGrid: {
-        display: 'grid',
-        gridTemplateColumns: 'repeat(3, 1fr)',
-        gap: spacing.md,
-    },
-    modeGrid: {
-        display: 'grid',
-        gridTemplateColumns: 'repeat(3, 1fr)',
-        gap: spacing.md,
-    },
-    modeBtn: {
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: spacing.xs,
-        padding: spacing.lg,
-        background: colors.bgDarker,
-        border: `2px solid ${colors.borderLight}`,
-        borderRadius: borderRadius.lg,
-        cursor: 'pointer',
-        transition: `all ${transitions.fast}`,
-        color: colors.textMuted,
-    },
-    modeBtnActive: {
-        background: colors.primaryBg,
-        borderColor: colors.primary,
-        color: colors.primary,
-    },
-    modeBtnTitle: {
-        fontSize: typography.sizeLg,
-        fontWeight: typography.semibold,
-        marginTop: spacing.xs,
-    },
-    modeBtnDesc: {
-        fontSize: typography.sizeXs,
-        color: colors.textDimmest,
-        textAlign: 'center',
-    },
-    providerBtn: {
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: spacing.xs,
-        padding: spacing.lg,
-        background: colors.bgDarker,
-        border: `2px solid ${colors.borderLight}`,
-        borderRadius: borderRadius.lg,
-        cursor: 'pointer',
-        transition: `all ${transitions.fast}`,
-    },
-    providerBtnActive: {
-        background: colors.bgCardHover,
-    },
-    providerBtnHover: {
-        background: colors.bgCard,
-        borderColor: colors.textDimmest,
-    },
-    providerDesc: {
-        fontSize: typography.sizeMd,
-        color: colors.textDimmest,
-    },
-    input: {
-        display: 'block',
-        width: '100%',
-        padding: `${spacing.md}px ${spacing.lg}px`,
-        background: colors.bgDarker,
-        border: `1px solid ${colors.borderLight}`,
-        borderRadius: borderRadius.md,
-        color: colors.textPrimary,
-        fontSize: typography.sizeXl,
-        boxSizing: 'border-box',
-        outline: 'none',
-        transition: `border-color ${transitions.fast}`,
-    },
-    select: {
-        display: 'block',
-        width: '100%',
-        padding: `${spacing.md}px ${spacing.lg}px`,
-        background: colors.bgDarker,
-        border: `1px solid ${colors.borderLight}`,
-        borderRadius: borderRadius.md,
-        color: colors.textPrimary,
-        fontSize: typography.sizeXl,
-        boxSizing: 'border-box',
-        outline: 'none',
-        cursor: 'pointer',
-    },
-    compactSelect: {
-        padding: `${spacing.sm}px ${spacing.md}px`,
-        background: colors.bgDarker,
-        border: `1px solid ${colors.primary}`,
-        borderRadius: borderRadius.sm,
-        color: colors.textPrimary,
-        fontSize: typography.sizeLg,
-        fontWeight: typography.medium,
-        fontFamily: typography.fontMono,
-        boxSizing: 'border-box',
-        outline: 'none',
-        cursor: 'pointer',
-        transition: `all ${transitions.fast}`,
-        boxShadow: `0 0 4px ${colors.primary}33`,
-    },
-    apiKeyRow: {
-        display: 'flex',
-        gap: spacing.sm,
-        alignItems: 'center',
-    },
-    iconBtn: {
-        width: 42,
-        height: 42,
-        padding: 0,
-        background: colors.bgCardHover,
-        border: `1px solid ${colors.borderLight}`,
-        borderRadius: borderRadius.md,
-        color: colors.textDim,
-        cursor: 'pointer',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        transition: `all ${transitions.fast}`,
-        flexShrink: 0,
-    },
-    iconBtnDanger: {
-        background: colors.errorBg,
-        borderColor: colors.error,
-        color: colors.error,
-    },
-    apiKeyHelp: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: spacing.lg,
-        marginTop: spacing.md,
-    },
-    secureNote: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: spacing.xs,
-        fontSize: typography.sizeMd,
-        color: colors.success,
-    },
-    link: {
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: spacing.xs,
-        fontSize: typography.sizeLg,
-        color: colors.info,
-        textDecoration: 'none',
-    },
-    btnRow: {
-        display: 'flex',
-        gap: spacing.md,
-    },
-    primaryBtn: {
-        flex: 1,
-        padding: `${spacing.md}px ${spacing.xl}px`,
-        background: colors.primary,
-        border: 'none',
-        borderRadius: borderRadius.md,
-        color: colors.bgDarkest,
-        fontSize: typography.sizeXl,
-        fontWeight: typography.medium,
-        cursor: 'pointer',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: spacing.sm,
-        transition: `all ${transitions.fast}`,
-    },
-    secondaryBtn: {
-        flex: 1,
-        padding: `${spacing.md}px ${spacing.xl}px`,
-        background: colors.bgCardHover,
-        border: `1px solid ${colors.borderLight}`,
-        borderRadius: borderRadius.md,
-        color: colors.textMuted,
-        fontSize: typography.sizeXl,
-        cursor: 'pointer',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: spacing.sm,
-        transition: `all ${transitions.fast}`,
-    },
-    testResult: {
-        marginTop: spacing.lg,
-        padding: spacing.md,
-        borderRadius: borderRadius.md,
-        border: '1px solid',
-        fontSize: typography.sizeLg,
-        display: 'flex',
-        alignItems: 'center',
-        gap: spacing.sm,
-    },
-    cardDescription: {
-        margin: 0,
-        marginBottom: spacing.xl,
-        fontSize: typography.sizeLg,
-        color: colors.textDim,
-    },
-    settingRow: {
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: spacing.lg,
-    },
-    settingInfo: {
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 2,
-    },
-    settingLabel: {
-        fontSize: typography.sizeXl,
-        color: colors.textSecondary,
-    },
-    settingDesc: {
-        fontSize: typography.sizeMd,
-        color: colors.textDimmest,
-    },
-    checkboxRow: {
-        marginBottom: spacing.md,
-    },
-    checkboxLabel: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: spacing.md,
-        cursor: 'pointer',
-        fontSize: typography.sizeXl,
-        color: colors.textMuted,
-    },
-    checkbox: {
-        width: 20,
-        height: 20,
-        cursor: 'pointer',
-        accentColor: colors.primary,
-    },
-    divider: {
-        height: 1,
-        background: colors.borderMedium,
-        margin: `${spacing.xl}px 0`,
-    },
-    experimentalNote: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: spacing.sm,
-        fontSize: typography.sizeMd,
-        color: colors.textDim,
-        marginTop: 0,
-        marginBottom: spacing.md,
-    },
-    privacyGrid: {
-        display: 'grid',
-        gridTemplateColumns: '1fr 1fr',
-        gap: spacing.xl,
-        marginBottom: spacing.lg,
-    },
-    privacyColumn: {},
-    privacyTitle: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: spacing.sm,
-        fontWeight: typography.semibold,
-        marginBottom: spacing.md,
-        marginTop: 0,
-        fontSize: typography.sizeXl,
-        color: colors.textSecondary,
-    },
-    privacyList: {
-        margin: 0,
-        paddingLeft: spacing.xl,
-        lineHeight: 1.8,
-        color: colors.textDim,
-        fontSize: typography.sizeLg,
-    },
-    privacyNote: {
-        padding: spacing.md,
-        background: colors.bgDarker,
-        borderRadius: borderRadius.md,
-        fontSize: typography.sizeLg,
-        color: colors.textDim,
-        borderLeft: `3px solid ${colors.primary}`,
-    },
-    aboutContent: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: spacing.xl,
-    },
-    aboutLogo: {
-        width: 64,
-        height: 64,
-        background: colors.primary,
-        color: colors.bgDarkest,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        fontWeight: typography.bold,
-        fontSize: typography.sizeHero,
-        borderRadius: borderRadius.lg,
-    },
-    aboutName: {
-        margin: 0,
-        fontSize: typography.sizeXxl,
-        fontWeight: typography.semibold,
-        color: colors.primary,
-    },
-    aboutTagline: {
-        margin: `${spacing.xs}px 0 0`,
-        fontSize: typography.sizeXl,
-        color: colors.textDim,
-    },
-    aboutVersion: {
-        margin: `${spacing.sm}px 0 0`,
-        fontSize: typography.sizeLg,
-        color: colors.textDimmest,
-    },
-};
-
-// Add global styles
-const styleSheet = document.createElement('style');
-styleSheet.textContent = `
-    input:focus, select:focus {
-        border-color: ${colors.primary} !important;
-    }
-    button:focus-visible {
-        outline: 2px solid ${colors.primary};
-        outline-offset: 2px;
-    }
-    button:hover:not(:disabled) {
-        opacity: 0.9;
-    }
-    a:hover {
-        text-decoration: underline;
-    }
-    ::-webkit-scrollbar {
-        width: 8px;
-    }
-    ::-webkit-scrollbar-track {
-        background: ${colors.bgDarker};
-    }
-    ::-webkit-scrollbar-thumb {
-        background: ${colors.borderLight};
-        border-radius: 4px;
-    }
-    ::-webkit-scrollbar-thumb:hover {
-        background: ${colors.textDimmest};
-    }
-`;
-document.head.appendChild(styleSheet);
+// ============================================
+// MOUNT
+// ============================================
 
 const container = document.getElementById('root');
 if (container) {
     const root = createRoot(container);
-    root.render(<Options />);
+    root.render(<OptionsPage />);
 }
