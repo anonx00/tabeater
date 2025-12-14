@@ -330,13 +330,19 @@ class AIService {
     }
 
     // Get API usage stats with limits info (async to load from storage)
-    async getUsageStats(): Promise<APIUsageStats & { limits: typeof RATE_LIMITS; nearLimit: boolean; provider: string }> {
+    async getUsageStats(): Promise<APIUsageStats & { limits: typeof RATE_LIMITS; nearLimit: boolean; provider: string; configuredProvider: string }> {
         // Load latest from storage
-        const stored = await chrome.storage.local.get(['apiUsageStats']);
+        const stored = await chrome.storage.local.get(['apiUsageStats', 'aiConfig']);
         if (stored.apiUsageStats) {
             this.usageStats = { ...this.usageStats, ...stored.apiUsageStats };
         }
         this.resetCountersIfNeeded();
+
+        // Determine the configured provider (even if not active yet)
+        let configuredProvider = this.provider;
+        if (stored.aiConfig?.cloudProvider && stored.aiConfig?.apiKey) {
+            configuredProvider = stored.aiConfig.cloudProvider;
+        }
 
         const hourlyUsage = this.usageStats.hourCalls / RATE_LIMITS.maxPerHour;
         const dailyUsage = this.usageStats.todayCalls / RATE_LIMITS.maxPerDay;
@@ -344,7 +350,8 @@ class AIService {
             ...this.usageStats,
             limits: RATE_LIMITS,
             nearLimit: hourlyUsage >= RATE_LIMITS.warningThreshold || dailyUsage >= RATE_LIMITS.warningThreshold,
-            provider: this.provider
+            provider: this.provider,
+            configuredProvider: configuredProvider
         };
     }
 

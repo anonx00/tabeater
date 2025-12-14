@@ -141,7 +141,7 @@ const OptionsPage: React.FC = () => {
     const [trialInfo, setTrialInfo] = useState<{ daysRemaining: number; startDate: string; endDate: string } | null>(null);
     const [deviceInfo, setDeviceInfo] = useState<{ devices: { deviceId: string; lastActive: string; current: boolean }[]; maxDevices: number } | null>(null);
     const [showDevices, setShowDevices] = useState(false);
-    const [apiUsage, setApiUsage] = useState<{ totalCalls: number; todayCalls: number; hourCalls: number; estimatedCost: number; limits: { maxPerHour: number; maxPerDay: number }; nearLimit: boolean; provider: string } | null>(null);
+    const [apiUsage, setApiUsage] = useState<{ totalCalls: number; todayCalls: number; hourCalls: number; estimatedCost: number; limits: { maxPerHour: number; maxPerDay: number }; nearLimit: boolean; provider: string; configuredProvider: string } | null>(null);
     const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     // Load data
@@ -581,18 +581,22 @@ const OptionsPage: React.FC = () => {
                         <div style={s.usageSection}>
                             <div style={s.usageHeader}>
                                 <span style={s.usageTitle}>API Usage</span>
-                                {apiUsage?.provider === 'nano' ? (
+                                {apiUsage?.configuredProvider === 'nano' ? (
                                     <span style={{ ...s.usageWarning, background: 'rgba(0, 255, 136, 0.1)', color: colors.phosphorGreen }}>Unlimited</span>
                                 ) : apiUsage?.nearLimit ? (
                                     <span style={s.usageWarning}>Approaching limit</span>
+                                ) : apiUsage?.configuredProvider && apiUsage.configuredProvider !== 'none' ? (
+                                    <span style={{ ...s.usageWarning, background: 'rgba(0, 212, 255, 0.1)', color: colors.accentCyan }}>
+                                        {apiUsage.configuredProvider.toUpperCase()}
+                                    </span>
                                 ) : null}
                             </div>
 
-                            {apiUsage?.provider === 'nano' ? (
+                            {apiUsage?.configuredProvider === 'nano' ? (
                                 <div style={s.usageNote}>
                                     Using Gemini Nano (local AI) - no API costs, unlimited usage.
                                 </div>
-                            ) : apiUsage?.provider && apiUsage.provider !== 'none' ? (
+                            ) : apiUsage?.configuredProvider && apiUsage.configuredProvider !== 'none' ? (
                                 <>
                                     <div style={s.usageGrid}>
                                         <div style={s.usageItem}>
@@ -613,7 +617,7 @@ const OptionsPage: React.FC = () => {
                                         </div>
                                     </div>
                                     <div style={s.usageNote}>
-                                        Fly mode uses AI ({apiUsage.provider}) to group tabs. Limits: {apiUsage.limits.maxPerHour}/hr, {apiUsage.limits.maxPerDay}/day.
+                                        Fly mode uses AI to group tabs. Limits: {apiUsage.limits.maxPerHour}/hr, {apiUsage.limits.maxPerDay}/day.
                                     </div>
                                 </>
                             ) : (
