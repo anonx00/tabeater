@@ -317,11 +317,25 @@ STRICT RULES:
 JSON format: [{"name":"GroupName","ids":[1,2,3]}]`
         );
 
-        // Parse AI response
-        const jsonMatch = response.match(/\[[\s\S]*\]/);
-        if (!jsonMatch) return [];
+        // Parse AI response - clean markdown and extract JSON
+        let cleanResponse = response.trim();
+        cleanResponse = cleanResponse.replace(/^```(?:json|JSON)?\s*/gm, '');
+        cleanResponse = cleanResponse.replace(/```\s*$/gm, '');
+        cleanResponse = cleanResponse.replace(/^`+|`+$/g, '');
 
-        const groups = JSON.parse(jsonMatch[0]) as { name: string; ids: number[] }[];
+        const jsonMatch = cleanResponse.match(/\[[\s\S]*?\]/);
+        if (!jsonMatch) {
+            console.error('[AutoPilot] No JSON array found in AI response');
+            return [];
+        }
+
+        let groups: { name: string; ids: number[] }[];
+        try {
+            groups = JSON.parse(jsonMatch[0]);
+        } catch {
+            console.error('[AutoPilot] Failed to parse JSON from AI response');
+            return [];
+        }
 
         // Validate and filter - also filter out domain-like names
         const validTabIds = new Set(tabs.map(t => t.id));

@@ -563,11 +563,22 @@ JSON format: [{"name":"GroupName","ids":[1,2,3]}]`
 
         let groups: { name: string; ids: number[]; tabTitles?: string[] }[] = [];
         try {
-            const jsonMatch = aiResponse.match(/\[[\s\S]*\]/);
+            // Clean markdown code blocks if present
+            let cleanResponse = aiResponse.trim();
+            cleanResponse = cleanResponse.replace(/^```(?:json|JSON)?\s*/gm, '');
+            cleanResponse = cleanResponse.replace(/```\s*$/gm, '');
+            cleanResponse = cleanResponse.replace(/^`+|`+$/g, '');
+
+            const jsonMatch = cleanResponse.match(/\[[\s\S]*?\]/);
             if (jsonMatch) {
                 groups = JSON.parse(jsonMatch[0]);
+            } else {
+                console.error('[SmartOrganizePreview] No JSON array found in response:', cleanResponse.slice(0, 200));
+                return { success: false, error: 'AI did not return valid groups. Please try again.' };
             }
-        } catch {
+        } catch (parseErr) {
+            console.error('[SmartOrganizePreview] JSON parse error:', parseErr);
+            console.error('[SmartOrganizePreview] Raw response:', aiResponse.slice(0, 300));
             return { success: false, error: 'Failed to parse AI response' };
         }
 
@@ -654,12 +665,22 @@ JSON format: [{"name":"GroupName","ids":[1,2,3]}]`
 
         let groups: { name: string; ids: number[] }[] = [];
         try {
-            const jsonMatch = aiResponse.match(/\[[\s\S]*\]/);
+            // Clean markdown code blocks if present
+            let cleanResponse = aiResponse.trim();
+            cleanResponse = cleanResponse.replace(/^```(?:json|JSON)?\s*/gm, '');
+            cleanResponse = cleanResponse.replace(/```\s*$/gm, '');
+            cleanResponse = cleanResponse.replace(/^`+|`+$/g, '');
+
+            const jsonMatch = cleanResponse.match(/\[[\s\S]*?\]/);
             if (jsonMatch) {
                 groups = JSON.parse(jsonMatch[0]);
+            } else {
+                console.error('[SmartOrganize] No JSON array found in response:', cleanResponse.slice(0, 200));
+                return { success: false, error: 'AI did not return valid groups. Please try again.' };
             }
-        } catch {
-            // Fallback: try simple pattern-based grouping
+        } catch (parseErr) {
+            console.error('[SmartOrganize] JSON parse error:', parseErr);
+            console.error('[SmartOrganize] Raw response:', aiResponse.slice(0, 300));
             return { success: false, error: 'AI response could not be parsed. Please try again.' };
         }
 
