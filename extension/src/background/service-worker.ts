@@ -538,19 +538,27 @@ async function smartOrganizePreview(): Promise<MessageResponse> {
 
         const tabList = tabs.map(t => `${t.id}|${t.title}|${new URL(t.url).hostname}`).join('\n');
 
-        const aiResponse = await aiService.prompt(
-            `Organize these ${tabs.length} browser tabs into groups. Return ONLY valid JSON array.
+        // Calculate target groups based on tab count (aim for 3-8 tabs per group)
+        const minGroups = Math.max(2, Math.ceil(tabs.length / 8));
+        const maxGroups = Math.min(10, Math.ceil(tabs.length / 3));
+        const maxPerGroup = Math.min(10, Math.ceil(tabs.length / minGroups));
 
+        const aiResponse = await aiService.prompt(
+            `Organize these ${tabs.length} browser tabs into ${minGroups}-${maxGroups} groups. Return ONLY valid JSON array.
+
+Tabs (id|title|domain):
 ${tabList}
 
-Requirements:
-- Each group needs 2 or more tabs
-- Find broader categories to include all tabs
-- Tabs with similar purpose belong together
-- Short 1-2 word group names
-- Include as many tabs as possible
+STRICT RULES:
+1. Create ${minGroups} to ${maxGroups} distinct groups
+2. Each group: 2-${maxPerGroup} tabs maximum
+3. Group names must describe PURPOSE or ACTIVITY (what user is doing)
+4. NEVER use website names, domains, or brand names as group names
+5. BAD names: "Google", "GitHub", "YouTube", "Console", "Cloud"
+6. GOOD names: "Research", "Coding", "Entertainment", "Shopping", "Reading", "Work", "Learning"
+7. Tabs about similar topics or tasks go together, regardless of website
 
-JSON format: [{"name":"Name","ids":[1,2]}]`
+JSON format: [{"name":"GroupName","ids":[1,2,3]}]`
         );
 
         let groups: { name: string; ids: number[]; tabTitles?: string[] }[] = [];
@@ -563,9 +571,13 @@ JSON format: [{"name":"Name","ids":[1,2]}]`
             return { success: false, error: 'Failed to parse AI response' };
         }
 
-        // Only groups with 2+ tabs
+        // Filter out domain-like names (post-processing validation)
+        const domainPatterns = /^(google|github|youtube|facebook|twitter|instagram|reddit|amazon|netflix|linkedin|console|cloud|docs|drive|aws|azure|gcp|stackoverflow|medium|notion|slack|discord|zoom|teams|outlook|gmail)$/i;
+
+        // Only groups with 2+ tabs and valid names
         const enrichedGroups = groups
             .filter(g => g.ids && g.ids.length >= 2)
+            .filter(g => !domainPatterns.test(g.name?.trim() || ''))
             .map(group => {
                 const validIds = group.ids.filter(id => tabs.some(t => t.id === id));
                 const groupTabs = validIds.map(id => {
@@ -617,19 +629,27 @@ async function smartOrganize(): Promise<MessageResponse> {
 
         const tabList = tabs.map(t => `${t.id}|${t.title}|${new URL(t.url).hostname}`).join('\n');
 
-        const aiResponse = await aiService.prompt(
-            `Organize these ${tabs.length} browser tabs into groups. Return ONLY valid JSON array.
+        // Calculate target groups based on tab count (aim for 3-8 tabs per group)
+        const minGroups = Math.max(2, Math.ceil(tabs.length / 8));
+        const maxGroups = Math.min(10, Math.ceil(tabs.length / 3));
+        const maxPerGroup = Math.min(10, Math.ceil(tabs.length / minGroups));
 
+        const aiResponse = await aiService.prompt(
+            `Organize these ${tabs.length} browser tabs into ${minGroups}-${maxGroups} groups. Return ONLY valid JSON array.
+
+Tabs (id|title|domain):
 ${tabList}
 
-Requirements:
-- Each group needs 2 or more tabs
-- Find broader categories to include all tabs
-- Tabs with similar purpose belong together
-- Short 1-2 word group names
-- Include as many tabs as possible
+STRICT RULES:
+1. Create ${minGroups} to ${maxGroups} distinct groups
+2. Each group: 2-${maxPerGroup} tabs maximum
+3. Group names must describe PURPOSE or ACTIVITY (what user is doing)
+4. NEVER use website names, domains, or brand names as group names
+5. BAD names: "Google", "GitHub", "YouTube", "Console", "Cloud"
+6. GOOD names: "Research", "Coding", "Entertainment", "Shopping", "Reading", "Work", "Learning"
+7. Tabs about similar topics or tasks go together, regardless of website
 
-JSON format: [{"name":"Name","ids":[1,2]}]`
+JSON format: [{"name":"GroupName","ids":[1,2,3]}]`
         );
 
         let groups: { name: string; ids: number[] }[] = [];
@@ -639,18 +659,18 @@ JSON format: [{"name":"Name","ids":[1,2]}]`
                 groups = JSON.parse(jsonMatch[0]);
             }
         } catch {
-            // Fallback: group by domain (only groups with 2+ tabs)
-            const domainGroups = tabService.groupByDomain(tabs);
-            for (const group of domainGroups) {
-                if (group.tabs.length >= 2) {
-                    await tabService.groupTabs(group.tabs.map(t => t.id), group.name);
-                }
-            }
-            return { success: true, data: { organized: [], message: 'Organized by domain' } };
+            // Fallback: try simple pattern-based grouping
+            return { success: false, error: 'AI response could not be parsed. Please try again.' };
         }
+
+        // Filter out domain-like names (post-processing validation)
+        const domainPatterns = /^(google|github|youtube|facebook|twitter|instagram|reddit|amazon|netflix|linkedin|console|cloud|docs|drive|aws|azure|gcp|stackoverflow|medium|notion|slack|discord|zoom|teams|outlook|gmail)$/i;
 
         const organized: { groupName: string; tabIds: number[] }[] = [];
         for (const group of groups) {
+            // Skip domain-like names
+            if (domainPatterns.test(group.name?.trim() || '')) continue;
+
             if (group.ids && group.ids.length >= 2 && group.name) {
                 const validIds = group.ids.filter(id => tabs.some(t => t.id === id));
                 if (validIds.length >= 2) {
