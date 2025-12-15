@@ -76,6 +76,25 @@ class AutoPilotService {
     private pendingGroupTabs: Map<string, { ids: number[]; windowId: number }> = new Map();
     private pendingGroupTimeout: ReturnType<typeof setTimeout> | null = null;
 
+    // Parse JSON from AI response
+    private parseJSONResponse<T>(response: string): T | null {
+        let clean = response.trim();
+        clean = clean.replace(/^```(?:json|JSON)?\n?/gm, '');
+        clean = clean.replace(/\n?```$/gm, '');
+        clean = clean.trim();
+
+        const match = clean.match(/\[[\s\S]*\]/);
+        const jsonStr = match ? match[0] : clean;
+
+        try {
+            return JSON.parse(jsonStr);
+        } catch (err) {
+            console.error('[AutoPilot] JSON parse failed:', err);
+            console.error('[AutoPilot] Raw response:', response.slice(0, 500));
+            return null;
+        }
+    }
+
     async loadSettings(): Promise<AutoPilotSettings> {
         const stored = await chrome.storage.local.get(['autoPilotSettings']);
         if (stored.autoPilotSettings) {
@@ -300,36 +319,18 @@ class AutoPilotService {
         const maxPerGroup = Math.min(10, Math.ceil(tabs.length / minGroups));
 
         const response = await aiService.prompt(
-            `Group these tabs by what the user is DOING (not by website). Return JSON only.
+            `Group tabs by activity. Return ONLY a JSON array, no other text.
 
 ${tabList}
 
-Return ${minGroups}-${maxGroups} groups. Use activity names like "Research", "Coding", "Videos", "Shopping", "Reading".
-DO NOT use website names like "Google" or "GitHub" as group names.
-
-JSON: [{"name":"Activity","ids":[1,2,3]}]`
+Create ${minGroups}-${maxGroups} groups. Name by activity (Research, Coding, Videos, etc), NOT by website.
+Output: [{"name":"Activity","ids":[1,2,3]}]`
         );
 
-        // Parse AI response - clean markdown and extract JSON
-        let cleanResponse = response.trim();
-        cleanResponse = cleanResponse.replace(/^```(?:json|JSON)?\s*/gm, '');
-        cleanResponse = cleanResponse.replace(/```\s*$/gm, '');
-        cleanResponse = cleanResponse.replace(/^`+|`+$/g, '');
-
-        let groups: { name: string; ids: number[] }[];
-        try {
-            // Try to find JSON array
-            const jsonMatch = cleanResponse.match(/\[[\s\S]*\]/);
-            if (jsonMatch) {
-                groups = JSON.parse(jsonMatch[0]);
-            } else if (cleanResponse.startsWith('[')) {
-                groups = JSON.parse(cleanResponse);
-            } else {
-                console.error('[AutoPilot] No JSON found in response');
-                return [];
-            }
-        } catch {
-            console.error('[AutoPilot] Failed to parse JSON from AI response');
+        // Parse AI response
+        const groups = this.parseJSONResponse<{ name: string; ids: number[] }[]>(response);
+        if (!groups) {
+            console.error('[AutoPilot] Failed to parse AI response');
             return [];
         }
 

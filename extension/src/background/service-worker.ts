@@ -5,6 +5,28 @@ import { autoPilotService } from '../services/autopilot';
 import { memoryService } from '../services/memory.service';
 import { TabManager } from './tab-manager';
 
+// Parse JSON from AI response - handles markdown code blocks
+function parseJSONResponse<T>(response: string, context: string): T | null {
+    let clean = response.trim();
+
+    // Strip markdown code blocks
+    clean = clean.replace(/^```(?:json|JSON)?\n?/gm, '');
+    clean = clean.replace(/\n?```$/gm, '');
+    clean = clean.trim();
+
+    // Find JSON array
+    const match = clean.match(/\[[\s\S]*\]/);
+    const jsonStr = match ? match[0] : clean;
+
+    try {
+        return JSON.parse(jsonStr);
+    } catch (err) {
+        console.error(`[${context}] JSON parse failed:`, err);
+        console.error(`[${context}] Raw response:`, response.slice(0, 500));
+        return null;
+    }
+}
+
 interface Message {
     action: string;
     payload?: any;
@@ -544,41 +566,17 @@ async function smartOrganizePreview(): Promise<MessageResponse> {
         const maxPerGroup = Math.min(10, Math.ceil(tabs.length / minGroups));
 
         const aiResponse = await aiService.prompt(
-            `Group these tabs by what the user is DOING (not by website). Return JSON only.
+            `Group tabs by activity. Return ONLY a JSON array, no other text.
 
 ${tabList}
 
-Return ${minGroups}-${maxGroups} groups. Use activity names like "Research", "Coding", "Videos", "Shopping", "Reading".
-DO NOT use website names like "Google" or "GitHub" as group names.
-
-JSON: [{"name":"Activity","ids":[1,2,3]}]`
+Create ${minGroups}-${maxGroups} groups. Name by activity (Research, Coding, Videos, etc), NOT by website.
+Output: [{"name":"Activity","ids":[1,2,3]}]`
         );
 
-        let groups: { name: string; ids: number[]; tabTitles?: string[] }[] = [];
-        try {
-            // Clean markdown code blocks if present
-            let cleanResponse = aiResponse.trim();
-            cleanResponse = cleanResponse.replace(/^```(?:json|JSON)?\s*/gm, '');
-            cleanResponse = cleanResponse.replace(/```\s*$/gm, '');
-            cleanResponse = cleanResponse.replace(/^`+|`+$/g, '');
-
-            // Try to find JSON array
-            const jsonMatch = cleanResponse.match(/\[[\s\S]*\]/);
-            if (jsonMatch) {
-                groups = JSON.parse(jsonMatch[0]);
-            } else {
-                // Try parsing the whole response as JSON
-                if (cleanResponse.startsWith('[')) {
-                    groups = JSON.parse(cleanResponse);
-                } else {
-                    console.error('[SmartOrganizePreview] No JSON found:', cleanResponse.slice(0, 200));
-                    return { success: false, error: 'AI did not return valid groups. Please try again.' };
-                }
-            }
-        } catch (parseErr) {
-            console.error('[SmartOrganizePreview] Parse error:', parseErr);
-            console.error('[SmartOrganizePreview] Response:', aiResponse.slice(0, 300));
-            return { success: false, error: 'Failed to parse AI response. Try again.' };
+        const groups = parseJSONResponse<{ name: string; ids: number[] }[]>(aiResponse, 'SmartOrganizePreview');
+        if (!groups) {
+            return { success: false, error: 'AI did not return valid JSON. Check AI configuration.' };
         }
 
         // Filter out domain-like names (post-processing validation)
@@ -645,41 +643,17 @@ async function smartOrganize(): Promise<MessageResponse> {
         const maxPerGroup = Math.min(10, Math.ceil(tabs.length / minGroups));
 
         const aiResponse = await aiService.prompt(
-            `Group these tabs by what the user is DOING (not by website). Return JSON only.
+            `Group tabs by activity. Return ONLY a JSON array, no other text.
 
 ${tabList}
 
-Return ${minGroups}-${maxGroups} groups. Use activity names like "Research", "Coding", "Videos", "Shopping", "Reading".
-DO NOT use website names like "Google" or "GitHub" as group names.
-
-JSON: [{"name":"Activity","ids":[1,2,3]}]`
+Create ${minGroups}-${maxGroups} groups. Name by activity (Research, Coding, Videos, etc), NOT by website.
+Output: [{"name":"Activity","ids":[1,2,3]}]`
         );
 
-        let groups: { name: string; ids: number[] }[] = [];
-        try {
-            // Clean markdown code blocks if present
-            let cleanResponse = aiResponse.trim();
-            cleanResponse = cleanResponse.replace(/^```(?:json|JSON)?\s*/gm, '');
-            cleanResponse = cleanResponse.replace(/```\s*$/gm, '');
-            cleanResponse = cleanResponse.replace(/^`+|`+$/g, '');
-
-            // Try to find JSON array
-            const jsonMatch = cleanResponse.match(/\[[\s\S]*\]/);
-            if (jsonMatch) {
-                groups = JSON.parse(jsonMatch[0]);
-            } else {
-                // Try parsing the whole response as JSON
-                if (cleanResponse.startsWith('[')) {
-                    groups = JSON.parse(cleanResponse);
-                } else {
-                    console.error('[SmartOrganize] No JSON found:', cleanResponse.slice(0, 200));
-                    return { success: false, error: 'AI did not return valid groups. Please try again.' };
-                }
-            }
-        } catch (parseErr) {
-            console.error('[SmartOrganize] Parse error:', parseErr);
-            console.error('[SmartOrganize] Response:', aiResponse.slice(0, 300));
-            return { success: false, error: 'AI response could not be parsed. Please try again.' };
+        const groups = parseJSONResponse<{ name: string; ids: number[] }[]>(aiResponse, 'SmartOrganize');
+        if (!groups) {
+            return { success: false, error: 'AI did not return valid JSON. Check AI configuration.' };
         }
 
         // Filter out domain-like names (post-processing validation)
