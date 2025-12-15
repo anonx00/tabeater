@@ -539,26 +539,18 @@ async function smartOrganizePreview(): Promise<MessageResponse> {
         const tabList = tabs.map(t => `${t.id}|${t.title}|${new URL(t.url).hostname}`).join('\n');
 
         const aiResponse = await aiService.prompt(
-            `Categorize these browser tabs into logical groups. Return ONLY a JSON array.
+            `Organize these ${tabs.length} browser tabs into groups. Return ONLY valid JSON array.
 
-Tabs (format: id|title|domain):
 ${tabList}
 
-Rules:
-- Group by PURPOSE and CONTEXT, not by domain
-- AI tools: ChatGPT, Claude, Gemini, Perplexity = "AI"
-- Cloud: GCP, AWS, Azure, Vercel, Firebase = "Cloud"
-- Streaming: Netflix, YouTube, Hulu, Disney+ = "Streaming"
-- Music: Spotify, YouTube Music, Apple Music = "Music"
-- Dev: GitHub, GitLab, localhost, docs, Stack Overflow = "Dev"
-- Social: Twitter/X, Facebook, Instagram, Reddit = "Social"
-- Finance: Stripe, PayPal, banks, billing = "Finance"
-- Only create groups with 2+ tabs
-- Max 6 groups
-- Short 1-word names
+Requirements:
+- Each group needs 2 or more tabs
+- Find broader categories to include all tabs
+- Tabs with similar purpose belong together
+- Short 1-2 word group names
+- Include as many tabs as possible
 
-Return JSON array:
-[{"name":"GroupName","ids":[1,2,3],"tabTitles":["Tab 1","Tab 2"]}]`
+JSON format: [{"name":"Name","ids":[1,2]}]`
         );
 
         let groups: { name: string; ids: number[]; tabTitles?: string[] }[] = [];
@@ -571,7 +563,7 @@ Return JSON array:
             return { success: false, error: 'Failed to parse AI response' };
         }
 
-        // Enrich groups with tab details
+        // Only groups with 2+ tabs
         const enrichedGroups = groups
             .filter(g => g.ids && g.ids.length >= 2)
             .map(group => {
@@ -591,8 +583,7 @@ Return JSON array:
                     tabs: groupTabs
                 };
             })
-            .filter(g => g.tabCount >= 2)
-            .slice(0, 6);
+            .filter(g => g.tabCount >= 2);
 
         return {
             success: true,
@@ -627,24 +618,18 @@ async function smartOrganize(): Promise<MessageResponse> {
         const tabList = tabs.map(t => `${t.id}|${t.title}|${new URL(t.url).hostname}`).join('\n');
 
         const aiResponse = await aiService.prompt(
-            `Categorize these browser tabs into logical groups. Return ONLY a JSON array.
+            `Organize these ${tabs.length} browser tabs into groups. Return ONLY valid JSON array.
 
-Tabs (format: id|title|domain):
 ${tabList}
 
-Rules:
-- Group by PURPOSE and CONTEXT, not by domain
-- AI tools: ChatGPT, Claude, Gemini = "AI"
-- Cloud: GCP, AWS, Azure, Vercel = "Cloud"
-- Streaming: Netflix, YouTube, Hulu = "Streaming"
-- Music: Spotify, YouTube Music = "Music"
-- Dev: GitHub, GitLab, localhost, docs = "Dev"
-- Social: Twitter, Facebook, Instagram = "Social"
-- Only create groups with 2+ tabs
-- Short 1-word names
+Requirements:
+- Each group needs 2 or more tabs
+- Find broader categories to include all tabs
+- Tabs with similar purpose belong together
+- Short 1-2 word group names
+- Include as many tabs as possible
 
-Return JSON array:
-[{"name":"GroupName","ids":[1,2,3]}]`
+JSON format: [{"name":"Name","ids":[1,2]}]`
         );
 
         let groups: { name: string; ids: number[] }[] = [];
@@ -654,6 +639,7 @@ Return JSON array:
                 groups = JSON.parse(jsonMatch[0]);
             }
         } catch {
+            // Fallback: group by domain (only groups with 2+ tabs)
             const domainGroups = tabService.groupByDomain(tabs);
             for (const group of domainGroups) {
                 if (group.tabs.length >= 2) {

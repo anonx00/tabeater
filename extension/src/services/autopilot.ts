@@ -295,20 +295,17 @@ class AutoPilotService {
         }).join('\n');
 
         const response = await aiService.prompt(
-            `Group these browser tabs by what the user is working on. Return ONLY a JSON array.
+            `Organize these ${tabs.length} tabs into groups. Return ONLY valid JSON array.
 
-Tabs (id|title|domain):
 ${tabList}
 
-Rules:
-- Group by PURPOSE and CONTEXT, not just by website
-- Tabs that are part of the same task/project should be together
-- Use short 1-2 word group names that describe the activity
-- Only create groups with 2+ related tabs
-- Maximum 6 groups
-- Skip tabs that don't fit any group
+Requirements:
+- Each group needs 2 or more tabs
+- Find broader categories to include all tabs
+- Tabs with similar purpose belong together
+- Short 1-2 word group names
 
-Return JSON: [{"name":"GroupName","ids":[1,2,3]}]`
+JSON format: [{"name":"Name","ids":[1,2]}]`
         );
 
         // Parse AI response
