@@ -295,21 +295,18 @@ class AutoPilotService {
         }).join('\n');
 
         const response = await aiService.prompt(
-            `Group these browser tabs by PURPOSE and CONTEXT. Return ONLY a JSON array.
+            `Group these browser tabs by what the user is working on. Return ONLY a JSON array.
 
 Tabs (id|title|domain):
 ${tabList}
 
 Rules:
-- Group by what user is DOING, not just domain
-- AI tools (ChatGPT, Claude, Gemini, Grok) = "AI"
-- Cloud services (GCP, AWS, Azure, Vercel) = "Cloud"
-- Streaming (Netflix, YouTube, Spotify) = "Media"
-- Dev (GitHub, localhost, docs, Stack Overflow) = "Dev"
-- Social (Twitter/X, Reddit, LinkedIn) = "Social"
-- Only groups with 2+ tabs
-- Max 6 groups, 1-2 word names
-- Skip ungroupable tabs
+- Group by PURPOSE and CONTEXT, not just by website
+- Tabs that are part of the same task/project should be together
+- Use short 1-2 word group names that describe the activity
+- Only create groups with 2+ related tabs
+- Maximum 6 groups
+- Skip tabs that don't fit any group
 
 Return JSON: [{"name":"GroupName","ids":[1,2,3]}]`
         );
@@ -408,123 +405,55 @@ Give 2-3 actionable recommendations for better tab hygiene. Be concise.`;
         };
     }
 
-    // Made public for auto-grouping feature
+    // AI-powered tab categorization - no hardcoded patterns
+    async categorizeTabWithAI(tab: TabInfo): Promise<string> {
+        try {
+            const canUseAI = await aiService.canMakeCall();
+            if (!canUseAI.allowed) {
+                return this.fallbackCategorize(tab);
+            }
+
+            const hostname = this.getHostname(tab.url);
+            const response = await aiService.prompt(
+                `Categorize this browser tab in 1-2 words. Return ONLY the category name.
+
+Tab: "${tab.title}"
+Site: ${hostname}
+
+Return a short category like: Dev, Social, Video, Music, News, Shopping, Email, Docs, Search, Chat, Finance, Gaming, or similar.
+Just the category name, nothing else.`
+            );
+
+            const category = response.trim().split('\n')[0].replace(/[^a-zA-Z0-9\s]/g, '').trim();
+            return category.length > 0 && category.length <= 20 ? category : this.fallbackCategorize(tab);
+        } catch {
+            return this.fallbackCategorize(tab);
+        }
+    }
+
+    // Simple fallback when AI is unavailable - uses domain name
+    private fallbackCategorize(tab: TabInfo): string {
+        const hostname = this.getHostname(tab.url);
+        if (!hostname || hostname === 'localhost' || hostname.match(/^[\d.]+$/)) {
+            return 'Local';
+        }
+        // Use the main part of domain as category (e.g., "github" from "github.com")
+        const parts = hostname.replace('www.', '').split('.');
+        const name = parts[0];
+        return name.charAt(0).toUpperCase() + name.slice(1);
+    }
+
+    private getHostname(url: string): string {
+        try {
+            return new URL(url).hostname;
+        } catch {
+            return '';
+        }
+    }
+
+    // Synchronous categorize for backward compatibility - uses simple domain extraction
     categorizeTab(tab: TabInfo): string {
-        const url = tab.url.toLowerCase();
-        const title = tab.title.toLowerCase();
-
-        // AI & Chat Assistants (highest priority - recognize all AI tools)
-        if (url.includes('chat.openai.com') || url.includes('chatgpt.com') ||
-            url.includes('claude.ai') || url.includes('anthropic.com') ||
-            url.includes('grok.x.ai') || url.includes('x.com/i/grok') ||
-            url.includes('gemini.google.com') || url.includes('bard.google.com') ||
-            url.includes('aistudio.google.com') || url.includes('ai.google') ||
-            url.includes('perplexity.ai') || url.includes('poe.com') ||
-            url.includes('character.ai') || url.includes('huggingface.co/chat') ||
-            url.includes('copilot.microsoft.com') || url.includes('bing.com/chat') ||
-            url.includes('you.com') || url.includes('phind.com') ||
-            url.includes('mistral.ai') || url.includes('cohere.ai') ||
-            title.includes('chatgpt') || title.includes('claude') ||
-            title.includes('grok') || title.includes('gemini') ||
-            title.includes('copilot') || title.includes('perplexity')) {
-            return 'AI';
-        }
-
-        // Cloud & DevOps
-        if (url.includes('console.cloud.google') || url.includes('cloud.google.com') ||
-            url.includes('console.aws.amazon') || url.includes('aws.amazon.com') ||
-            url.includes('portal.azure.com') || url.includes('azure.microsoft.com') ||
-            url.includes('vercel.com') || url.includes('netlify.com') ||
-            url.includes('heroku.com') || url.includes('railway.app') ||
-            url.includes('firebase.google.com') || url.includes('supabase.com') ||
-            url.includes('digitalocean.com') || url.includes('cloudflare.com')) {
-            return 'Cloud';
-        }
-
-        // Development
-        if (url.includes('github.com') || url.includes('gitlab.com') ||
-            url.includes('bitbucket.org') || url.includes('stackoverflow.com') ||
-            url.includes('localhost') || url.includes('127.0.0.1') ||
-            url.includes('codepen.io') || url.includes('codesandbox.io') ||
-            url.includes('replit.com') || url.includes('jsfiddle.net') ||
-            url.includes('npmjs.com') || url.includes('pypi.org') ||
-            title.includes('documentation') || title.includes('api reference') ||
-            title.includes('docs') || url.includes('/docs')) {
-            return 'Dev';
-        }
-
-        // Social Media
-        if (url.includes('facebook.com') || url.includes('twitter.com') ||
-            url.includes('x.com') || url.includes('instagram.com') ||
-            url.includes('linkedin.com') || url.includes('reddit.com') ||
-            url.includes('tiktok.com') || url.includes('threads.net') ||
-            url.includes('mastodon')) {
-            return 'Social';
-        }
-
-        // Email & Communication
-        if (url.includes('mail.google.com') || url.includes('outlook.') ||
-            url.includes('protonmail.com') || url.includes('yahoo.com/mail') ||
-            url.includes('slack.com') || url.includes('discord.com') ||
-            url.includes('teams.microsoft.com') || url.includes('zoom.us') ||
-            url.includes('meet.google.com')) {
-            return 'Communication';
-        }
-
-        // Payments & Finance
-        if (url.includes('stripe.com') || url.includes('paypal.com') ||
-            url.includes('square.com') || url.includes('venmo.com') ||
-            url.includes('coinbase.com') || url.includes('robinhood.com') ||
-            url.includes('bank') || url.includes('billing') ||
-            title.includes('payment') || title.includes('checkout') ||
-            title.includes('invoice') || title.includes('billing')) {
-            return 'Finance';
-        }
-
-        // Shopping
-        if (url.includes('amazon.') || url.includes('ebay.') ||
-            url.includes('shopify') || url.includes('etsy.com') ||
-            url.includes('aliexpress.com') || url.includes('walmart.com') ||
-            title.includes('cart') || title.includes('shopping')) {
-            return 'Shopping';
-        }
-
-        // Streaming & Entertainment
-        if (url.includes('youtube.com') || url.includes('netflix.com') ||
-            url.includes('spotify.com') || url.includes('twitch.tv') ||
-            url.includes('hulu.com') || url.includes('disney') ||
-            url.includes('primevideo.com') || url.includes('hbomax.com') ||
-            url.includes('crunchyroll.com') || url.includes('anime') ||
-            url.includes('stan.com.au')) {
-            return 'Entertainment';
-        }
-
-        // News & Reading
-        if (url.includes('news') || url.includes('cnn.com') ||
-            url.includes('bbc.') || url.includes('nytimes.com') ||
-            url.includes('medium.com') || url.includes('substack.com') ||
-            url.includes('techcrunch.com') || url.includes('theverge.com') ||
-            url.includes('arstechnica.com')) {
-            return 'News';
-        }
-
-        // Productivity
-        if (url.includes('docs.google.com') || url.includes('sheets.google.com') ||
-            url.includes('slides.google.com') || url.includes('notion.') ||
-            url.includes('trello.com') || url.includes('asana.com') ||
-            url.includes('monday.com') || url.includes('clickup.com') ||
-            url.includes('figma.com') || url.includes('canva.com') ||
-            url.includes('miro.com') || url.includes('airtable.com')) {
-            return 'Productivity';
-        }
-
-        // Search
-        if (url.includes('google.com/search') || url.includes('bing.com/search') ||
-            url.includes('duckduckgo.com') || url.includes('ecosia.org')) {
-            return 'Search';
-        }
-
-        return 'Other';
+        return this.fallbackCategorize(tab);
     }
 
     async executeCleanup(tabIds: number[]): Promise<{ closed: number }> {
@@ -738,22 +667,18 @@ Give 2-3 actionable recommendations for better tab hygiene. Be concise.`;
         }
     }
 
-    // Get a color for a category
+    // Get a color for a category - uses hash for consistent colors
     private getCategoryColor(category: string): chrome.tabGroups.ColorEnum {
-        const colorMap: { [key: string]: chrome.tabGroups.ColorEnum } = {
-            'AI': 'purple',
-            'Cloud': 'blue',
-            'Dev': 'green',
-            'Social': 'pink',
-            'Communication': 'cyan',
-            'Finance': 'yellow',
-            'Shopping': 'orange',
-            'Entertainment': 'red',
-            'News': 'grey',
-            'Productivity': 'blue',
-            'Search': 'grey'
-        };
-        return colorMap[category] || 'grey';
+        const colors: chrome.tabGroups.ColorEnum[] = [
+            'blue', 'red', 'yellow', 'green', 'pink', 'purple', 'cyan', 'orange'
+        ];
+        // Simple hash to get consistent color for same category name
+        let hash = 0;
+        for (let i = 0; i < category.length; i++) {
+            hash = ((hash << 5) - hash) + category.charCodeAt(i);
+            hash = hash & hash;
+        }
+        return colors[Math.abs(hash) % colors.length];
     }
 
     // AI-powered: Find the best existing group for a new tab
@@ -772,21 +697,17 @@ Give 2-3 actionable recommendations for better tab hygiene. Be concise.`;
         try {
             // Get group names
             const groupNames = groups.map(g => g.title || 'Unnamed').join(', ');
+            const hostname = this.getHostname(tab.url);
 
             // Ask AI which group fits best
             const response = await aiService.prompt(
                 `Which group should this tab belong to? Return ONLY the group name or "none".
 
-Tab: ${tab.title} (${new URL(tab.url).hostname})
+Tab: "${tab.title}" (${hostname})
 
 Available groups: ${groupNames}
 
-Rules:
-- Match by PURPOSE not just domain
-- AI tabs go to AI group
-- Dev/code tabs go to Dev group
-- Cloud consoles go to Cloud group
-- Return exact group name or "none" if no match`
+Based on what this tab is about and what the groups represent, which group fits best? Return the exact group name or "none" if it doesn't fit any.`
             );
 
             const suggestedGroup = response.trim().toLowerCase();
