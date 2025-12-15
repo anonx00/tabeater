@@ -76,6 +76,25 @@ class AutoPilotService {
     private pendingGroupTabs: Map<string, { ids: number[]; windowId: number }> = new Map();
     private pendingGroupTimeout: ReturnType<typeof setTimeout> | null = null;
 
+    // Parse JSON from AI response
+    private parseJSONResponse<T>(response: string): T | null {
+        let clean = response.trim();
+        clean = clean.replace(/^```(?:json|JSON)?\n?/gm, '');
+        clean = clean.replace(/\n?```$/gm, '');
+        clean = clean.trim();
+
+        const match = clean.match(/\[[\s\S]*\]/);
+        const jsonStr = match ? match[0] : clean;
+
+        try {
+            return JSON.parse(jsonStr);
+        } catch (err) {
+            console.error('[AutoPilot] JSON parse failed:', err);
+            console.error('[AutoPilot] Raw response:', response.slice(0, 500));
+            return null;
+        }
+    }
+
     async loadSettings(): Promise<AutoPilotSettings> {
         const stored = await chrome.storage.local.get(['autoPilotSettings']);
         if (stored.autoPilotSettings) {
@@ -300,40 +319,18 @@ class AutoPilotService {
         const maxPerGroup = Math.min(10, Math.ceil(tabs.length / minGroups));
 
         const response = await aiService.prompt(
-            `Organize these ${tabs.length} tabs into ${minGroups}-${maxGroups} groups. Return ONLY valid JSON array.
+            `Group tabs by activity. Return ONLY a JSON array, no other text.
 
-Tabs (id|title|domain):
 ${tabList}
 
-STRICT RULES:
-1. Create ${minGroups} to ${maxGroups} distinct groups
-2. Each group: 2-${maxPerGroup} tabs maximum
-3. Group names must describe PURPOSE or ACTIVITY (what user is doing)
-4. NEVER use website names, domains, or brand names as group names
-5. BAD names: "Google", "GitHub", "YouTube", "Console", "Cloud"
-6. GOOD names: "Research", "Coding", "Entertainment", "Shopping", "Reading", "Work", "Learning"
-7. Tabs about similar topics or tasks go together, regardless of website
-
-JSON format: [{"name":"GroupName","ids":[1,2,3]}]`
+Create ${minGroups}-${maxGroups} groups. Name by activity (Research, Coding, Videos, etc), NOT by website.
+Output: [{"name":"Activity","ids":[1,2,3]}]`
         );
 
-        // Parse AI response - clean markdown and extract JSON
-        let cleanResponse = response.trim();
-        cleanResponse = cleanResponse.replace(/^```(?:json|JSON)?\s*/gm, '');
-        cleanResponse = cleanResponse.replace(/```\s*$/gm, '');
-        cleanResponse = cleanResponse.replace(/^`+|`+$/g, '');
-
-        const jsonMatch = cleanResponse.match(/\[[\s\S]*?\]/);
-        if (!jsonMatch) {
-            console.error('[AutoPilot] No JSON array found in AI response');
-            return [];
-        }
-
-        let groups: { name: string; ids: number[] }[];
-        try {
-            groups = JSON.parse(jsonMatch[0]);
-        } catch {
-            console.error('[AutoPilot] Failed to parse JSON from AI response');
+        // Parse AI response
+        const groups = this.parseJSONResponse<{ name: string; ids: number[] }[]>(response);
+        if (!groups) {
+            console.error('[AutoPilot] Failed to parse AI response');
             return [];
         }
 
