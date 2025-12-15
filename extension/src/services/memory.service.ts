@@ -160,39 +160,49 @@ class MemoryService {
 
     /**
      * Get estimated memory when process info unavailable
+     * Uses content type heuristics instead of hardcoded domains
      */
     private getEstimatedMemory(tab: chrome.tabs.Tab): number {
         if (tab.discarded) return 0.5;
 
         const url = tab.url?.toLowerCase() || '';
+        const title = tab.title?.toLowerCase() || '';
 
-        // Video/streaming
-        if (url.includes('youtube.com/watch') || url.includes('netflix.com/watch') ||
-            url.includes('twitch.tv') || url.includes('hianime')) {
-            return tab.audible ? 200 : 150;
+        // Audio/video playing - highest memory
+        if (tab.audible) {
+            return 200;
         }
 
-        // Heavy web apps
-        if (url.includes('docs.google.com') || url.includes('sheets.google.com') ||
-            url.includes('figma.com') || url.includes('canva.com')) {
+        // Video content patterns (watch, player, stream, video, episode)
+        if (url.includes('/watch') || url.includes('/video') ||
+            url.includes('/player') || url.includes('/stream') ||
+            url.includes('/episode') || url.includes('/live')) {
+            return 150;
+        }
+
+        // Document editing patterns (edit, doc, sheet, slide, canvas, design)
+        if (url.includes('/edit') || url.includes('/document') ||
+            url.includes('/spreadsheet') || url.includes('/presentation') ||
+            url.includes('/design') || url.includes('/canvas') ||
+            url.includes('/board')) {
             return 120;
         }
 
-        // Development
-        if (url.includes('github.com') || url.includes('console.cloud.google.com') ||
-            url.includes('vercel.com') || url.includes('netlify.com')) {
+        // Console/dashboard patterns (console, dashboard, portal, app)
+        if (url.includes('/console') || url.includes('/dashboard') ||
+            url.includes('/portal') || url.includes('/app/')) {
             return 100;
         }
 
-        // AI tools
-        if (url.includes('chatgpt.com') || url.includes('claude.ai') ||
-            url.includes('gemini.google.com') || url.includes('aistudio.google.com')) {
+        // Chat/conversation patterns
+        if (url.includes('/chat') || url.includes('/conversation') ||
+            url.includes('/messages') || title.includes('chat')) {
             return 90;
         }
 
-        // Social media
-        if (url.includes('twitter.com') || url.includes('x.com') ||
-            url.includes('facebook.com') || url.includes('instagram.com')) {
+        // Feed-based content (timeline, feed, home)
+        if (url.includes('/home') || url.includes('/feed') ||
+            url.includes('/timeline') || url.includes('/for-you')) {
             return 80;
         }
 
