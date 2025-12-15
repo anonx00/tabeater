@@ -300,21 +300,14 @@ class AutoPilotService {
         const maxPerGroup = Math.min(10, Math.ceil(tabs.length / minGroups));
 
         const response = await aiService.prompt(
-            `Organize these ${tabs.length} tabs into ${minGroups}-${maxGroups} groups. Return ONLY valid JSON array.
+            `Group these tabs by what the user is DOING (not by website). Return JSON only.
 
-Tabs (id|title|domain):
 ${tabList}
 
-STRICT RULES:
-1. Create ${minGroups} to ${maxGroups} distinct groups
-2. Each group: 2-${maxPerGroup} tabs maximum
-3. Group names must describe PURPOSE or ACTIVITY (what user is doing)
-4. NEVER use website names, domains, or brand names as group names
-5. BAD names: "Google", "GitHub", "YouTube", "Console", "Cloud"
-6. GOOD names: "Research", "Coding", "Entertainment", "Shopping", "Reading", "Work", "Learning"
-7. Tabs about similar topics or tasks go together, regardless of website
+Return ${minGroups}-${maxGroups} groups. Use activity names like "Research", "Coding", "Videos", "Shopping", "Reading".
+DO NOT use website names like "Google" or "GitHub" as group names.
 
-JSON format: [{"name":"GroupName","ids":[1,2,3]}]`
+JSON: [{"name":"Activity","ids":[1,2,3]}]`
         );
 
         // Parse AI response - clean markdown and extract JSON
@@ -323,15 +316,18 @@ JSON format: [{"name":"GroupName","ids":[1,2,3]}]`
         cleanResponse = cleanResponse.replace(/```\s*$/gm, '');
         cleanResponse = cleanResponse.replace(/^`+|`+$/g, '');
 
-        const jsonMatch = cleanResponse.match(/\[[\s\S]*?\]/);
-        if (!jsonMatch) {
-            console.error('[AutoPilot] No JSON array found in AI response');
-            return [];
-        }
-
         let groups: { name: string; ids: number[] }[];
         try {
-            groups = JSON.parse(jsonMatch[0]);
+            // Try to find JSON array
+            const jsonMatch = cleanResponse.match(/\[[\s\S]*\]/);
+            if (jsonMatch) {
+                groups = JSON.parse(jsonMatch[0]);
+            } else if (cleanResponse.startsWith('[')) {
+                groups = JSON.parse(cleanResponse);
+            } else {
+                console.error('[AutoPilot] No JSON found in response');
+                return [];
+            }
         } catch {
             console.error('[AutoPilot] Failed to parse JSON from AI response');
             return [];

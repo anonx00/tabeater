@@ -544,21 +544,14 @@ async function smartOrganizePreview(): Promise<MessageResponse> {
         const maxPerGroup = Math.min(10, Math.ceil(tabs.length / minGroups));
 
         const aiResponse = await aiService.prompt(
-            `Organize these ${tabs.length} browser tabs into ${minGroups}-${maxGroups} groups. Return ONLY valid JSON array.
+            `Group these tabs by what the user is DOING (not by website). Return JSON only.
 
-Tabs (id|title|domain):
 ${tabList}
 
-STRICT RULES:
-1. Create ${minGroups} to ${maxGroups} distinct groups
-2. Each group: 2-${maxPerGroup} tabs maximum
-3. Group names must describe PURPOSE or ACTIVITY (what user is doing)
-4. NEVER use website names, domains, or brand names as group names
-5. BAD names: "Google", "GitHub", "YouTube", "Console", "Cloud"
-6. GOOD names: "Research", "Coding", "Entertainment", "Shopping", "Reading", "Work", "Learning"
-7. Tabs about similar topics or tasks go together, regardless of website
+Return ${minGroups}-${maxGroups} groups. Use activity names like "Research", "Coding", "Videos", "Shopping", "Reading".
+DO NOT use website names like "Google" or "GitHub" as group names.
 
-JSON format: [{"name":"GroupName","ids":[1,2,3]}]`
+JSON: [{"name":"Activity","ids":[1,2,3]}]`
         );
 
         let groups: { name: string; ids: number[]; tabTitles?: string[] }[] = [];
@@ -569,17 +562,23 @@ JSON format: [{"name":"GroupName","ids":[1,2,3]}]`
             cleanResponse = cleanResponse.replace(/```\s*$/gm, '');
             cleanResponse = cleanResponse.replace(/^`+|`+$/g, '');
 
-            const jsonMatch = cleanResponse.match(/\[[\s\S]*?\]/);
+            // Try to find JSON array
+            const jsonMatch = cleanResponse.match(/\[[\s\S]*\]/);
             if (jsonMatch) {
                 groups = JSON.parse(jsonMatch[0]);
             } else {
-                console.error('[SmartOrganizePreview] No JSON array found in response:', cleanResponse.slice(0, 200));
-                return { success: false, error: 'AI did not return valid groups. Please try again.' };
+                // Try parsing the whole response as JSON
+                if (cleanResponse.startsWith('[')) {
+                    groups = JSON.parse(cleanResponse);
+                } else {
+                    console.error('[SmartOrganizePreview] No JSON found:', cleanResponse.slice(0, 200));
+                    return { success: false, error: 'AI did not return valid groups. Please try again.' };
+                }
             }
         } catch (parseErr) {
-            console.error('[SmartOrganizePreview] JSON parse error:', parseErr);
-            console.error('[SmartOrganizePreview] Raw response:', aiResponse.slice(0, 300));
-            return { success: false, error: 'Failed to parse AI response' };
+            console.error('[SmartOrganizePreview] Parse error:', parseErr);
+            console.error('[SmartOrganizePreview] Response:', aiResponse.slice(0, 300));
+            return { success: false, error: 'Failed to parse AI response. Try again.' };
         }
 
         // Filter out domain-like names (post-processing validation)
@@ -646,21 +645,14 @@ async function smartOrganize(): Promise<MessageResponse> {
         const maxPerGroup = Math.min(10, Math.ceil(tabs.length / minGroups));
 
         const aiResponse = await aiService.prompt(
-            `Organize these ${tabs.length} browser tabs into ${minGroups}-${maxGroups} groups. Return ONLY valid JSON array.
+            `Group these tabs by what the user is DOING (not by website). Return JSON only.
 
-Tabs (id|title|domain):
 ${tabList}
 
-STRICT RULES:
-1. Create ${minGroups} to ${maxGroups} distinct groups
-2. Each group: 2-${maxPerGroup} tabs maximum
-3. Group names must describe PURPOSE or ACTIVITY (what user is doing)
-4. NEVER use website names, domains, or brand names as group names
-5. BAD names: "Google", "GitHub", "YouTube", "Console", "Cloud"
-6. GOOD names: "Research", "Coding", "Entertainment", "Shopping", "Reading", "Work", "Learning"
-7. Tabs about similar topics or tasks go together, regardless of website
+Return ${minGroups}-${maxGroups} groups. Use activity names like "Research", "Coding", "Videos", "Shopping", "Reading".
+DO NOT use website names like "Google" or "GitHub" as group names.
 
-JSON format: [{"name":"GroupName","ids":[1,2,3]}]`
+JSON: [{"name":"Activity","ids":[1,2,3]}]`
         );
 
         let groups: { name: string; ids: number[] }[] = [];
@@ -671,16 +663,22 @@ JSON format: [{"name":"GroupName","ids":[1,2,3]}]`
             cleanResponse = cleanResponse.replace(/```\s*$/gm, '');
             cleanResponse = cleanResponse.replace(/^`+|`+$/g, '');
 
-            const jsonMatch = cleanResponse.match(/\[[\s\S]*?\]/);
+            // Try to find JSON array
+            const jsonMatch = cleanResponse.match(/\[[\s\S]*\]/);
             if (jsonMatch) {
                 groups = JSON.parse(jsonMatch[0]);
             } else {
-                console.error('[SmartOrganize] No JSON array found in response:', cleanResponse.slice(0, 200));
-                return { success: false, error: 'AI did not return valid groups. Please try again.' };
+                // Try parsing the whole response as JSON
+                if (cleanResponse.startsWith('[')) {
+                    groups = JSON.parse(cleanResponse);
+                } else {
+                    console.error('[SmartOrganize] No JSON found:', cleanResponse.slice(0, 200));
+                    return { success: false, error: 'AI did not return valid groups. Please try again.' };
+                }
             }
         } catch (parseErr) {
-            console.error('[SmartOrganize] JSON parse error:', parseErr);
-            console.error('[SmartOrganize] Raw response:', aiResponse.slice(0, 300));
+            console.error('[SmartOrganize] Parse error:', parseErr);
+            console.error('[SmartOrganize] Response:', aiResponse.slice(0, 300));
             return { success: false, error: 'AI response could not be parsed. Please try again.' };
         }
 
