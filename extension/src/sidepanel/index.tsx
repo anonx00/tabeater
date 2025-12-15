@@ -27,6 +27,19 @@ interface ChatMessage {
     content: string;
 }
 
+interface APIUsageStats {
+    totalCalls: number;
+    todayCalls: number;
+    hourCalls: number;
+    estimatedCost: number;
+    limits: {
+        maxPerHour: number;
+        maxPerDay: number;
+    };
+    nearLimit: boolean;
+    provider: string;
+}
+
 const Sidepanel = () => {
     const [tabs, setTabs] = useState<TabInfo[]>([]);
     const [groups, setGroups] = useState<TabGroup[]>([]);
@@ -37,6 +50,8 @@ const Sidepanel = () => {
     const [provider, setProvider] = useState('none');
     const [hoveredTab, setHoveredTab] = useState<number | null>(null);
     const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+    const [apiStats, setApiStats] = useState<APIUsageStats | null>(null);
+    const [showStats, setShowStats] = useState(false);
     const chatEndRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -97,15 +112,17 @@ const Sidepanel = () => {
     };
 
     const loadData = async () => {
-        const [tabsRes, groupsRes, providerRes] = await Promise.all([
+        const [tabsRes, groupsRes, providerRes, statsRes] = await Promise.all([
             sendMessage('getTabs'),
             sendMessage('getGroupedByDomain'),
-            sendMessage('getAIProvider')
+            sendMessage('getAIProvider'),
+            sendMessage('getAPIUsageStats')
         ]);
 
         if (tabsRes.success) setTabs(tabsRes.data);
         if (groupsRes.success) setGroups(groupsRes.data);
         if (providerRes.success) setProvider(providerRes.data.provider);
+        if (statsRes.success) setApiStats(statsRes.data);
     };
 
     const switchToTab = useCallback((tabId: number, windowId: number) => {
@@ -162,6 +179,9 @@ const Sidepanel = () => {
             } else {
                 setChatMessages(prev => [...prev, { role: 'assistant', content: `Error: ${response.error}` }]);
             }
+            // Refresh stats after AI call
+            const statsRes = await sendMessage('getAPIUsageStats');
+            if (statsRes.success) setApiStats(statsRes.data);
         } catch (err: any) {
             setChatMessages(prev => [...prev, { role: 'assistant', content: `Error: ${err.message}` }]);
         }
@@ -255,10 +275,55 @@ const Sidepanel = () => {
                         {groups.length} domains
                     </span>
                     <span style={styles.statDivider}>|</span>
-                    <span style={{ ...styles.statItem, color: provider === 'none' ? colors.error : colors.primary }}>
-                        AI: {getProviderDisplay()}
-                    </span>
+                    <button
+                        style={styles.statsToggle}
+                        onClick={() => setShowStats(!showStats)}
+                        title="View API usage stats"
+                    >
+                        <span style={{ color: provider === 'none' ? colors.error : colors.primary }}>
+                            AI: {getProviderDisplay()}
+                        </span>
+                        {apiStats && provider !== 'none' && provider !== 'nano' && (
+                            <span style={apiStats.nearLimit ? styles.statWarning : styles.statNormal}>
+                                {apiStats.todayCalls}/{apiStats.limits.maxPerDay}
+                            </span>
+                        )}
+                    </button>
                 </div>
+                {/* API Usage Stats Panel */}
+                {showStats && apiStats && (
+                    <div style={styles.statsPanel}>
+                        <div style={styles.statsPanelHeader}>
+                            <span>Session Stats</span>
+                            <span style={styles.statsPanelProvider}>{apiStats.provider.toUpperCase()}</span>
+                        </div>
+                        <div style={styles.statsPanelGrid}>
+                            <div style={styles.statsPanelItem}>
+                                <span style={styles.statsPanelLabel}>This Hour</span>
+                                <span style={styles.statsPanelValue}>{apiStats.hourCalls}/{apiStats.limits.maxPerHour}</span>
+                            </div>
+                            <div style={styles.statsPanelItem}>
+                                <span style={styles.statsPanelLabel}>Today</span>
+                                <span style={styles.statsPanelValue}>{apiStats.todayCalls}/{apiStats.limits.maxPerDay}</span>
+                            </div>
+                            <div style={styles.statsPanelItem}>
+                                <span style={styles.statsPanelLabel}>Total Calls</span>
+                                <span style={styles.statsPanelValue}>{apiStats.totalCalls}</span>
+                            </div>
+                            <div style={styles.statsPanelItem}>
+                                <span style={styles.statsPanelLabel}>Est. Cost</span>
+                                <span style={styles.statsPanelValue}>
+                                    {apiStats.provider === 'nano' ? 'FREE' : `$${(apiStats.estimatedCost / 100).toFixed(4)}`}
+                                </span>
+                            </div>
+                        </div>
+                        {apiStats.nearLimit && (
+                            <div style={styles.statsPanelWarning}>
+                                ⚠ Approaching rate limit
+                            </div>
+                        )}
+                    </div>
+                )}
             </header>
 
             {/* View Toggle */}
@@ -592,6 +657,79 @@ const styles: { [key: string]: React.CSSProperties } = {
     },
     statDivider: {
         color: colors.borderIdle,
+    },
+    statsToggle: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: spacing.sm,
+        background: 'transparent',
+        border: 'none',
+        cursor: 'pointer',
+        fontFamily: typography.fontMono,
+        fontSize: typography.sizeXs,
+        color: colors.textDim,
+        padding: 0,
+    },
+    statWarning: {
+        color: colors.warning,
+        fontWeight: typography.medium,
+    },
+    statNormal: {
+        color: colors.textDim,
+    },
+    statsPanel: {
+        marginTop: spacing.md,
+        padding: spacing.md,
+        background: colors.voidBlack,
+        border: `1px solid ${colors.borderIdle}`,
+    },
+    statsPanelHeader: {
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: spacing.md,
+        fontFamily: typography.fontMono,
+        fontSize: typography.sizeXs,
+        color: colors.phosphorGreen,
+        textTransform: 'uppercase' as const,
+        letterSpacing: '0.1em',
+    },
+    statsPanelProvider: {
+        color: colors.textDim,
+        border: `1px solid ${colors.borderIdle}`,
+        padding: `2px ${spacing.sm}px`,
+    },
+    statsPanelGrid: {
+        display: 'grid',
+        gridTemplateColumns: '1fr 1fr',
+        gap: spacing.sm,
+    },
+    statsPanelItem: {
+        display: 'flex',
+        flexDirection: 'column' as const,
+        gap: 2,
+    },
+    statsPanelLabel: {
+        fontFamily: typography.fontMono,
+        fontSize: typography.sizeXs,
+        color: colors.textDim,
+        textTransform: 'uppercase' as const,
+        letterSpacing: '0.05em',
+    },
+    statsPanelValue: {
+        fontFamily: typography.fontMono,
+        fontSize: typography.sizeSm,
+        color: colors.textPrimary,
+    },
+    statsPanelWarning: {
+        marginTop: spacing.md,
+        padding: spacing.sm,
+        background: 'rgba(255, 170, 0, 0.1)',
+        border: `1px solid ${colors.warning}`,
+        color: colors.warning,
+        fontFamily: typography.fontMono,
+        fontSize: typography.sizeXs,
+        textAlign: 'center' as const,
     },
     viewToggle: {
         display: 'flex',
