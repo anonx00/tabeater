@@ -539,19 +539,18 @@ async function smartOrganizePreview(): Promise<MessageResponse> {
         const tabList = tabs.map(t => `${t.id}|${t.title}|${new URL(t.url).hostname}`).join('\n');
 
         const aiResponse = await aiService.prompt(
-            `Group ALL these browser tabs. Return ONLY a JSON array.
+            `Organize these ${tabs.length} browser tabs into groups. Return ONLY valid JSON array.
 
-Tabs (id|title|domain):
 ${tabList}
 
-Rules:
-- Group by what the user is doing, not by website
-- EVERY tab must be in a group - no tabs left out
-- Single tabs can have their own group if unique
-- Use short 1-2 word group names
-- Max 8 groups
+Requirements:
+- Each group needs 2 or more tabs
+- Find broader categories to include all tabs
+- Tabs with similar purpose belong together
+- Short 1-2 word group names
+- Include as many tabs as possible
 
-Return JSON: [{"name":"GroupName","ids":[1,2,3]}]`
+JSON format: [{"name":"Name","ids":[1,2]}]`
         );
 
         let groups: { name: string; ids: number[]; tabTitles?: string[] }[] = [];
@@ -564,9 +563,9 @@ Return JSON: [{"name":"GroupName","ids":[1,2,3]}]`
             return { success: false, error: 'Failed to parse AI response' };
         }
 
-        // Enrich groups with tab details - allow single-tab groups
+        // Only groups with 2+ tabs
         const enrichedGroups = groups
-            .filter(g => g.ids && g.ids.length >= 1)
+            .filter(g => g.ids && g.ids.length >= 2)
             .map(group => {
                 const validIds = group.ids.filter(id => tabs.some(t => t.id === id));
                 const groupTabs = validIds.map(id => {
@@ -584,8 +583,7 @@ Return JSON: [{"name":"GroupName","ids":[1,2,3]}]`
                     tabs: groupTabs
                 };
             })
-            .filter(g => g.tabCount >= 1)
-            .slice(0, 8);
+            .filter(g => g.tabCount >= 2);
 
         return {
             success: true,
@@ -620,19 +618,18 @@ async function smartOrganize(): Promise<MessageResponse> {
         const tabList = tabs.map(t => `${t.id}|${t.title}|${new URL(t.url).hostname}`).join('\n');
 
         const aiResponse = await aiService.prompt(
-            `Group ALL these browser tabs. Return ONLY a JSON array.
+            `Organize these ${tabs.length} browser tabs into groups. Return ONLY valid JSON array.
 
-Tabs (id|title|domain):
 ${tabList}
 
-Rules:
-- Group by what the user is doing, not by website
-- EVERY tab must be in a group - no tabs left out
-- Single tabs can have their own group if unique
-- Use short 1-2 word group names
-- Max 8 groups
+Requirements:
+- Each group needs 2 or more tabs
+- Find broader categories to include all tabs
+- Tabs with similar purpose belong together
+- Short 1-2 word group names
+- Include as many tabs as possible
 
-Return JSON: [{"name":"GroupName","ids":[1,2,3]}]`
+JSON format: [{"name":"Name","ids":[1,2]}]`
         );
 
         let groups: { name: string; ids: number[] }[] = [];
@@ -642,18 +639,21 @@ Return JSON: [{"name":"GroupName","ids":[1,2,3]}]`
                 groups = JSON.parse(jsonMatch[0]);
             }
         } catch {
+            // Fallback: group by domain (only groups with 2+ tabs)
             const domainGroups = tabService.groupByDomain(tabs);
             for (const group of domainGroups) {
-                await tabService.groupTabs(group.tabs.map(t => t.id), group.name);
+                if (group.tabs.length >= 2) {
+                    await tabService.groupTabs(group.tabs.map(t => t.id), group.name);
+                }
             }
             return { success: true, data: { organized: [], message: 'Organized by domain' } };
         }
 
         const organized: { groupName: string; tabIds: number[] }[] = [];
         for (const group of groups) {
-            if (group.ids && group.ids.length >= 1 && group.name) {
+            if (group.ids && group.ids.length >= 2 && group.name) {
                 const validIds = group.ids.filter(id => tabs.some(t => t.id === id));
-                if (validIds.length >= 1) {
+                if (validIds.length >= 2) {
                     await tabService.groupTabs(validIds, group.name);
                     organized.push({ groupName: group.name, tabIds: validIds });
                 }
