@@ -574,10 +574,14 @@ Create ${minGroups}-${maxGroups} groups. Name by activity (Research, Coding, Vid
 Output: [{"name":"Activity","ids":[1,2,3]}]`
         );
 
-        const groups = parseJSONResponse<{ name: string; ids: number[] }[]>(aiResponse, 'SmartOrganizePreview');
+        console.log('[SmartOrganizePreview] AI response:', aiResponse.slice(0, 500));
+
+        const groups = parseJSONResponse<{ name: string; ids: (number | string)[] }[]>(aiResponse, 'SmartOrganizePreview');
         if (!groups) {
             return { success: false, error: 'AI did not return valid JSON. Check AI configuration.' };
         }
+
+        console.log('[SmartOrganizePreview] Parsed groups:', JSON.stringify(groups).slice(0, 500));
 
         // Filter out domain-like names (post-processing validation)
         const domainPatterns = /^(google|github|youtube|facebook|twitter|instagram|reddit|amazon|netflix|linkedin|console|cloud|docs|drive|aws|azure|gcp|stackoverflow|medium|notion|slack|discord|zoom|teams|outlook|gmail)$/i;
@@ -587,7 +591,9 @@ Output: [{"name":"Activity","ids":[1,2,3]}]`
             .filter(g => g.ids && g.ids.length >= 2)
             .filter(g => !domainPatterns.test(g.name?.trim() || ''))
             .map(group => {
-                const validIds = group.ids.filter(id => tabs.some(t => t.id === id));
+                // Convert string IDs to numbers
+                const numericIds = group.ids.map(id => typeof id === 'string' ? parseInt(id, 10) : id);
+                const validIds = numericIds.filter(id => !isNaN(id) && tabs.some(t => t.id === id));
                 const groupTabs = validIds.map(id => {
                     const tab = tabs.find(t => t.id === id);
                     return {
@@ -651,7 +657,7 @@ Create ${minGroups}-${maxGroups} groups. Name by activity (Research, Coding, Vid
 Output: [{"name":"Activity","ids":[1,2,3]}]`
         );
 
-        const groups = parseJSONResponse<{ name: string; ids: number[] }[]>(aiResponse, 'SmartOrganize');
+        const groups = parseJSONResponse<{ name: string; ids: (number | string)[] }[]>(aiResponse, 'SmartOrganize');
         if (!groups) {
             return { success: false, error: 'AI did not return valid JSON. Check AI configuration.' };
         }
@@ -665,7 +671,9 @@ Output: [{"name":"Activity","ids":[1,2,3]}]`
             if (domainPatterns.test(group.name?.trim() || '')) continue;
 
             if (group.ids && group.ids.length >= 2 && group.name) {
-                const validIds = group.ids.filter(id => tabs.some(t => t.id === id));
+                // Convert string IDs to numbers
+                const numericIds = group.ids.map(id => typeof id === 'string' ? parseInt(id, 10) : id);
+                const validIds = numericIds.filter(id => !isNaN(id) && tabs.some(t => t.id === id));
                 if (validIds.length >= 2) {
                     await tabService.groupTabs(validIds, group.name);
                     organized.push({ groupName: group.name, tabIds: validIds });

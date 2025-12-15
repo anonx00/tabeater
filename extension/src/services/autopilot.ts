@@ -328,7 +328,7 @@ Output: [{"name":"Activity","ids":[1,2,3]}]`
         );
 
         // Parse AI response
-        const groups = this.parseJSONResponse<{ name: string; ids: number[] }[]>(response);
+        const groups = this.parseJSONResponse<{ name: string; ids: (number | string)[] }[]>(response);
         if (!groups) {
             console.error('[AutoPilot] Failed to parse AI response');
             return [];
@@ -341,10 +341,14 @@ Output: [{"name":"Activity","ids":[1,2,3]}]`
         return groups
             .filter(g => g.name && g.ids && g.ids.length >= 2)
             .filter(g => !domainPatterns.test(g.name)) // Filter out domain-like names
-            .map(g => ({
-                name: g.name,
-                tabIds: g.ids.filter(id => validTabIds.has(id))
-            }))
+            .map(g => {
+                // Convert string IDs to numbers
+                const numericIds = g.ids.map(id => typeof id === 'string' ? parseInt(id, 10) : id);
+                return {
+                    name: g.name,
+                    tabIds: numericIds.filter(id => !isNaN(id) && validTabIds.has(id))
+                };
+            })
             .filter(g => g.tabIds.length >= 2)
             .slice(0, maxGroups);
     }
