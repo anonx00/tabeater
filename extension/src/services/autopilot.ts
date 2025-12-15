@@ -405,7 +405,7 @@ Give 2-3 actionable recommendations for better tab hygiene. Be concise.`;
         };
     }
 
-    // AI-powered tab categorization - completely unbiased
+    // AI-powered tab categorization - zero bias, no examples
     async categorizeTabWithAI(tab: TabInfo): Promise<string> {
         try {
             const canUseAI = await aiService.canMakeCall();
@@ -415,15 +415,9 @@ Give 2-3 actionable recommendations for better tab hygiene. Be concise.`;
 
             const hostname = this.getHostname(tab.url);
             const response = await aiService.prompt(
-                `What is this browser tab about? Respond with a single 1-2 word category.
+                `"${tab.title}" (${hostname})
 
-Tab title: "${tab.title}"
-Website: ${hostname}
-
-Based on the content and purpose of this tab, what category best describes it?
-Examples: Security, Research, Video, Code, Shopping, Reading, Social, Music, Work, Learning, etc.
-
-Return ONLY the category name, nothing else.`
+What is this tab for? One or two words only.`
             );
 
             const category = response.trim().split('\n')[0].replace(/[^a-zA-Z0-9\s]/g, '').trim();
