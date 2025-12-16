@@ -4,54 +4,66 @@
 TabEater
 
 ## Short Description (132 characters max)
-AI-powered tab manager. Smart grouping, duplicate detection, and intelligent organization with local Gemini Nano AI. Privacy-first.
+AI-powered tab manager. Smart grouping, duplicate detection, and Auto-Pilot mode to organize tabs automatically. Privacy-focused.
 
 ## Detailed Description
 
-TabEater - Eat Through Tab Chaos with AI
+Stop drowning in tabs. Start focusing.
 
-Take control of your browser tabs with AI-powered intelligence. TabEater uses cutting-edge AI to help you organize, analyze, and manage your tabs effortlessly.
+TabEater is the minimalist, AI-powered assistant that keeps your browser clean automatically. Unlike other managers that require manual sorting, TabEater's Auto-Pilot organizes your workspace in the background as you browse—so you never have to "manage" your tabs again.
+
+Designed with a native, distraction-free interface, it feels like a natural part of your browser.
 
 KEY FEATURES
 
-Smart Tab Organization
-Automatically group tabs by purpose with one click. Keep your browser organized without manual effort.
+Auto-Pilot Mode
+Set it and forget it. As you open new links, TabEater instantly analyzes and moves them into smart groups (like "Work," "Research," or "Social"). Your browser stays organized without you lifting a finger. Choose from three modes: Manual, Auto-Cleanup (closes stale/duplicate tabs), or Fly-Mode (continuous auto-grouping).
 
-Duplicate Detection
-Find and close duplicate tabs instantly. Free up memory and reduce clutter.
+Smart Duplicate Cleanup
+Intelligent deduplication that actually works. TabEater finds duplicate tabs but smartly preserves your active or most recent version, clearing out the clutter while keeping your work safe.
 
-AI-Powered Analysis
-Get intelligent insights about your open tabs. The AI analyzes your browsing session and suggests optimizations.
+Action-First Dashboard
+No complex charts or confusing data. Just clear actions: Organize, Deduplicate, and Analyze. Get back to "Inbox Zero" for your tabs in seconds.
 
-Interactive AI Chat
-Ask questions about your tabs in natural language. "Which tabs are related to my project?" - the AI understands context.
+Tab Health & Memory Tracking
+Real-time health scoring for your browser. See which tabs are using the most memory, identify stale tabs you haven't touched in days, and get actionable insights to optimize your browsing.
 
-Command Center Side Panel
-A tactical view of all your tabs. Switch between domain-grouped view and full list. Real-time updates as you browse.
+AI-Powered Intelligence
+Ask questions about your tabs in natural language. Get intelligent insights and suggestions for organization. Summarize any tab's content with one click.
 
-Memory Optimizer
-See which tabs are using the most memory. Close memory hogs with one click to speed up your browser.
+KEYBOARD SHORTCUTS
 
-Keyboard Shortcuts
-- Ctrl+Shift+T (Cmd+Shift+T on Mac) - Open TabEater popup
-- Ctrl+Shift+E (Cmd+Shift+E on Mac) - Open Command Center
+Ctrl+Shift+T (Cmd+Shift+T on Mac) - Open Quick Actions
+Ctrl+Shift+E (Cmd+Shift+E on Mac) - Open Command Center
 
-PRIVACY & DATA
+AI PROVIDERS
 
-TabEater respects your privacy:
-- Local AI processing by default (Chrome Gemini Nano)
-- Optional cloud AI (you control which provider)
-- Minimal license tracking for Pro features
-- No browsing history collection
-- No data sold to third parties
-- Your API keys stored securely on device only
+Cloud AI (Default): Configure your own API key for Google Gemini (free tier available), OpenAI, or Anthropic Claude. Your data goes directly to your chosen provider—we never see it.
 
-HOW IT WORKS
+Local AI (Advanced Setup): Chrome Gemini Nano runs entirely on your device for maximum privacy. Requires Chrome 128+ with experimental flags enabled, 8GB+ RAM, and ~2GB disk space for the model. See setup guide in extension options.
 
-1. Click the TabEater icon to see your current tabs
-2. Use quick actions: Organize, Duplicates, Analyze
-3. Open the side panel for the full tactical view
-4. Configure AI settings in the options page
+PRIVACY PROMISE
+
+We believe your browsing data belongs to you.
+
+No tracking: We do not collect or sell your browsing history.
+Secure Storage: API keys are stored locally on your machine only.
+Minimal Data: Only anonymous device ID for license management.
+Direct API Calls: Cloud AI requests go directly to your chosen provider.
+
+PRICING
+
+Pay Once, Use Forever. No monthly subscriptions.
+
+Pro Access: A$6.00 one-time payment for unlimited AI features and Auto-Pilot modes.
+7-Day Trial: Experience TabEater for free with 20 AI queries per day.
+
+PERFECT FOR
+
+Developers with 50+ tabs open
+Researchers organizing sources
+Students juggling assignments
+Anyone who wants a faster, cleaner browser
 
 PERMISSIONS EXPLAINED
 
@@ -63,26 +75,6 @@ PERMISSIONS EXPLAINED
 - Active Tab: Grants temporary access to analyze current tab content
 - System Memory: Shows memory usage per tab
 
-PERFECT FOR
-
-- Researchers with many reference tabs
-- Developers juggling multiple projects
-- Anyone who tends to accumulate tabs
-- Power users who want AI assistance
-- Privacy-conscious users who prefer local AI
-
-AI PROVIDERS
-
-Privacy-First: Chrome Gemini Nano (local, free) - runs entirely on your device
-Cloud Options: Google Gemini, OpenAI, Anthropic Claude - you provide and control your own API keys
-
-PRICING
-
-Free Trial: 20 AI queries per day
-Pro: A$6.00 one-time payment for unlimited AI features
-
-No subscription. No recurring charges. Pay once, use forever.
-
 ## Category
 Productivity
 
@@ -90,17 +82,17 @@ Productivity
 English
 
 ## Keywords
-tab manager, tab organizer, AI tabs, duplicate tabs, tab groups, productivity, browser organization, gemini nano, tab intelligence, memory optimizer
+tab manager, tab organizer, AI tabs, duplicate tabs, tab groups, productivity, browser organization, tab intelligence, memory optimizer, auto-pilot
 
 ## Screenshots Needed
-1. Popup showing tab list with actions (1280x800) ✓
-2. Side panel tactical view (1280x800) ✓
-3. AI analysis results (1280x800) ✓
-4. Options page with AI configuration (1280x800) - TODO
-5. Memory optimizer view (1280x800) - TODO
+1. Popup showing tab list with actions (1280x800)
+2. Side panel tactical view (1280x800)
+3. AI analysis results (1280x800)
+4. Options page with AI configuration (1280x800)
+5. Memory optimizer view (1280x800)
 
 ## Promotional Tile Text
-"Eat Through Tab Chaos with AI"
+"Stop drowning in tabs. Start focusing."
 
 ## Privacy Practices
 
@@ -110,11 +102,11 @@ tab manager, tab organizer, AI tabs, duplicate tabs, tab groups, productivity, b
 - Email: Only if you purchase Pro (for activation)
 
 ### Data Usage
-- Tab titles/URLs: Processed locally or sent to your configured AI provider
+- Tab titles/URLs: Processed by your configured AI provider (or locally with Gemini Nano)
 - License data: Stored securely in Google Cloud Firestore
 - No browsing history retention
 
 ### Third-Party Services
 - Stripe: Payment processing (PCI compliant)
-- Google Cloud: Backend infrastructure
+- Google Cloud: Backend infrastructure for licensing only
 - AI Providers: Only if you configure cloud AI (Gemini, OpenAI, or Anthropic)
