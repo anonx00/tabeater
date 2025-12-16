@@ -558,58 +558,55 @@ async function smartOrganizePreview(): Promise<MessageResponse> {
             return { success: true, data: { groups: [], message: 'Not enough tabs to organize' } };
         }
 
-        const tabList = tabs.map(t => `${t.id}|${t.title}|${new URL(t.url).hostname}`).join('\n');
+        // Use simple indices (0, 1, 2...) instead of Chrome's large tab IDs
+        const tabList = tabs.map((t, idx) => `${idx}: ${t.title} (${new URL(t.url).hostname})`).join('\n');
 
-        // Calculate target groups based on tab count (aim for 3-8 tabs per group)
+        // Calculate target groups based on tab count
         const minGroups = Math.max(2, Math.ceil(tabs.length / 8));
         const maxGroups = Math.min(10, Math.ceil(tabs.length / 3));
-        const maxPerGroup = Math.min(10, Math.ceil(tabs.length / minGroups));
 
         const aiResponse = await aiService.prompt(
-            `Group tabs by activity. Return ONLY a JSON array, no other text.
+            `Group these tabs by activity. Return ONLY JSON array.
 
 ${tabList}
 
-Create ${minGroups}-${maxGroups} groups. Name by activity (Research, Coding, Videos, etc), NOT by website.
-Output: [{"name":"Activity","ids":[1,2,3]}]`
+Create ${minGroups}-${maxGroups} groups with activity-based names (Research, Coding, Videos, etc).
+Format: [{"name":"GroupName","ids":[0,1,2]}]`
         );
 
-        console.log('[SmartOrganizePreview] AI response:', aiResponse.slice(0, 500));
+        console.log('[SmartOrganizePreview] AI response:', aiResponse);
 
         const groups = parseJSONResponse<{ name: string; ids: (number | string)[] }[]>(aiResponse, 'SmartOrganizePreview');
         if (!groups) {
             return { success: false, error: 'AI did not return valid JSON. Check AI configuration.' };
         }
 
-        console.log('[SmartOrganizePreview] Parsed groups:', JSON.stringify(groups).slice(0, 500));
+        console.log('[SmartOrganizePreview] Parsed groups:', JSON.stringify(groups));
 
-        // Filter out domain-like names (post-processing validation)
-        const domainPatterns = /^(google|github|youtube|facebook|twitter|instagram|reddit|amazon|netflix|linkedin|console|cloud|docs|drive|aws|azure|gcp|stackoverflow|medium|notion|slack|discord|zoom|teams|outlook|gmail)$/i;
-
-        // Only groups with 2+ tabs and valid names
+        // Map indices back to real tab IDs
         const enrichedGroups = groups
-            .filter(g => g.ids && g.ids.length >= 2)
-            .filter(g => !domainPatterns.test(g.name?.trim() || ''))
+            .filter(g => g.ids && g.ids.length >= 2 && g.name)
             .map(group => {
-                // Convert string IDs to numbers
-                const numericIds = group.ids.map(id => typeof id === 'string' ? parseInt(id, 10) : id);
-                const validIds = numericIds.filter(id => !isNaN(id) && tabs.some(t => t.id === id));
-                const groupTabs = validIds.map(id => {
-                    const tab = tabs.find(t => t.id === id);
-                    return {
-                        id,
-                        title: tab?.title || 'Unknown',
-                        url: tab?.url || '',
-                        favIconUrl: tab?.favIconUrl
-                    };
-                });
+                // Convert to numbers and treat as indices
+                const indices = group.ids.map(id => typeof id === 'string' ? parseInt(id, 10) : id);
+                const validTabs = indices
+                    .filter(idx => !isNaN(idx) && idx >= 0 && idx < tabs.length)
+                    .map(idx => tabs[idx]);
+
                 return {
                     name: group.name,
-                    tabCount: validIds.length,
-                    tabs: groupTabs
+                    tabCount: validTabs.length,
+                    tabs: validTabs.map(tab => ({
+                        id: tab.id,
+                        title: tab.title || 'Unknown',
+                        url: tab.url || '',
+                        favIconUrl: tab.favIconUrl
+                    }))
                 };
             })
             .filter(g => g.tabCount >= 2);
+
+        console.log('[SmartOrganizePreview] Final groups:', enrichedGroups.length);
 
         return {
             success: true,
@@ -641,20 +638,20 @@ async function smartOrganize(): Promise<MessageResponse> {
             return { success: true, data: { organized: [], message: 'Not enough tabs to organize' } };
         }
 
-        const tabList = tabs.map(t => `${t.id}|${t.title}|${new URL(t.url).hostname}`).join('\n');
+        // Use simple indices (0, 1, 2...) instead of Chrome's large tab IDs
+        const tabList = tabs.map((t, idx) => `${idx}: ${t.title} (${new URL(t.url).hostname})`).join('\n');
 
-        // Calculate target groups based on tab count (aim for 3-8 tabs per group)
+        // Calculate target groups based on tab count
         const minGroups = Math.max(2, Math.ceil(tabs.length / 8));
         const maxGroups = Math.min(10, Math.ceil(tabs.length / 3));
-        const maxPerGroup = Math.min(10, Math.ceil(tabs.length / minGroups));
 
         const aiResponse = await aiService.prompt(
-            `Group tabs by activity. Return ONLY a JSON array, no other text.
+            `Group these tabs by activity. Return ONLY JSON array.
 
 ${tabList}
 
-Create ${minGroups}-${maxGroups} groups. Name by activity (Research, Coding, Videos, etc), NOT by website.
-Output: [{"name":"Activity","ids":[1,2,3]}]`
+Create ${minGroups}-${maxGroups} groups with activity-based names (Research, Coding, Videos, etc).
+Format: [{"name":"GroupName","ids":[0,1,2]}]`
         );
 
         const groups = parseJSONResponse<{ name: string; ids: (number | string)[] }[]>(aiResponse, 'SmartOrganize');
@@ -662,21 +659,18 @@ Output: [{"name":"Activity","ids":[1,2,3]}]`
             return { success: false, error: 'AI did not return valid JSON. Check AI configuration.' };
         }
 
-        // Filter out domain-like names (post-processing validation)
-        const domainPatterns = /^(google|github|youtube|facebook|twitter|instagram|reddit|amazon|netflix|linkedin|console|cloud|docs|drive|aws|azure|gcp|stackoverflow|medium|notion|slack|discord|zoom|teams|outlook|gmail)$/i;
-
         const organized: { groupName: string; tabIds: number[] }[] = [];
         for (const group of groups) {
-            // Skip domain-like names
-            if (domainPatterns.test(group.name?.trim() || '')) continue;
-
             if (group.ids && group.ids.length >= 2 && group.name) {
-                // Convert string IDs to numbers
-                const numericIds = group.ids.map(id => typeof id === 'string' ? parseInt(id, 10) : id);
-                const validIds = numericIds.filter(id => !isNaN(id) && tabs.some(t => t.id === id));
-                if (validIds.length >= 2) {
-                    await tabService.groupTabs(validIds, group.name);
-                    organized.push({ groupName: group.name, tabIds: validIds });
+                // Convert indices to real tab IDs
+                const indices = group.ids.map(id => typeof id === 'string' ? parseInt(id, 10) : id);
+                const validTabIds = indices
+                    .filter(idx => !isNaN(idx) && idx >= 0 && idx < tabs.length)
+                    .map(idx => tabs[idx].id);
+
+                if (validTabIds.length >= 2) {
+                    await tabService.groupTabs(validTabIds, group.name);
+                    organized.push({ groupName: group.name, tabIds: validTabIds });
                 }
             }
         }
