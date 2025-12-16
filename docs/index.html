@@ -707,10 +707,11 @@
     import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
     import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
     import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+    import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 
     // ============================================
-    // TRON GRID - PURE AESTHETIC
-    // A minimalist, powerful Three.js showcase
+    // TRON GRID - ULTIMATE EDITION
+    // Full aesthetic with all enhancements
     // ============================================
 
     const hardwareConcurrency = navigator.hardwareConcurrency || 4;
@@ -723,11 +724,13 @@
     // ============================================
     const TRON = {
         cyan: 0x00FFFF,
-        cyanDim: 0x00AAAA,
+        cyanBright: 0x66FFFF,
+        cyanDim: 0x006688,
         orange: 0xFF6611,
+        orangeBright: 0xFF9944,
         accent: 0x00FF88,
         white: 0xFFFFFF,
-        void: 0x000811
+        void: 0x000508
     };
 
     // ============================================
@@ -743,64 +746,76 @@
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.2;
+    renderer.toneMappingExposure = 1.4;
 
     // ============================================
     // SCENE & CAMERA
     // ============================================
     const scene = new THREE.Scene();
-    scene.fog = new THREE.FogExp2(TRON.void, 0.008);
+    scene.fog = new THREE.FogExp2(TRON.void, 0.006);
 
     const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.set(0, 8, 30);
+    camera.position.set(0, 12, 35);
     camera.lookAt(0, 0, -50);
 
     // ============================================
-    // INFINITE GRID SYSTEM
+    // TRON SUN - Rising arc on horizon
     // ============================================
-    const gridGroup = new THREE.Group();
+    const sunGroup = new THREE.Group();
 
-    // Main horizon grid
-    const createGrid = (size, divisions, color, opacity, yPos) => {
-        const gridHelper = new THREE.GridHelper(size, divisions, color, color);
-        gridHelper.material.opacity = opacity;
-        gridHelper.material.transparent = true;
-        gridHelper.material.depthWrite = false;
-        gridHelper.position.y = yPos;
-        return gridHelper;
-    };
-
-    const mainGrid = createGrid(400, 80, TRON.cyan, 0.15, -5);
-    gridGroup.add(mainGrid);
-
-    // Secondary fine grid
-    const fineGrid = createGrid(400, 200, TRON.cyan, 0.05, -4.99);
-    gridGroup.add(fineGrid);
-
-    scene.add(gridGroup);
-
-    // ============================================
-    // HORIZON LINE - The iconic Tron edge
-    // ============================================
-    const horizonGeo = new THREE.PlaneGeometry(500, 0.5);
-    const horizonMat = new THREE.MeshBasicMaterial({
-        color: TRON.cyan,
+    // Main sun arc (half circle)
+    const sunArcGeo = new THREE.TorusGeometry(25, 0.3, 16, 100, Math.PI);
+    const sunArcMat = new THREE.MeshBasicMaterial({
+        color: TRON.cyanBright,
         transparent: true,
-        opacity: 0.8,
-        side: THREE.DoubleSide
+        opacity: 1
     });
-    const horizon = new THREE.Mesh(horizonGeo, horizonMat);
-    horizon.position.set(0, -5, -180);
-    horizon.rotation.x = Math.PI / 2;
-    scene.add(horizon);
+    const sunArc = new THREE.Mesh(sunArcGeo, sunArcMat);
+    sunArc.rotation.x = Math.PI / 2;
+    sunArc.rotation.z = Math.PI;
+    sunGroup.add(sunArc);
 
-    // Horizon glow
-    const horizonGlowGeo = new THREE.PlaneGeometry(500, 30);
-    const horizonGlowMat = new THREE.ShaderMaterial({
+    // Sun glow layers
+    for (let i = 1; i <= 4; i++) {
+        const glowGeo = new THREE.TorusGeometry(25, 0.2 + i * 0.8, 16, 100, Math.PI);
+        const glowMat = new THREE.MeshBasicMaterial({
+            color: TRON.cyan,
+            transparent: true,
+            opacity: 0.15 / i
+        });
+        const glow = new THREE.Mesh(glowGeo, glowMat);
+        glow.rotation.x = Math.PI / 2;
+        glow.rotation.z = Math.PI;
+        sunGroup.add(glow);
+    }
+
+    // Horizontal sun lines
+    for (let i = 0; i < 8; i++) {
+        const lineY = 2 + i * 2.5;
+        const lineWidth = Math.sqrt(25*25 - lineY*lineY) * 2;
+        if (lineWidth > 0) {
+            const lineGeo = new THREE.PlaneGeometry(lineWidth, 0.1);
+            const lineMat = new THREE.MeshBasicMaterial({
+                color: TRON.cyan,
+                transparent: true,
+                opacity: 0.6 - i * 0.06,
+                side: THREE.DoubleSide
+            });
+            const line = new THREE.Mesh(lineGeo, lineMat);
+            line.position.y = lineY;
+            sunGroup.add(line);
+        }
+    }
+
+    sunGroup.position.set(0, -5, -200);
+    scene.add(sunGroup);
+
+    // Sun backdrop glow (shader)
+    const sunGlowGeo = new THREE.PlaneGeometry(120, 60);
+    const sunGlowMat = new THREE.ShaderMaterial({
         transparent: true,
         depthWrite: false,
         uniforms: {
-            color: { value: new THREE.Color(TRON.cyan) },
             time: { value: 0 }
         },
         vertexShader: `
@@ -811,75 +826,212 @@
             }
         `,
         fragmentShader: `
-            uniform vec3 color;
             uniform float time;
             varying vec2 vUv;
             void main() {
-                float intensity = smoothstep(0.5, 0.0, abs(vUv.y - 0.5));
-                intensity *= 0.3 + 0.1 * sin(time * 2.0);
-                gl_FragColor = vec4(color, intensity * 0.4);
+                vec2 center = vec2(0.5, 0.0);
+                float dist = distance(vUv, center);
+                float intensity = smoothstep(0.8, 0.0, dist);
+                intensity *= 0.4 + 0.1 * sin(time * 1.5);
+                vec3 color = mix(vec3(0.0, 1.0, 1.0), vec3(0.0, 0.5, 0.5), dist);
+                gl_FragColor = vec4(color, intensity * 0.5);
             }
         `
     });
-    const horizonGlow = new THREE.Mesh(horizonGlowGeo, horizonGlowMat);
-    horizonGlow.position.set(0, -5, -180);
-    horizonGlow.rotation.x = -Math.PI / 2;
-    scene.add(horizonGlow);
+    const sunGlow = new THREE.Mesh(sunGlowGeo, sunGlowMat);
+    sunGlow.position.set(0, 15, -201);
+    scene.add(sunGlow);
 
     // ============================================
-    // DATA STREAMS - Flowing light lines
+    // INFINITE GRID WITH ENERGY PULSES
     // ============================================
-    const streamGroup = new THREE.Group();
-    const streamCount = isLowPower ? 15 : 30;
-    const streams = [];
+    const gridGroup = new THREE.Group();
 
-    for (let i = 0; i < streamCount; i++) {
-        const points = [];
-        const startX = (Math.random() - 0.5) * 200;
-        const startZ = -200;
-        const length = 50 + Math.random() * 100;
+    // Custom shader grid with pulse effect
+    const gridShaderMat = new THREE.ShaderMaterial({
+        transparent: true,
+        depthWrite: false,
+        uniforms: {
+            time: { value: 0 },
+            color: { value: new THREE.Color(TRON.cyan) },
+            pulseColor: { value: new THREE.Color(TRON.cyanBright) }
+        },
+        vertexShader: `
+            varying vec2 vUv;
+            varying vec3 vPos;
+            void main() {
+                vUv = uv;
+                vPos = position;
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+        `,
+        fragmentShader: `
+            uniform float time;
+            uniform vec3 color;
+            uniform vec3 pulseColor;
+            varying vec2 vUv;
+            varying vec3 vPos;
 
-        for (let j = 0; j <= 20; j++) {
-            points.push(new THREE.Vector3(
-                startX + Math.sin(j * 0.3) * 2,
-                -4.5 + Math.sin(j * 0.5) * 0.5,
-                startZ + (j / 20) * length
-            ));
-        }
+            void main() {
+                // Grid lines
+                vec2 grid = abs(fract(vPos.xz * 0.1) - 0.5);
+                float line = min(grid.x, grid.y);
+                float gridAlpha = 1.0 - smoothstep(0.0, 0.03, line);
 
-        const curve = new THREE.CatmullRomCurve3(points);
-        const tubeGeo = new THREE.TubeGeometry(curve, 32, 0.05 + Math.random() * 0.05, 6, false);
+                // Energy pulse waves traveling to horizon
+                float pulse1 = sin(vPos.z * 0.05 + time * 3.0) * 0.5 + 0.5;
+                float pulse2 = sin(vPos.z * 0.08 + time * 2.5 + 1.0) * 0.5 + 0.5;
+                float pulse3 = sin(vPos.z * 0.03 + time * 4.0 + 2.0) * 0.5 + 0.5;
+                float pulseIntensity = max(max(pulse1, pulse2), pulse3);
+                pulseIntensity = pow(pulseIntensity, 3.0);
 
-        const isAccent = Math.random() > 0.8;
-        const tubeMat = new THREE.MeshBasicMaterial({
-            color: isAccent ? TRON.orange : TRON.cyan,
+                // Distance fade
+                float dist = length(vPos.xz) * 0.005;
+                float fade = 1.0 - smoothstep(0.0, 1.0, dist);
+
+                // Combine
+                vec3 finalColor = mix(color, pulseColor, pulseIntensity * 0.5);
+                float alpha = gridAlpha * (0.15 + pulseIntensity * 0.3) * fade;
+
+                gl_FragColor = vec4(finalColor, alpha);
+            }
+        `
+    });
+
+    const gridPlane = new THREE.PlaneGeometry(400, 400, 1, 1);
+    const shaderGrid = new THREE.Mesh(gridPlane, gridShaderMat);
+    shaderGrid.rotation.x = -Math.PI / 2;
+    shaderGrid.position.y = -5;
+    gridGroup.add(shaderGrid);
+
+    scene.add(gridGroup);
+
+    // ============================================
+    // GRID REFLECTION (Mirror effect)
+    // ============================================
+    const reflectionGeo = new THREE.PlaneGeometry(400, 200);
+    const reflectionMat = new THREE.ShaderMaterial({
+        transparent: true,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+        uniforms: {
+            time: { value: 0 }
+        },
+        vertexShader: `
+            varying vec2 vUv;
+            varying vec3 vPos;
+            void main() {
+                vUv = uv;
+                vPos = position;
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+        `,
+        fragmentShader: `
+            uniform float time;
+            varying vec2 vUv;
+            varying vec3 vPos;
+            void main() {
+                float fade = smoothstep(1.0, 0.0, vUv.y);
+                float flicker = 0.5 + 0.5 * sin(vPos.x * 0.1 + time * 2.0);
+                vec3 color = vec3(0.0, 0.8, 1.0);
+                gl_FragColor = vec4(color, fade * 0.08 * flicker);
+            }
+        `
+    });
+    const reflection = new THREE.Mesh(reflectionGeo, reflectionMat);
+    reflection.rotation.x = Math.PI / 2;
+    reflection.position.set(0, -5.1, -100);
+    scene.add(reflection);
+
+    // ============================================
+    // HORIZON LINE - Enhanced glow
+    // ============================================
+    const horizonGeo = new THREE.PlaneGeometry(500, 1);
+    const horizonMat = new THREE.MeshBasicMaterial({
+        color: TRON.cyanBright,
+        transparent: true,
+        opacity: 1,
+        side: THREE.DoubleSide
+    });
+    const horizon = new THREE.Mesh(horizonGeo, horizonMat);
+    horizon.position.set(0, -5, -180);
+    horizon.rotation.x = Math.PI / 2;
+    scene.add(horizon);
+
+    // Multi-layer horizon glow
+    for (let i = 1; i <= 5; i++) {
+        const glowGeo = new THREE.PlaneGeometry(500, i * 8);
+        const glowMat = new THREE.MeshBasicMaterial({
+            color: TRON.cyan,
             transparent: true,
-            opacity: 0.6 + Math.random() * 0.4
+            opacity: 0.1 / i,
+            side: THREE.DoubleSide
         });
-
-        const tube = new THREE.Mesh(tubeGeo, tubeMat);
-        streams.push({
-            mesh: tube,
-            speed: 0.3 + Math.random() * 0.5,
-            startZ: startZ,
-            resetZ: 100
-        });
-        streamGroup.add(tube);
+        const glow = new THREE.Mesh(glowGeo, glowMat);
+        glow.position.set(0, -5 + i * 0.1, -180 + i);
+        glow.rotation.x = Math.PI / 2;
+        scene.add(glow);
     }
-    scene.add(streamGroup);
 
     // ============================================
-    // FLOATING POLYHEDRA - Tron structures
+    // LIGHT CYCLE TRAILS with animated riders
+    // ============================================
+    const cycleGroup = new THREE.Group();
+    const lightCycles = [];
+    const cycleCount = isLowPower ? 4 : 8;
+
+    for (let i = 0; i < cycleCount; i++) {
+        const isOrange = i === cycleCount - 1 || i === cycleCount - 2;
+        const color = isOrange ? TRON.orange : TRON.cyan;
+
+        // Trail path
+        const pathLength = 80 + Math.random() * 60;
+        const startX = (Math.random() - 0.5) * 120;
+        const startZ = -180 + Math.random() * 100;
+
+        // Trail geometry (long glowing line)
+        const trailGeo = new THREE.BoxGeometry(0.15, 0.8, pathLength);
+        const trailMat = new THREE.MeshBasicMaterial({
+            color: color,
+            transparent: true,
+            opacity: 0.6
+        });
+        const trail = new THREE.Mesh(trailGeo, trailMat);
+        trail.position.set(startX, -4.6, startZ + pathLength/2);
+
+        // Light cycle "head" (bright point at front)
+        const headGeo = new THREE.SphereGeometry(0.4, 8, 8);
+        const headMat = new THREE.MeshBasicMaterial({
+            color: isOrange ? TRON.orangeBright : TRON.cyanBright
+        });
+        const head = new THREE.Mesh(headGeo, headMat);
+
+        lightCycles.push({
+            trail: trail,
+            head: head,
+            speed: 0.8 + Math.random() * 0.6,
+            startZ: startZ,
+            pathLength: pathLength,
+            x: startX,
+            progress: Math.random()
+        });
+
+        cycleGroup.add(trail);
+        cycleGroup.add(head);
+    }
+    scene.add(cycleGroup);
+
+    // ============================================
+    // FLOATING POLYHEDRA - Larger, fewer
     // ============================================
     const polyGroup = new THREE.Group();
     const polyhedra = [];
-    const polyCount = isLowPower ? 8 : 15;
+    const polyCount = isLowPower ? 5 : 10;
 
     const geometries = [
         () => new THREE.OctahedronGeometry(1, 0),
-        () => new THREE.TetrahedronGeometry(1, 0),
         () => new THREE.IcosahedronGeometry(0.8, 0),
-        () => new THREE.BoxGeometry(1, 1, 1)
+        () => new THREE.TetrahedronGeometry(1.2, 0)
     ];
 
     for (let i = 0; i < polyCount; i++) {
@@ -891,29 +1043,32 @@
         const lineMat = new THREE.LineBasicMaterial({
             color: isOrange ? TRON.orange : TRON.cyan,
             transparent: true,
-            opacity: 0.7
+            opacity: 0.8
         });
 
         const wireframe = new THREE.LineSegments(edges, lineMat);
-        const scale = 0.5 + Math.random() * 2;
+        const scale = 1 + Math.random() * 3;
         wireframe.scale.setScalar(scale);
 
+        // Position more spread out, avoid center
+        const side = Math.random() > 0.5 ? 1 : -1;
         wireframe.position.set(
-            (Math.random() - 0.5) * 80,
-            Math.random() * 20 - 2,
-            (Math.random() - 0.5) * 150 - 30
+            side * (20 + Math.random() * 40),
+            Math.random() * 25 - 3,
+            -30 - Math.random() * 120
         );
 
         polyhedra.push({
             mesh: wireframe,
             rotSpeed: {
-                x: (Math.random() - 0.5) * 0.01,
-                y: (Math.random() - 0.5) * 0.015,
-                z: (Math.random() - 0.5) * 0.01
+                x: (Math.random() - 0.5) * 0.008,
+                y: (Math.random() - 0.5) * 0.012,
+                z: (Math.random() - 0.5) * 0.006
             },
-            floatSpeed: 0.5 + Math.random() * 0.5,
+            floatSpeed: 0.3 + Math.random() * 0.4,
             floatOffset: Math.random() * Math.PI * 2,
-            baseY: wireframe.position.y
+            baseY: wireframe.position.y,
+            pulsePhase: Math.random() * Math.PI * 2
         });
 
         polyGroup.add(wireframe);
@@ -922,12 +1077,11 @@
     scene.add(polyGroup);
 
     // ============================================
-    // IDENTITY DISC - Central floating ring
+    // IDENTITY DISC - Repositioned to left
     // ============================================
     const discGroup = new THREE.Group();
 
-    // Outer ring
-    const outerRingGeo = new THREE.TorusGeometry(3, 0.08, 16, 100);
+    const outerRingGeo = new THREE.TorusGeometry(2.5, 0.06, 16, 100);
     const outerRingMat = new THREE.MeshBasicMaterial({
         color: TRON.cyan,
         transparent: true,
@@ -936,8 +1090,7 @@
     const outerRing = new THREE.Mesh(outerRingGeo, outerRingMat);
     discGroup.add(outerRing);
 
-    // Inner ring
-    const innerRingGeo = new THREE.TorusGeometry(2.2, 0.04, 16, 80);
+    const innerRingGeo = new THREE.TorusGeometry(1.8, 0.04, 16, 80);
     const innerRingMat = new THREE.MeshBasicMaterial({
         color: TRON.cyan,
         transparent: true,
@@ -946,70 +1099,73 @@
     const innerRing = new THREE.Mesh(innerRingGeo, innerRingMat);
     discGroup.add(innerRing);
 
-    // Core ring
-    const coreRingGeo = new THREE.TorusGeometry(1.2, 0.03, 16, 60);
+    const coreRingGeo = new THREE.TorusGeometry(1.0, 0.03, 16, 60);
     const coreRingMat = new THREE.MeshBasicMaterial({
         color: TRON.accent,
         transparent: true,
-        opacity: 0.8
+        opacity: 0.9
     });
     const coreRing = new THREE.Mesh(coreRingGeo, coreRingMat);
     discGroup.add(coreRing);
 
     // Radial lines
-    for (let i = 0; i < 12; i++) {
-        const angle = (i / 12) * Math.PI * 2;
+    for (let i = 0; i < 8; i++) {
+        const angle = (i / 8) * Math.PI * 2;
         const lineGeo = new THREE.BufferGeometry().setFromPoints([
-            new THREE.Vector3(Math.cos(angle) * 1.3, Math.sin(angle) * 1.3, 0),
-            new THREE.Vector3(Math.cos(angle) * 2.9, Math.sin(angle) * 2.9, 0)
+            new THREE.Vector3(Math.cos(angle) * 1.1, Math.sin(angle) * 1.1, 0),
+            new THREE.Vector3(Math.cos(angle) * 2.4, Math.sin(angle) * 2.4, 0)
         ]);
         const lineMat = new THREE.LineBasicMaterial({
             color: TRON.cyan,
             transparent: true,
-            opacity: 0.4
+            opacity: 0.5
         });
         const line = new THREE.Line(lineGeo, lineMat);
         discGroup.add(line);
     }
 
-    discGroup.position.set(15, 5, -20);
-    discGroup.rotation.x = Math.PI * 0.15;
-    discGroup.rotation.y = Math.PI * 0.1;
+    // Position on the left side
+    discGroup.position.set(-18, 8, -25);
+    discGroup.rotation.x = Math.PI * 0.2;
+    discGroup.rotation.y = Math.PI * 0.15;
     scene.add(discGroup);
 
     // ============================================
-    // PARTICLE FIELD - Data flowing
+    // ENHANCED PARTICLES - More visible
     // ============================================
-    const particleCount = isLowPower ? 300 : 800;
+    const particleCount = isLowPower ? 500 : 1500;
     const particleGeo = new THREE.BufferGeometry();
     const particlePos = new Float32Array(particleCount * 3);
     const particleVel = new Float32Array(particleCount * 3);
     const particleColors = new Float32Array(particleCount * 3);
+    const particleSizes = new Float32Array(particleCount);
 
     for (let i = 0; i < particleCount; i++) {
-        particlePos[i * 3] = (Math.random() - 0.5) * 150;
-        particlePos[i * 3 + 1] = Math.random() * 40 - 5;
-        particlePos[i * 3 + 2] = (Math.random() - 0.5) * 300 - 50;
+        particlePos[i * 3] = (Math.random() - 0.5) * 200;
+        particlePos[i * 3 + 1] = Math.random() * 50 - 5;
+        particlePos[i * 3 + 2] = (Math.random() - 0.5) * 350 - 50;
 
-        particleVel[i * 3] = 0;
+        particleVel[i * 3] = (Math.random() - 0.5) * 0.02;
         particleVel[i * 3 + 1] = 0;
-        particleVel[i * 3 + 2] = 0.2 + Math.random() * 0.3;
+        particleVel[i * 3 + 2] = 0.15 + Math.random() * 0.35;
 
-        const isAccent = Math.random() > 0.9;
+        const isAccent = Math.random() > 0.92;
         const color = new THREE.Color(isAccent ? TRON.orange : TRON.cyan);
         particleColors[i * 3] = color.r;
         particleColors[i * 3 + 1] = color.g;
         particleColors[i * 3 + 2] = color.b;
+
+        particleSizes[i] = 0.1 + Math.random() * 0.25;
     }
 
     particleGeo.setAttribute('position', new THREE.BufferAttribute(particlePos, 3));
     particleGeo.setAttribute('color', new THREE.BufferAttribute(particleColors, 3));
 
     const particleMat = new THREE.PointsMaterial({
-        size: 0.15,
+        size: 0.25,
         vertexColors: true,
         transparent: true,
-        opacity: 0.8,
+        opacity: 0.9,
         blending: THREE.AdditiveBlending,
         depthWrite: false
     });
@@ -1018,57 +1174,31 @@
     scene.add(particles);
 
     // ============================================
-    // LIGHT TRAILS - Bezier curves with glow
-    // ============================================
-    const trailGroup = new THREE.Group();
-    const trailCount = isLowPower ? 3 : 6;
-
-    for (let i = 0; i < trailCount; i++) {
-        const curve = new THREE.CubicBezierCurve3(
-            new THREE.Vector3(-60 + i * 20, Math.random() * 10, -100),
-            new THREE.Vector3(-30 + i * 20, Math.random() * 20 + 5, -60),
-            new THREE.Vector3(30 + i * 10, Math.random() * 15, -30),
-            new THREE.Vector3(60 + i * 5, Math.random() * 5, 20)
-        );
-
-        const points = curve.getPoints(80);
-        const trailGeo = new THREE.BufferGeometry().setFromPoints(points);
-
-        const isOrange = i === trailCount - 1;
-        const trailMat = new THREE.LineBasicMaterial({
-            color: isOrange ? TRON.orange : TRON.cyan,
-            transparent: true,
-            opacity: 0.3
-        });
-
-        const trail = new THREE.Line(trailGeo, trailMat);
-        trailGroup.add(trail);
-    }
-    scene.add(trailGroup);
-
-    // ============================================
-    // VERTICAL BEAMS - Accent pillars
+    // VERTICAL BEAMS - Pulsing pillars
     // ============================================
     const beamGroup = new THREE.Group();
+    const beams = [];
     const beamPositions = [
-        [-40, -100], [40, -80], [-60, -140], [70, -120], [0, -160]
+        [-50, -120], [50, -100], [-70, -160], [80, -140], [0, -180],
+        [-30, -90], [35, -130], [-90, -170]
     ];
 
     beamPositions.forEach(([x, z], i) => {
-        const beamGeo = new THREE.CylinderGeometry(0.1, 0.1, 60, 8);
+        const beamGeo = new THREE.CylinderGeometry(0.15, 0.15, 80, 8);
         const beamMat = new THREE.MeshBasicMaterial({
-            color: i % 2 === 0 ? TRON.cyan : TRON.orange,
+            color: i % 3 === 0 ? TRON.orange : TRON.cyan,
             transparent: true,
-            opacity: 0.3
+            opacity: 0.4
         });
         const beam = new THREE.Mesh(beamGeo, beamMat);
-        beam.position.set(x, 25, z);
+        beam.position.set(x, 35, z);
+        beams.push({ mesh: beam, phase: Math.random() * Math.PI * 2 });
         beamGroup.add(beam);
     });
     scene.add(beamGroup);
 
     // ============================================
-    // POST-PROCESSING
+    // POST-PROCESSING WITH VIGNETTE
     // ============================================
     const composer = new EffectComposer(renderer);
     composer.addPass(new RenderPass(scene, camera));
@@ -1076,10 +1206,41 @@
     if (ENABLE_BLOOM) {
         const bloomPass = new UnrealBloomPass(
             new THREE.Vector2(window.innerWidth, window.innerHeight),
-            1.5, 0.5, 0.4
+            2.0, 0.4, 0.3
         );
         composer.addPass(bloomPass);
     }
+
+    // Vignette shader
+    const VignetteShader = {
+        uniforms: {
+            tDiffuse: { value: null },
+            darkness: { value: 1.2 },
+            offset: { value: 1.2 }
+        },
+        vertexShader: `
+            varying vec2 vUv;
+            void main() {
+                vUv = uv;
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+        `,
+        fragmentShader: `
+            uniform sampler2D tDiffuse;
+            uniform float darkness;
+            uniform float offset;
+            varying vec2 vUv;
+            void main() {
+                vec4 texel = texture2D(tDiffuse, vUv);
+                vec2 uv = (vUv - vec2(0.5)) * vec2(offset);
+                float vign = 1.0 - dot(uv, uv);
+                texel.rgb *= smoothstep(0.0, 1.0, pow(vign, darkness));
+                gl_FragColor = texel;
+            }
+        `
+    };
+    const vignettePass = new ShaderPass(VignetteShader);
+    composer.addPass(vignettePass);
 
     // ============================================
     // MOUSE INTERACTION
@@ -1124,16 +1285,26 @@
         mouse.x += (mouse.targetX - mouse.x) * 0.05;
         mouse.y += (mouse.targetY - mouse.y) * 0.05;
 
-        // ========== GRID MOVEMENT ==========
-        mainGrid.position.z = (time * 10) % 5;
-        fineGrid.position.z = (time * 10) % 2;
+        // ========== GRID SHADER UPDATE ==========
+        gridShaderMat.uniforms.time.value = time;
+        reflectionMat.uniforms.time.value = time;
+        sunGlowMat.uniforms.time.value = time;
 
-        // ========== DATA STREAMS ==========
-        streams.forEach(stream => {
-            stream.mesh.position.z += stream.speed;
-            if (stream.mesh.position.z > stream.resetZ) {
-                stream.mesh.position.z = stream.startZ;
-            }
+        // ========== SUN BREATHING ==========
+        const sunPulse = 1 + Math.sin(time * 1.5) * 0.05;
+        sunGroup.scale.setScalar(sunPulse);
+
+        // ========== LIGHT CYCLES ==========
+        lightCycles.forEach(cycle => {
+            cycle.progress += cycle.speed * 0.01;
+            if (cycle.progress > 1) cycle.progress = 0;
+
+            const z = cycle.startZ + cycle.progress * cycle.pathLength;
+            cycle.head.position.set(cycle.x, -4.2, z + cycle.pathLength);
+
+            // Pulse the head
+            const headPulse = 1 + Math.sin(time * 10 + cycle.progress * 20) * 0.2;
+            cycle.head.scale.setScalar(headPulse);
         });
 
         // ========== FLOATING POLYHEDRA ==========
@@ -1141,47 +1312,52 @@
             poly.mesh.rotation.x += poly.rotSpeed.x;
             poly.mesh.rotation.y += poly.rotSpeed.y;
             poly.mesh.rotation.z += poly.rotSpeed.z;
-            poly.mesh.position.y = poly.baseY + Math.sin(time * poly.floatSpeed + poly.floatOffset) * 0.5;
+            poly.mesh.position.y = poly.baseY + Math.sin(time * poly.floatSpeed + poly.floatOffset) * 1;
+
+            // Pulse opacity
+            const pulse = 0.6 + Math.sin(time * 2 + poly.pulsePhase) * 0.3;
+            poly.mesh.material.opacity = pulse;
         });
 
         // ========== IDENTITY DISC ==========
-        discGroup.rotation.z += 0.005;
-        outerRing.rotation.z -= 0.002;
-        innerRing.rotation.z += 0.004;
-        coreRing.rotation.z -= 0.008;
-
-        // Subtle float
-        discGroup.position.y = 5 + Math.sin(time * 0.5) * 0.5;
+        discGroup.rotation.z += 0.008;
+        outerRing.rotation.z -= 0.003;
+        innerRing.rotation.z += 0.006;
+        coreRing.rotation.z -= 0.012;
+        discGroup.position.y = 8 + Math.sin(time * 0.6) * 0.8;
 
         // ========== PARTICLES ==========
         const positions = particles.geometry.attributes.position.array;
         for (let i = 0; i < particleCount; i++) {
+            positions[i * 3] += particleVel[i * 3];
             positions[i * 3 + 2] += particleVel[i * 3 + 2];
 
-            // Reset particles that go too far
-            if (positions[i * 3 + 2] > 50) {
-                positions[i * 3 + 2] = -200;
-                positions[i * 3] = (Math.random() - 0.5) * 150;
-                positions[i * 3 + 1] = Math.random() * 40 - 5;
+            if (positions[i * 3 + 2] > 80) {
+                positions[i * 3 + 2] = -250;
+                positions[i * 3] = (Math.random() - 0.5) * 200;
+                positions[i * 3 + 1] = Math.random() * 50 - 5;
             }
         }
         particles.geometry.attributes.position.needsUpdate = true;
 
-        // ========== HORIZON GLOW ==========
-        horizonGlowMat.uniforms.time.value = time;
+        // ========== BEAM PULSING ==========
+        beams.forEach((beam, i) => {
+            const pulse = 0.3 + Math.sin(time * 2 + beam.phase) * 0.15;
+            beam.mesh.material.opacity = pulse;
+        });
 
         // ========== CAMERA ==========
-        const baseZ = 30 - scrollProgress * 15;
-        const baseY = 8 - scrollProgress * 3;
+        const baseZ = 35 - scrollProgress * 20;
+        const baseY = 12 - scrollProgress * 5;
 
-        camera.position.x += (mouse.x * 8 - camera.position.x) * 0.02;
-        camera.position.y += (baseY + mouse.y * 3 - camera.position.y) * 0.02;
+        camera.position.x += (mouse.x * 10 - camera.position.x) * 0.02;
+        camera.position.y += (baseY + mouse.y * 4 - camera.position.y) * 0.02;
         camera.position.z += (baseZ - camera.position.z) * 0.02;
 
         camera.lookAt(
-            mouse.x * 5,
-            mouse.y * 2 - scrollProgress * 5,
-            -50 - scrollProgress * 30
+            mouse.x * 8,
+            mouse.y * 3 - scrollProgress * 8,
+            -60 - scrollProgress * 40
         );
 
         // ========== RENDER ==========
