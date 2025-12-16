@@ -570,8 +570,8 @@ async function smartOrganizePreview(): Promise<MessageResponse> {
 
 ${tabList}
 
-Create ${minGroups}-${maxGroups} groups with activity-based names (Research, Coding, Videos, etc).
-Format: [{"name":"GroupName","ids":[0,1,2]}]`
+Create ${minGroups}-${maxGroups} groups. Use SHORT 1-word names (Dev, Mail, Video, Cloud, Research, Social, Shop, Docs).
+Format: [{"name":"Dev","ids":[0,1,2]}]`
         );
 
         console.log('[SmartOrganizePreview] AI response:', aiResponse);
@@ -650,8 +650,8 @@ async function smartOrganize(): Promise<MessageResponse> {
 
 ${tabList}
 
-Create ${minGroups}-${maxGroups} groups with activity-based names (Research, Coding, Videos, etc).
-Format: [{"name":"GroupName","ids":[0,1,2]}]`
+Create ${minGroups}-${maxGroups} groups. Use SHORT 1-word names (Dev, Mail, Video, Cloud, Research, Social, Shop, Docs).
+Format: [{"name":"Dev","ids":[0,1,2]}]`
         );
 
         const groups = parseJSONResponse<{ name: string; ids: (number | string)[] }[]>(aiResponse, 'SmartOrganize');
