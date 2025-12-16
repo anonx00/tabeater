@@ -2,7 +2,7 @@
     "manifest_version": 3,
     "name": "TabEater",
     "version": "1.0.0",
-    "description": "AI-powered tab manager with smart grouping, duplicate detection, and intelligent organization using local Gemini Nano AI",
+    "description": "AI-powered tab manager with smart grouping, duplicate detection, and Auto-Pilot to organize tabs automatically.",
     "permissions": [
         "tabs",
         "tabGroups",
