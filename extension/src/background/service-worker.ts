@@ -570,7 +570,7 @@ async function smartOrganizePreview(): Promise<MessageResponse> {
 
 ${tabList}
 
-Create ${minGroups}-${maxGroups} groups. Use SHORT 1-word names (Dev, Mail, Video, Cloud, Research, Social, Shop, Docs).
+Create ${minGroups}-${maxGroups} groups. Names MUST be 1 word, max 8 characters (Dev, Mail, Video, Cloud, Code, Social, Shop, Docs, Music, News, Work, Learn).
 Format: [{"name":"Dev","ids":[0,1,2]}]`
         );
 
@@ -583,10 +583,12 @@ Format: [{"name":"Dev","ids":[0,1,2]}]`
 
         console.log('[SmartOrganizePreview] Parsed groups:', JSON.stringify(groups));
 
-        // Map indices back to real tab IDs
+        // Map indices back to real tab IDs, enforce short names
         const enrichedGroups = groups
             .filter(g => g.ids && g.ids.length >= 2 && g.name)
             .map(group => {
+                // Truncate long names to first word, max 8 chars
+                let name = group.name.split(/\s+/)[0].slice(0, 8);
                 // Convert to numbers and treat as indices
                 const indices = group.ids.map(id => typeof id === 'string' ? parseInt(id, 10) : id);
                 const validTabs = indices
@@ -594,7 +596,7 @@ Format: [{"name":"Dev","ids":[0,1,2]}]`
                     .map(idx => tabs[idx]);
 
                 return {
-                    name: group.name,
+                    name,
                     tabCount: validTabs.length,
                     tabs: validTabs.map(tab => ({
                         id: tab.id,
@@ -650,7 +652,7 @@ async function smartOrganize(): Promise<MessageResponse> {
 
 ${tabList}
 
-Create ${minGroups}-${maxGroups} groups. Use SHORT 1-word names (Dev, Mail, Video, Cloud, Research, Social, Shop, Docs).
+Create ${minGroups}-${maxGroups} groups. Names MUST be 1 word, max 8 characters (Dev, Mail, Video, Cloud, Code, Social, Shop, Docs, Music, News, Work, Learn).
 Format: [{"name":"Dev","ids":[0,1,2]}]`
         );
 
@@ -662,6 +664,8 @@ Format: [{"name":"Dev","ids":[0,1,2]}]`
         const organized: { groupName: string; tabIds: number[] }[] = [];
         for (const group of groups) {
             if (group.ids && group.ids.length >= 2 && group.name) {
+                // Truncate long names to first word, max 8 chars
+                const name = group.name.split(/\s+/)[0].slice(0, 8);
                 // Convert indices to real tab IDs
                 const indices = group.ids.map(id => typeof id === 'string' ? parseInt(id, 10) : id);
                 const validTabIds = indices
@@ -669,8 +673,8 @@ Format: [{"name":"Dev","ids":[0,1,2]}]`
                     .map(idx => tabs[idx].id);
 
                 if (validTabIds.length >= 2) {
-                    await tabService.groupTabs(validTabIds, group.name);
-                    organized.push({ groupName: group.name, tabIds: validTabIds });
+                    await tabService.groupTabs(validTabIds, name);
+                    organized.push({ groupName: name, tabIds: validTabIds });
                 }
             }
         }
