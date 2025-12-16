@@ -322,8 +322,8 @@ class AutoPilotService {
 
 ${tabList}
 
-Create ${minGroups}-${maxGroups} groups. Names MUST be 1 word, max 8 characters (Dev, Mail, Video, Cloud, Code, Social, Shop, Docs, Music, News, Work, Learn).
-Format: [{"name":"Dev","ids":[0,1,2]}]`
+Create ${minGroups}-${maxGroups} groups. Keep names SHORT (1 word only, max 6 letters).
+Format: [{"name":"Name","ids":[0,1,2]}]`
         );
 
         // Parse AI response
@@ -336,15 +336,13 @@ Format: [{"name":"Dev","ids":[0,1,2]}]`
         return groups
             .filter(g => g.name && g.ids && g.ids.length >= 2)
             .map(g => {
-                // Truncate long names to first word, max 8 chars
-                const name = g.name.split(/\s+/)[0].slice(0, 8);
                 // Convert indices to real tab IDs
                 const indices = g.ids.map(id => typeof id === 'string' ? parseInt(id, 10) : id);
                 const validTabIds = indices
                     .filter(idx => !isNaN(idx) && idx >= 0 && idx < tabs.length)
                     .map(idx => tabs[idx].id);
                 return {
-                    name,
+                    name: g.name,
                     tabIds: validTabIds
                 };
             })
