@@ -322,8 +322,8 @@ class AutoPilotService {
 
 ${tabList}
 
-Create ${minGroups}-${maxGroups} groups with activity-based names (Research, Coding, Videos, etc).
-Format: [{"name":"GroupName","ids":[0,1,2]}]`
+Create ${minGroups}-${maxGroups} groups. Keep names SHORT (1 word only, max 6 letters).
+Format: [{"name":"Name","ids":[0,1,2]}]`
         );
 
         // Parse AI response

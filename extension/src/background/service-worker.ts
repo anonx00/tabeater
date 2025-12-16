@@ -570,8 +570,8 @@ async function smartOrganizePreview(): Promise<MessageResponse> {
 
 ${tabList}
 
-Create ${minGroups}-${maxGroups} groups with activity-based names (Research, Coding, Videos, etc).
-Format: [{"name":"GroupName","ids":[0,1,2]}]`
+Create ${minGroups}-${maxGroups} groups. Keep names SHORT (1 word only, max 6 letters).
+Format: [{"name":"Name","ids":[0,1,2]}]`
         );
 
         console.log('[SmartOrganizePreview] AI response:', aiResponse);
@@ -583,7 +583,7 @@ Format: [{"name":"GroupName","ids":[0,1,2]}]`
 
         console.log('[SmartOrganizePreview] Parsed groups:', JSON.stringify(groups));
 
-        // Map indices back to real tab IDs
+        // Map indices back to real tab IDs, enforce short names
         const enrichedGroups = groups
             .filter(g => g.ids && g.ids.length >= 2 && g.name)
             .map(group => {
@@ -650,8 +650,8 @@ async function smartOrganize(): Promise<MessageResponse> {
 
 ${tabList}
 
-Create ${minGroups}-${maxGroups} groups with activity-based names (Research, Coding, Videos, etc).
-Format: [{"name":"GroupName","ids":[0,1,2]}]`
+Create ${minGroups}-${maxGroups} groups. Keep names SHORT (1 word only, max 6 letters).
+Format: [{"name":"Name","ids":[0,1,2]}]`
         );
 
         const groups = parseJSONResponse<{ name: string; ids: (number | string)[] }[]>(aiResponse, 'SmartOrganize');
