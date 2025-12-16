@@ -304,47 +304,48 @@ class AutoPilotService {
     private async generateAIGroupSuggestions(tabs: TabInfo[]): Promise<{ name: string; tabIds: number[] }[]> {
         if (tabs.length < 2) return [];
 
-        // Prepare tab data for AI
-        const tabList = tabs.map(t => {
+        // Use simple indices (0, 1, 2...) instead of Chrome's large tab IDs
+        const tabList = tabs.map((t, idx) => {
             try {
-                return `${t.id}|${t.title.slice(0, 50)}|${new URL(t.url).hostname}`;
+                return `${idx}: ${t.title.slice(0, 50)} (${new URL(t.url).hostname})`;
             } catch {
-                return `${t.id}|${t.title.slice(0, 50)}|unknown`;
+                return `${idx}: ${t.title.slice(0, 50)} (unknown)`;
             }
         }).join('\n');
 
-        // Calculate target groups based on tab count (aim for 3-8 tabs per group)
+        // Calculate target groups based on tab count
         const minGroups = Math.max(2, Math.ceil(tabs.length / 8));
         const maxGroups = Math.min(10, Math.ceil(tabs.length / 3));
-        const maxPerGroup = Math.min(10, Math.ceil(tabs.length / minGroups));
 
         const response = await aiService.prompt(
-            `Group tabs by activity. Return ONLY a JSON array, no other text.
+            `Group these tabs by activity. Return ONLY JSON array.
 
 ${tabList}
 
-Create ${minGroups}-${maxGroups} groups. Name by activity (Research, Coding, Videos, etc), NOT by website.
-Output: [{"name":"Activity","ids":[1,2,3]}]`
+Create ${minGroups}-${maxGroups} groups with activity-based names (Research, Coding, Videos, etc).
+Format: [{"name":"GroupName","ids":[0,1,2]}]`
         );
 
         // Parse AI response
-        const groups = this.parseJSONResponse<{ name: string; ids: number[] }[]>(response);
+        const groups = this.parseJSONResponse<{ name: string; ids: (number | string)[] }[]>(response);
         if (!groups) {
             console.error('[AutoPilot] Failed to parse AI response');
             return [];
         }
 
-        // Validate and filter - also filter out domain-like names
-        const validTabIds = new Set(tabs.map(t => t.id));
-        const domainPatterns = /^(google|github|youtube|facebook|twitter|instagram|reddit|amazon|netflix|linkedin|console|cloud|docs|drive)$/i;
-
         return groups
             .filter(g => g.name && g.ids && g.ids.length >= 2)
-            .filter(g => !domainPatterns.test(g.name)) // Filter out domain-like names
-            .map(g => ({
-                name: g.name,
-                tabIds: g.ids.filter(id => validTabIds.has(id))
-            }))
+            .map(g => {
+                // Convert indices to real tab IDs
+                const indices = g.ids.map(id => typeof id === 'string' ? parseInt(id, 10) : id);
+                const validTabIds = indices
+                    .filter(idx => !isNaN(idx) && idx >= 0 && idx < tabs.length)
+                    .map(idx => tabs[idx].id);
+                return {
+                    name: g.name,
+                    tabIds: validTabIds
+                };
+            })
             .filter(g => g.tabIds.length >= 2)
             .slice(0, maxGroups);
     }
