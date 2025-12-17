@@ -1,6 +1,13 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
 import { colors, spacing, typography, borderRadius, shadows, transitions, scanlineOverlay } from '../shared/theme';
+import * as webllm from '@mlc-ai/web-llm';
+
+// WebLLM Model ID
+const WEBLLM_MODEL_ID = 'SmolLM2-360M-Instruct-q4f16_1-MLC';
+
+// Global engine reference (persists across re-renders)
+let webllmEngine: webllm.MLCEngineInterface | null = null;
 
 // Types
 type CloudProvider = 'gemini' | 'openai' | 'anthropic';
@@ -256,17 +263,32 @@ const OptionsPage: React.FC = () => {
 
     const loadWebLLMState = async () => {
         try {
-            // Check WebGPU support directly in page context (not via service worker)
-            // Service workers don't have access to navigator.gpu
+            // Check WebGPU support directly in page context
             if (!webgpuCapabilities) {
                 const capabilities = await checkWebGPUDirectly();
                 setWebgpuCapabilities(capabilities);
             }
 
-            // Get WebLLM state from service worker
-            const stateResponse = await chrome.runtime.sendMessage({ action: 'getWebLLMState' });
-            if (stateResponse.success && stateResponse.data) {
-                setWebllmState(stateResponse.data);
+            // Check if WebLLM was previously enabled
+            const stored = await chrome.storage.local.get(['webllmReady', 'aiConfig']);
+            if (stored.webllmReady && webllmEngine) {
+                // Engine already loaded in this session
+                setWebllmState({
+                    status: 'ready',
+                    progress: 100,
+                    message: 'Local AI ready',
+                    modelId: WEBLLM_MODEL_ID,
+                });
+                setActiveProvider('webllm');
+            } else if (stored.aiConfig?.preferWebLLM && !webllmEngine) {
+                // Was enabled before but engine not loaded (page refresh)
+                // Show as "ready to re-enable"
+                setWebllmState({
+                    status: 'not_initialized',
+                    progress: 0,
+                    message: 'Click to re-enable',
+                    modelId: WEBLLM_MODEL_ID,
+                });
             }
         } catch (err) {
             console.warn('Failed to load WebLLM state:', err);
@@ -329,16 +351,73 @@ const OptionsPage: React.FC = () => {
         setWebllmLoading(true);
 
         try {
-            const response = await chrome.runtime.sendMessage({ action: 'initializeWebLLM' });
-            if (response.success) {
-                setWebllmState(response.data.state);
-                if (response.data.initialized) {
-                    setActiveProvider('webllm');
-                    setToast({ message: 'Local AI enabled', undo: () => {} });
-                }
+            setWebllmState({
+                status: 'downloading',
+                progress: 0,
+                message: 'Starting download...',
+                modelId: WEBLLM_MODEL_ID,
+            });
+
+            // Initialize WebLLM directly in page context (WebGPU only works here)
+            webllmEngine = await webllm.CreateMLCEngine(WEBLLM_MODEL_ID, {
+                initProgressCallback: (progress) => {
+                    const percent = Math.round(progress.progress * 100);
+                    let message = progress.text || 'Loading model...';
+
+                    // Parse download info
+                    let downloadedMB: number | undefined;
+                    let totalMB: number | undefined;
+                    if (message.includes('MB')) {
+                        const match = message.match(/(\d+(?:\.\d+)?)\s*MB.*?(\d+(?:\.\d+)?)\s*MB/);
+                        if (match) {
+                            downloadedMB = parseFloat(match[1]);
+                            totalMB = parseFloat(match[2]);
+                        }
+                    }
+
+                    const status: WebLLMStatus = percent > 95 ? 'loading' : 'downloading';
+                    setWebllmState({
+                        status,
+                        progress: percent,
+                        message: status === 'loading' ? 'Initializing model...' : message,
+                        modelId: WEBLLM_MODEL_ID,
+                        downloadedMB,
+                        totalMB,
+                    });
+                },
+            });
+
+            // Save preference to storage
+            await chrome.storage.local.set({
+                aiConfig: { preferWebLLM: true },
+                webllmReady: true,
+            });
+
+            setWebllmState({
+                status: 'ready',
+                progress: 100,
+                message: 'Local AI ready',
+                modelId: WEBLLM_MODEL_ID,
+            });
+            setActiveProvider('webllm');
+            setToast({ message: 'Local AI enabled', undo: () => {} });
+
+        } catch (err: any) {
+            console.error('WebLLM initialization failed:', err);
+            let errorMsg = err.message || 'Unknown error';
+            if (errorMsg.includes('WebGPU')) {
+                errorMsg = 'WebGPU initialization failed. Try updating your browser or GPU drivers.';
+            } else if (errorMsg.includes('memory') || errorMsg.includes('OOM')) {
+                errorMsg = 'Not enough GPU memory. Close other apps and try again.';
             }
-        } catch (err) {
-            console.warn('Failed to enable WebLLM:', err);
+
+            setWebllmState({
+                status: 'error',
+                progress: 0,
+                message: errorMsg,
+                modelId: WEBLLM_MODEL_ID,
+                error: errorMsg,
+            });
         }
 
         setWebllmLoading(false);
@@ -346,12 +425,26 @@ const OptionsPage: React.FC = () => {
 
     const disableWebLLM = async () => {
         try {
-            const response = await chrome.runtime.sendMessage({ action: 'unloadWebLLM' });
-            if (response.success) {
-                setWebllmState({ status: 'not_initialized', progress: 0, message: 'Not initialized', modelId: webllmState.modelId });
-                setActiveProvider(response.data.provider);
-                setToast({ message: 'Local AI disabled', undo: () => {} });
+            // Unload engine directly
+            if (webllmEngine) {
+                await webllmEngine.unload();
+                webllmEngine = null;
             }
+
+            // Clear storage preference
+            await chrome.storage.local.set({
+                aiConfig: { preferWebLLM: false },
+                webllmReady: false,
+            });
+
+            setWebllmState({
+                status: 'not_initialized',
+                progress: 0,
+                message: 'Not initialized',
+                modelId: WEBLLM_MODEL_ID,
+            });
+            setActiveProvider('none');
+            setToast({ message: 'Local AI disabled', undo: () => {} });
         } catch (err) {
             console.warn('Failed to disable WebLLM:', err);
         }
