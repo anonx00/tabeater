@@ -58,5 +58,23 @@ export const AI_PROVIDER_INFO = {
     },
 };
 
-export type AIProviderType = 'nano' | 'gemini' | 'openai' | 'anthropic' | 'none';
+export type AIProviderType = 'webllm' | 'nano' | 'gemini' | 'openai' | 'anthropic' | 'none';
 export type CloudProviderType = 'gemini' | 'openai' | 'anthropic';
+export type LocalProviderType = 'webllm' | 'nano';
+
+export const LOCAL_AI_INFO = {
+    webllm: {
+        name: 'SmolLM2 360M',
+        description: 'Fast local AI via WebGPU',
+        color: '#00ff88',
+        modelSize: '~200 MB',
+        requirements: 'Chrome 113+ with WebGPU',
+    },
+    nano: {
+        name: 'Gemini Nano',
+        description: 'Chrome built-in AI',
+        color: '#4285f4',
+        modelSize: '~1.7 GB',
+        requirements: 'Chrome 128+ with flags',
+    },
+};

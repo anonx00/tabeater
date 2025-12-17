@@ -4,7 +4,7 @@
 TabEater
 
 ## Short Description (132 characters max)
-AI-powered tab manager. Smart grouping, duplicate detection, and Auto-Pilot mode to organize tabs automatically. Privacy-focused.
+AI tab manager with Local AI. Smart grouping, duplicate detection, Auto-Pilot. 100% private—AI runs on your device via WebGPU.
 
 ## Detailed Description
 
@@ -38,9 +38,9 @@ Ctrl+Shift+E (Cmd+Shift+E on Mac) - Open Command Center
 
 AI PROVIDERS
 
-Cloud AI (Default): Configure your own API key for Google Gemini (free tier available), OpenAI, or Anthropic Claude. Your data goes directly to your chosen provider—we never see it.
+Local AI (Recommended): Enable with one click in settings. SmolLM2 runs 100% on your device via WebGPU—no data ever leaves your browser. ~200MB download, works on Chrome 113+ with any modern GPU.
 
-Local AI (Advanced Setup): Chrome Gemini Nano runs entirely on your device for maximum privacy. Requires Chrome 128+ with experimental flags enabled, 8GB+ RAM, and ~2GB disk space for the model. See setup guide in extension options.
+Cloud AI: Configure your own API key for Google Gemini (free tier available), OpenAI, or Anthropic Claude. Your data goes directly to your chosen provider—we never see it.
 
 PRIVACY PROMISE
 

@@ -8,6 +8,25 @@ type AutoPilotMode = 'manual' | 'auto-cleanup' | 'fly-mode';
 type InputState = 'empty' | 'typing' | 'validating' | 'success' | 'error';
 type NavSection = 'provider' | 'autopilot' | 'license';
 
+type WebLLMStatus = 'not_initialized' | 'checking_support' | 'not_supported' | 'ready_to_download' | 'downloading' | 'loading' | 'ready' | 'error';
+
+interface WebLLMState {
+    status: WebLLMStatus;
+    progress: number;
+    message: string;
+    modelId: string;
+    error?: string;
+    downloadedMB?: number;
+    totalMB?: number;
+}
+
+interface WebGPUCapabilities {
+    webgpuSupported: boolean;
+    webgpuAdapter: string | null;
+    estimatedVRAM: number | null;
+    recommendedModel: string;
+}
+
 interface LicenseStatus {
     status: 'trial' | 'pro' | 'expired' | 'none';
     paid: boolean;
@@ -146,15 +165,29 @@ const OptionsPage: React.FC = () => {
     const [showLimitSettings, setShowLimitSettings] = useState(false);
     const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+    // WebLLM (Local AI) state
+    const [webllmState, setWebllmState] = useState<WebLLMState>({ status: 'not_initialized', progress: 0, message: 'Checking...', modelId: 'SmolLM2-360M-Instruct-q4f16_1-MLC' });
+    const [webgpuCapabilities, setWebgpuCapabilities] = useState<WebGPUCapabilities | null>(null);
+    const [webllmLoading, setWebllmLoading] = useState(false);
+
     // Load data
     useEffect(() => {
         loadConfig();
         loadLicense();
         loadAutoPilotSettings();
         loadTrialInfo();
+        loadWebLLMState();
         // Load API usage after a short delay to ensure service worker is ready
         setTimeout(loadApiUsage, 100);
     }, []);
+
+    // Poll WebLLM state during download/loading
+    useEffect(() => {
+        if (webllmState.status === 'downloading' || webllmState.status === 'loading') {
+            const interval = setInterval(loadWebLLMState, 500);
+            return () => clearInterval(interval);
+        }
+    }, [webllmState.status]);
 
     // Load device info when license is loaded and user is Pro
     useEffect(() => {
@@ -219,6 +252,57 @@ const OptionsPage: React.FC = () => {
     const loadDeviceInfo = async () => {
         const response = await chrome.runtime.sendMessage({ action: 'getDevices' });
         if (response.success && response.data) setDeviceInfo(response.data);
+    };
+
+    const loadWebLLMState = async () => {
+        try {
+            // Check WebGPU support first
+            const capResponse = await chrome.runtime.sendMessage({ action: 'checkWebGPUSupport' });
+            if (capResponse.success) {
+                setWebgpuCapabilities(capResponse.data);
+            }
+
+            // Get WebLLM state
+            const stateResponse = await chrome.runtime.sendMessage({ action: 'getWebLLMState' });
+            if (stateResponse.success && stateResponse.data) {
+                setWebllmState(stateResponse.data);
+            }
+        } catch (err) {
+            console.warn('Failed to load WebLLM state:', err);
+        }
+    };
+
+    const enableWebLLM = async () => {
+        if (webllmLoading) return;
+        setWebllmLoading(true);
+
+        try {
+            const response = await chrome.runtime.sendMessage({ action: 'initializeWebLLM' });
+            if (response.success) {
+                setWebllmState(response.data.state);
+                if (response.data.initialized) {
+                    setActiveProvider('webllm');
+                    setToast({ message: 'Local AI enabled', undo: () => {} });
+                }
+            }
+        } catch (err) {
+            console.warn('Failed to enable WebLLM:', err);
+        }
+
+        setWebllmLoading(false);
+    };
+
+    const disableWebLLM = async () => {
+        try {
+            const response = await chrome.runtime.sendMessage({ action: 'unloadWebLLM' });
+            if (response.success) {
+                setWebllmState({ status: 'not_initialized', progress: 0, message: 'Not initialized', modelId: webllmState.modelId });
+                setActiveProvider(response.data.provider);
+                setToast({ message: 'Local AI disabled', undo: () => {} });
+            }
+        } catch (err) {
+            console.warn('Failed to disable WebLLM:', err);
+        }
     };
 
     const loadApiUsage = async () => {
@@ -450,6 +534,123 @@ const OptionsPage: React.FC = () => {
                                     {inputState === 'success' ? 'ENCRYPTED' : inputState === 'error' ? 'FAILED' : inputState === 'validating' ? 'VALIDATING' : ''}
                                 </span>
                             </div>
+                        </div>
+
+                        {/* Local AI Section */}
+                        <div style={s.localAiSection}>
+                            <div style={s.localAiHeader}>
+                                <div style={s.localAiTitleRow}>
+                                    <span style={s.localAiTitle}>LOCAL AI</span>
+                                    <span style={s.localAiBadge}>PRIVATE</span>
+                                </div>
+                                <span style={s.localAiDesc}>
+                                    {webgpuCapabilities?.webgpuSupported
+                                        ? `Runs on your GPU (${webgpuCapabilities.webgpuAdapter || 'WebGPU'})`
+                                        : 'WebGPU not available'}
+                                </span>
+                            </div>
+
+                            {/* WebGPU Not Supported */}
+                            {webgpuCapabilities && !webgpuCapabilities.webgpuSupported && (
+                                <div style={s.localAiUnsupported}>
+                                    <span style={s.unsupportedIcon}>⚠</span>
+                                    <div>
+                                        <div style={s.unsupportedTitle}>WebGPU Not Available</div>
+                                        <div style={s.unsupportedDesc}>
+                                            Use Chrome 113+ or Edge 113+ with a compatible GPU.
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* WebGPU Supported - Show Status/Progress */}
+                            {webgpuCapabilities?.webgpuSupported && (
+                                <>
+                                    {/* Ready State */}
+                                    {webllmState.status === 'ready' && (
+                                        <div style={s.localAiReady}>
+                                            <div style={s.readyIndicator}>
+                                                <span style={s.readyDot}>●</span>
+                                                <span style={s.readyText}>ACTIVE</span>
+                                            </div>
+                                            <div style={s.modelInfo}>
+                                                <span style={s.modelName}>SmolLM2 360M</span>
+                                                <span style={s.modelSize}>~200MB • 100% Private</span>
+                                            </div>
+                                            <button style={s.disableBtn} onClick={disableWebLLM}>
+                                                DISABLE
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    {/* Downloading/Loading State */}
+                                    {(webllmState.status === 'downloading' || webllmState.status === 'loading') && (
+                                        <div style={s.localAiProgress}>
+                                            <div style={s.progressHeader}>
+                                                <span style={s.progressLabel}>
+                                                    {webllmState.status === 'downloading' ? 'DOWNLOADING' : 'INITIALIZING'}
+                                                </span>
+                                                <span style={s.progressPercent}>{webllmState.progress}%</span>
+                                            </div>
+                                            <div style={s.progressBarBg}>
+                                                <div style={{ ...s.progressBarFill, width: `${webllmState.progress}%` }} />
+                                            </div>
+                                            <span style={s.progressMessage}>{webllmState.message}</span>
+                                            {webllmState.downloadedMB && webllmState.totalMB && (
+                                                <span style={s.progressBytes}>
+                                                    {webllmState.downloadedMB.toFixed(1)} / {webllmState.totalMB.toFixed(1)} MB
+                                                </span>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {/* Error State */}
+                                    {webllmState.status === 'error' && (
+                                        <div style={s.localAiError}>
+                                            <span style={s.errorIcon}>✕</span>
+                                            <div>
+                                                <div style={s.errorTitle}>Failed to Load</div>
+                                                <div style={s.errorDesc}>{webllmState.error || webllmState.message}</div>
+                                            </div>
+                                            <button style={s.retryBtn} onClick={enableWebLLM}>
+                                                RETRY
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    {/* Not Initialized - Enable Button */}
+                                    {(webllmState.status === 'not_initialized' || webllmState.status === 'not_supported') && (
+                                        <div style={s.localAiEnable}>
+                                            <div style={s.enableInfo}>
+                                                <div style={s.enableTitle}>SmolLM2 360M</div>
+                                                <div style={s.enableDesc}>
+                                                    Fast local AI (~200MB download). No data leaves your device.
+                                                </div>
+                                            </div>
+                                            <button
+                                                style={{ ...s.enableBtn, opacity: webllmLoading ? 0.6 : 1 }}
+                                                onClick={enableWebLLM}
+                                                disabled={webllmLoading}
+                                            >
+                                                {webllmLoading ? 'LOADING...' : 'ENABLE LOCAL AI'}
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    {/* Checking State */}
+                                    {webllmState.status === 'checking_support' && (
+                                        <div style={s.localAiChecking}>
+                                            <span style={s.checkingSpinner}>◐</span>
+                                            <span style={s.checkingText}>Checking WebGPU support...</span>
+                                        </div>
+                                    )}
+                                </>
+                            )}
+                        </div>
+
+                        {/* Divider */}
+                        <div style={s.sectionDivider}>
+                            <span style={s.dividerText}>OR USE CLOUD AI</span>
                         </div>
 
                         {/* Provider Cards - Premium 4:5 ratio with centered logos */}
@@ -1066,6 +1267,255 @@ const s: { [key: string]: React.CSSProperties } = {
         fontSize: typography.sizeXs,
         color: colors.textDim,
         fontWeight: typography.normal,
+    },
+    // Local AI Section Styles
+    localAiSection: {
+        background: colors.panelGrey,
+        border: `1px solid ${colors.borderIdle}`,
+        padding: spacing.xl,
+        marginBottom: spacing.xl,
+    },
+    localAiHeader: {
+        marginBottom: spacing.lg,
+    },
+    localAiTitleRow: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: spacing.sm,
+        marginBottom: spacing.xs,
+    },
+    localAiTitle: {
+        fontFamily: typography.fontMono,
+        fontSize: typography.sizeSm,
+        fontWeight: typography.bold,
+        color: colors.textPrimary,
+        letterSpacing: '0.1em',
+    },
+    localAiBadge: {
+        padding: '2px 6px',
+        background: colors.phosphorGreen,
+        color: colors.voidBlack,
+        fontFamily: typography.fontMono,
+        fontSize: 9,
+        fontWeight: typography.bold,
+        letterSpacing: '0.05em',
+    },
+    localAiDesc: {
+        fontFamily: typography.fontFamily,
+        fontSize: typography.sizeXs,
+        color: colors.textDim,
+    },
+    localAiUnsupported: {
+        display: 'flex',
+        alignItems: 'flex-start',
+        gap: spacing.md,
+        padding: spacing.md,
+        background: 'rgba(255, 170, 0, 0.05)',
+        border: `1px solid rgba(255, 170, 0, 0.2)`,
+    },
+    unsupportedIcon: {
+        color: colors.signalAmber,
+        fontSize: 16,
+    },
+    unsupportedTitle: {
+        fontFamily: typography.fontMono,
+        fontSize: typography.sizeSm,
+        color: colors.signalAmber,
+        marginBottom: 2,
+    },
+    unsupportedDesc: {
+        fontSize: typography.sizeXs,
+        color: colors.textDim,
+    },
+    localAiReady: {
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: spacing.md,
+        background: colors.successBg,
+        border: `1px solid ${colors.phosphorGreen}`,
+    },
+    readyIndicator: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: spacing.sm,
+    },
+    readyDot: {
+        color: colors.phosphorGreen,
+        fontSize: 12,
+        animation: 'pulse 2s ease-in-out infinite',
+    },
+    readyText: {
+        fontFamily: typography.fontMono,
+        fontSize: typography.sizeXs,
+        color: colors.phosphorGreen,
+        letterSpacing: '0.1em',
+    },
+    modelInfo: {
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+    },
+    modelName: {
+        fontFamily: typography.fontMono,
+        fontSize: typography.sizeSm,
+        color: colors.textPrimary,
+    },
+    modelSize: {
+        fontSize: typography.sizeXs,
+        color: colors.textDim,
+    },
+    disableBtn: {
+        padding: `${spacing.sm}px ${spacing.md}px`,
+        background: 'transparent',
+        border: `1px solid ${colors.borderIdle}`,
+        color: colors.textDim,
+        fontFamily: typography.fontMono,
+        fontSize: typography.sizeXs,
+        cursor: 'pointer',
+    },
+    localAiProgress: {
+        padding: spacing.md,
+        background: colors.voidBlack,
+        border: `1px solid ${colors.accentCyan}`,
+    },
+    progressHeader: {
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: spacing.sm,
+    },
+    progressLabel: {
+        fontFamily: typography.fontMono,
+        fontSize: typography.sizeXs,
+        color: colors.accentCyan,
+        letterSpacing: '0.1em',
+    },
+    progressPercent: {
+        fontFamily: typography.fontMono,
+        fontSize: typography.sizeSm,
+        color: colors.accentCyan,
+        fontWeight: typography.bold,
+    },
+    progressBarBg: {
+        height: 4,
+        background: colors.borderIdle,
+        marginBottom: spacing.sm,
+        overflow: 'hidden',
+    },
+    progressBarFill: {
+        height: '100%',
+        background: colors.accentCyan,
+        transition: 'width 0.3s ease',
+        boxShadow: `0 0 8px ${colors.accentCyan}`,
+    },
+    progressMessage: {
+        display: 'block',
+        fontFamily: typography.fontFamily,
+        fontSize: typography.sizeXs,
+        color: colors.textMuted,
+        marginBottom: spacing.xs,
+    },
+    progressBytes: {
+        display: 'block',
+        fontFamily: typography.fontMono,
+        fontSize: 10,
+        color: colors.textDim,
+    },
+    localAiError: {
+        display: 'flex',
+        alignItems: 'flex-start',
+        gap: spacing.md,
+        padding: spacing.md,
+        background: 'rgba(255, 68, 68, 0.05)',
+        border: `1px solid rgba(255, 68, 68, 0.2)`,
+    },
+    errorIcon: {
+        color: colors.criticalRed,
+        fontSize: 16,
+        fontWeight: typography.bold,
+    },
+    errorTitle: {
+        fontFamily: typography.fontMono,
+        fontSize: typography.sizeSm,
+        color: colors.criticalRed,
+        marginBottom: 2,
+    },
+    errorDesc: {
+        fontSize: typography.sizeXs,
+        color: colors.textDim,
+        maxWidth: 300,
+    },
+    retryBtn: {
+        marginLeft: 'auto',
+        padding: `${spacing.sm}px ${spacing.md}px`,
+        background: 'transparent',
+        border: `1px solid ${colors.criticalRed}`,
+        color: colors.criticalRed,
+        fontFamily: typography.fontMono,
+        fontSize: typography.sizeXs,
+        cursor: 'pointer',
+    },
+    localAiEnable: {
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: spacing.md,
+        background: colors.voidBlack,
+        border: `1px solid ${colors.borderIdle}`,
+    },
+    enableInfo: {},
+    enableTitle: {
+        fontFamily: typography.fontMono,
+        fontSize: typography.sizeSm,
+        color: colors.textPrimary,
+        marginBottom: 2,
+    },
+    enableDesc: {
+        fontSize: typography.sizeXs,
+        color: colors.textDim,
+        maxWidth: 280,
+    },
+    enableBtn: {
+        padding: `${spacing.md}px ${spacing.xl}px`,
+        background: colors.phosphorGreen,
+        border: 'none',
+        color: colors.voidBlack,
+        fontFamily: typography.fontMono,
+        fontSize: typography.sizeXs,
+        fontWeight: typography.bold,
+        letterSpacing: '0.05em',
+        cursor: 'pointer',
+        transition: `opacity ${transitions.fast}`,
+    },
+    localAiChecking: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: spacing.sm,
+        padding: spacing.md,
+        background: colors.voidBlack,
+    },
+    checkingSpinner: {
+        color: colors.textDim,
+        animation: 'spin 1s linear infinite',
+    },
+    checkingText: {
+        fontFamily: typography.fontFamily,
+        fontSize: typography.sizeXs,
+        color: colors.textDim,
+    },
+    sectionDivider: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: spacing.md,
+        marginBottom: spacing.xl,
+    },
+    dividerText: {
+        fontFamily: typography.fontMono,
+        fontSize: typography.sizeXs,
+        color: colors.textDim,
+        letterSpacing: '0.1em',
+        whiteSpace: 'nowrap',
     },
     providerGrid: {
         display: 'grid',
