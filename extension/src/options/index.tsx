@@ -256,19 +256,71 @@ const OptionsPage: React.FC = () => {
 
     const loadWebLLMState = async () => {
         try {
-            // Check WebGPU support first
-            const capResponse = await chrome.runtime.sendMessage({ action: 'checkWebGPUSupport' });
-            if (capResponse.success) {
-                setWebgpuCapabilities(capResponse.data);
+            // Check WebGPU support directly in page context (not via service worker)
+            // Service workers don't have access to navigator.gpu
+            if (!webgpuCapabilities) {
+                const capabilities = await checkWebGPUDirectly();
+                setWebgpuCapabilities(capabilities);
             }
 
-            // Get WebLLM state
+            // Get WebLLM state from service worker
             const stateResponse = await chrome.runtime.sendMessage({ action: 'getWebLLMState' });
             if (stateResponse.success && stateResponse.data) {
                 setWebllmState(stateResponse.data);
             }
         } catch (err) {
             console.warn('Failed to load WebLLM state:', err);
+        }
+    };
+
+    // Check WebGPU support directly in page context
+    const checkWebGPUDirectly = async (): Promise<WebGPUCapabilities> => {
+        try {
+            const gpu = (navigator as any).gpu;
+            if (!gpu) {
+                return {
+                    webgpuSupported: false,
+                    webgpuAdapter: null,
+                    estimatedVRAM: null,
+                    recommendedModel: 'SmolLM2-360M-Instruct-q4f16_1-MLC',
+                };
+            }
+
+            const adapter = await gpu.requestAdapter();
+            if (!adapter) {
+                return {
+                    webgpuSupported: false,
+                    webgpuAdapter: null,
+                    estimatedVRAM: null,
+                    recommendedModel: 'SmolLM2-360M-Instruct-q4f16_1-MLC',
+                };
+            }
+
+            // Get adapter info
+            let adapterDesc = 'WebGPU';
+            try {
+                const info = await adapter.requestAdapterInfo?.();
+                if (info) {
+                    adapterDesc = info.description || info.vendor || 'WebGPU';
+                }
+            } catch {
+                // Adapter info not available
+            }
+
+            return {
+                webgpuSupported: true,
+                webgpuAdapter: adapterDesc,
+                estimatedVRAM: null,
+                recommendedModel: 'SmolLM2-360M-Instruct-q4f16_1-MLC',
+            };
+        } catch (err) {
+            console.warn('WebGPU check failed:', err);
+            return {
+                webgpuSupported: false,
+                webgpuAdapter: null,
+                estimatedVRAM: null,
+                recommendedModel: 'SmolLM2-360M-Instruct-q4f16_1-MLC',
+            };
         }
     };
 
