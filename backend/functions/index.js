@@ -5,7 +5,7 @@ const functions = require('@google-cloud/functions-framework');
 const db = new Firestore();
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
-const PRICE_CENTS = 600; // 6.00 AUD
+const PRICE_CENTS = 200; // 2.00 AUD/month
 const TRIAL_DAYS = 7;
 const FREE_DAILY_LIMIT = 20;
 const MAX_DEVICES_PER_LICENSE = 5; // Pro users can use up to 5 devices
@@ -236,14 +236,23 @@ async function handleCheckout(req, res) {
             price_data: {
                 currency: 'aud',
                 product_data: {
-                    name: 'PHANTOM TABS Pro',
-                    description: 'Lifetime access - One-time payment'
+                    name: 'TabEater Pro',
+                    description: 'Monthly subscription - Local AI, unlimited scans, Auto-Pilot'
                 },
-                unit_amount: PRICE_CENTS
+                unit_amount: PRICE_CENTS,
+                recurring: {
+                    interval: 'month'
+                }
             },
             quantity: 1
         }],
-        mode: 'payment',
+        mode: 'subscription',
+        subscription_data: {
+            metadata: {
+                licenseKey,
+                deviceId
+            }
+        },
         metadata: {
             licenseKey,
             deviceId
@@ -457,6 +466,7 @@ async function handleWebhook(req, res) {
 
     console.log('Webhook event verified:', event.type);
 
+    // Handle checkout session completed (subscription started)
     if (event.type === 'checkout.session.completed') {
         const session = event.data.object;
         const { licenseKey, deviceId } = session.metadata || {};
@@ -465,7 +475,8 @@ async function handleWebhook(req, res) {
             sessionId: session.id,
             licenseKey,
             deviceId,
-            paymentStatus: session.payment_status
+            paymentStatus: session.payment_status,
+            mode: session.mode
         });
 
         if (!licenseKey) {
@@ -494,16 +505,78 @@ async function handleWebhook(req, res) {
 
             await db.collection('devices').doc(licenseKey).update({
                 paid: true,
+                subscriptionActive: true,
                 paidAt: new Date().toISOString(),
                 stripeSessionId: session.id,
-                stripePaymentIntent: session.payment_intent,
+                stripeSubscriptionId: session.subscription || null,
+                stripeCustomerId: session.customer || null,
                 customerEmail: session.customer_details?.email || null
             });
 
-            console.log(`License ${licenseKey} successfully upgraded to Pro`);
+            console.log(`License ${licenseKey} successfully upgraded to Pro (subscription)`);
         } catch (dbError) {
             console.error('Database error while upgrading license:', dbError);
             return res.status(500).json({ error: 'Database error' });
+        }
+    }
+
+    // Handle subscription cancelled or payment failed
+    if (event.type === 'customer.subscription.deleted' ||
+        event.type === 'customer.subscription.updated') {
+        const subscription = event.data.object;
+        const { licenseKey } = subscription.metadata || {};
+
+        console.log('Processing subscription event:', {
+            eventType: event.type,
+            subscriptionId: subscription.id,
+            status: subscription.status,
+            licenseKey
+        });
+
+        if (licenseKey) {
+            try {
+                const isActive = subscription.status === 'active' || subscription.status === 'trialing';
+
+                await db.collection('devices').doc(licenseKey).update({
+                    paid: isActive,
+                    subscriptionActive: isActive,
+                    subscriptionStatus: subscription.status,
+                    subscriptionUpdatedAt: new Date().toISOString()
+                });
+
+                console.log(`License ${licenseKey} subscription status updated: ${subscription.status}`);
+            } catch (dbError) {
+                console.error('Database error while updating subscription:', dbError);
+            }
+        }
+    }
+
+    // Handle invoice payment failed (subscription billing issue)
+    if (event.type === 'invoice.payment_failed') {
+        const invoice = event.data.object;
+        const subscriptionId = invoice.subscription;
+
+        console.log('Payment failed for subscription:', subscriptionId);
+
+        // Find license by subscription ID and update status
+        if (subscriptionId) {
+            try {
+                const query = await db.collection('devices')
+                    .where('stripeSubscriptionId', '==', subscriptionId)
+                    .limit(1)
+                    .get();
+
+                if (!query.empty) {
+                    const doc = query.docs[0];
+                    await doc.ref.update({
+                        subscriptionStatus: 'payment_failed',
+                        subscriptionUpdatedAt: new Date().toISOString()
+                    });
+                    console.log(`Updated license ${doc.id} - payment failed`);
+                }
+            } catch (dbError) {
+                console.error('Database error while handling payment failure:', dbError);
+            }
         }
     }
 
@@ -515,7 +588,7 @@ function handleSuccess(req, res) {
     res.send(`<!DOCTYPE html>
 <html>
 <head>
-    <title>Payment Successful - PHANTOM TABS</title>
+    <title>Subscription Active - TabEater</title>
     <style>
         body { font-family: system-ui; background: #0a0a0a; color: #e0e0e0; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
         .card { background: #111; border: 1px solid #00ff88; border-radius: 12px; padding: 40px; text-align: center; max-width: 400px; }
@@ -527,8 +600,8 @@ function handleSuccess(req, res) {
 <body>
     <div class="card">
         <div class="icon">✓</div>
-        <h1>Payment Successful!</h1>
-        <p>Your PHANTOM TABS Pro license is now active.</p>
+        <h1>Subscription Active!</h1>
+        <p>Your TabEater Pro subscription is now active.</p>
         <p>Return to the extension and click "Refresh Status" to activate.</p>
     </div>
 </body>
@@ -540,7 +613,7 @@ function handleCancel(req, res) {
     res.send(`<!DOCTYPE html>
 <html>
 <head>
-    <title>Payment Cancelled - PHANTOM TABS</title>
+    <title>Cancelled - TabEater</title>
     <style>
         body { font-family: system-ui; background: #0a0a0a; color: #e0e0e0; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
         .card { background: #111; border: 1px solid #ff4444; border-radius: 12px; padding: 40px; text-align: center; max-width: 400px; }

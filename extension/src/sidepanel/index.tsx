@@ -6,6 +6,14 @@ import { ScanlineOverlay } from '../ui/components/ScanlineOverlay';
 import { TypewriterText } from '../ui/components/TypewriterText';
 import { MicroLabel } from '../ui/components/MicroLabel';
 import { ScrambleText } from '../ui/components/ScrambleText';
+import * as webllm from '@mlc-ai/web-llm';
+
+// WebLLM Model ID
+const WEBLLM_MODEL_ID = 'SmolLM2-360M-Instruct-q4f16_1-MLC';
+
+// Global WebLLM engine for this page context
+let webllmEngine: webllm.MLCEngineInterface | null = null;
+let webllmInitializing = false;
 
 interface TabInfo {
     id: number;
@@ -121,8 +129,15 @@ const Sidepanel = () => {
 
         if (tabsRes.success) setTabs(tabsRes.data);
         if (groupsRes.success) setGroups(groupsRes.data);
-        if (providerRes.success) setProvider(providerRes.data.provider);
         if (statsRes.success) setApiStats(statsRes.data);
+
+        // Check if WebLLM is preferred (stored in local storage)
+        const stored = await chrome.storage.local.get(['aiConfig', 'webllmReady']);
+        if (stored.aiConfig?.preferWebLLM || stored.webllmReady) {
+            setProvider('webllm');
+        } else if (providerRes.success) {
+            setProvider(providerRes.data.provider);
+        }
     };
 
     const switchToTab = useCallback((tabId: number, windowId: number) => {
@@ -154,8 +169,61 @@ const Sidepanel = () => {
         });
     }, []);
 
+    // Initialize WebLLM in this page context
+    const initWebLLM = useCallback(async (): Promise<boolean> => {
+        if (webllmEngine) return true;
+        if (webllmInitializing) {
+            // Wait for existing initialization
+            while (webllmInitializing) {
+                await new Promise(r => setTimeout(r, 100));
+            }
+            return webllmEngine !== null;
+        }
+
+        webllmInitializing = true;
+        try {
+            webllmEngine = await webllm.CreateMLCEngine(WEBLLM_MODEL_ID, {
+                initProgressCallback: (progress) => {
+                    console.log('[WebLLM Sidepanel]', progress.text);
+                },
+            });
+            webllmInitializing = false;
+            return true;
+        } catch (err) {
+            console.error('[WebLLM Sidepanel] Init failed:', err);
+            webllmInitializing = false;
+            return false;
+        }
+    }, []);
+
+    // Use WebLLM directly for inference
+    const askWebLLM = useCallback(async (prompt: string): Promise<string> => {
+        if (!webllmEngine) {
+            const ok = await initWebLLM();
+            if (!ok) throw new Error('Failed to initialize Local AI');
+        }
+
+        const response = await webllmEngine!.chat.completions.create({
+            messages: [
+                {
+                    role: 'system',
+                    content: `You are TabEater, a tactical tab intelligence assistant. Provide concise, actionable insights about browser tabs. Keep responses brief.`
+                },
+                { role: 'user', content: prompt }
+            ],
+            max_tokens: 500,
+            temperature: 0.3,
+        });
+
+        return response.choices[0]?.message?.content || 'No response';
+    }, [initWebLLM]);
+
     const askAI = useCallback(async () => {
-        if (!chatInput.trim() || provider === 'none') return;
+        if (!chatInput.trim()) return;
+        if (provider === 'none') {
+            setChatMessages(prev => [...prev, { role: 'assistant', content: 'Please configure an AI provider in Settings first.' }]);
+            return;
+        }
 
         const userMessage = chatInput;
         setChatInput('');
@@ -172,13 +240,23 @@ const Sidepanel = () => {
             }).join(', ');
             const prompt = `Context: User has ${tabs.length} tabs open: ${tabContext}\n\nUser question: ${userMessage}`;
 
-            const response = await sendMessage('askAI', { prompt });
+            let aiResponse: string;
 
-            if (response.success) {
-                setChatMessages(prev => [...prev, { role: 'assistant', content: response.data.response }]);
+            // Use WebLLM directly if it's the provider (runs in page context)
+            if (provider === 'webllm') {
+                aiResponse = await askWebLLM(prompt);
             } else {
-                setChatMessages(prev => [...prev, { role: 'assistant', content: `Error: ${response.error}` }]);
+                // Use service worker for cloud providers
+                const response = await sendMessage('askAI', { prompt });
+                if (response.success) {
+                    aiResponse = response.data.response;
+                } else {
+                    throw new Error(response.error || 'AI request failed');
+                }
             }
+
+            setChatMessages(prev => [...prev, { role: 'assistant', content: aiResponse }]);
+
             // Refresh stats after AI call
             const statsRes = await sendMessage('getAPIUsageStats');
             if (statsRes.success) setApiStats(statsRes.data);
@@ -186,7 +264,7 @@ const Sidepanel = () => {
             setChatMessages(prev => [...prev, { role: 'assistant', content: `Error: ${err.message}` }]);
         }
         setLoading(false);
-    }, [chatInput, provider, tabs, sendMessage]);
+    }, [chatInput, provider, tabs, sendMessage, askWebLLM]);
 
     const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
         if (e.key === 'Enter' && !e.shiftKey) {
@@ -205,6 +283,7 @@ const Sidepanel = () => {
 
     const getProviderDisplay = () => {
         const labels: Record<string, string> = {
+            webllm: 'Local AI',
             nano: 'Nano',
             gemini: 'Gemini',
             openai: 'OpenAI',
