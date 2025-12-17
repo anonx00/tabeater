@@ -179,7 +179,7 @@ const Popup = () => {
         setTimeout(() => { loadTabs(); findDuplicates(); }, 100);
     }, [duplicates, sendMessage, loadTabs, findDuplicates]);
 
-    // Initialize WebLLM in popup context
+    // Initialize WebLLM in popup context (model weights cached in IndexedDB)
     const initWebLLM = useCallback(async (): Promise<boolean> => {
         if (webllmEngine) return true;
         if (webllmInitializing) {
@@ -190,13 +190,30 @@ const Popup = () => {
         }
         webllmInitializing = true;
         try {
-            showStatus('Loading Local AI...');
-            webllmEngine = await webllm.CreateMLCEngine(WEBLLM_MODEL_ID, {
+            // Check storage for selected model
+            const storage = await chrome.storage.local.get(['webllmModel', 'webllmModelReady']);
+            const modelId = storage.webllmModel || WEBLLM_MODEL_ID;
+            const isModelCached = storage.webllmModelReady === modelId;
+
+            // Only show "Loading" if downloading, not if just initializing cached model
+            let isDownloading = false;
+            showStatus(isModelCached ? 'Initializing AI...' : 'Loading Local AI...');
+
+            webllmEngine = await webllm.CreateMLCEngine(modelId, {
                 initProgressCallback: (progress) => {
-                    const pct = Math.round(progress.progress * 100);
-                    showStatus(`Loading AI: ${pct}%`);
+                    // Detect if actually downloading vs loading from cache
+                    if (progress.text?.includes('Fetching') || progress.text?.includes('Loading model')) {
+                        isDownloading = true;
+                        const pct = Math.round(progress.progress * 100);
+                        showStatus(`Downloading: ${pct}%`);
+                    } else if (!isDownloading && progress.progress < 1) {
+                        showStatus('Initializing AI...');
+                    }
                 },
             });
+
+            // Mark model as cached for faster init next time
+            await chrome.storage.local.set({ webllmModelReady: modelId });
             webllmInitializing = false;
             return true;
         } catch (err) {
@@ -226,38 +243,91 @@ const Popup = () => {
                     return;
                 }
 
-                // Get tabs and create prompt
-                const tabsForAI = tabs.map(t => `${t.id}|${t.title}|${new URL(t.url).hostname}`).join('\n');
-                const prompt = `Analyze these browser tabs and group them into categories.
-Return ONLY a JSON array of groups: [{"name": "GroupName", "tabIds": [1,2,3]}]
-Keep group names short (1-2 words). Use categories like: Work, Research, Shopping, Social, Entertainment, News, Dev, Other.
+                showStatus('AI analyzing tabs...');
+
+                // Get tabs and create prompt - simpler format for small model
+                const tabsForAI = tabs.map(t => {
+                    try {
+                        return `${t.id}: ${t.title.slice(0, 40)} [${new URL(t.url).hostname}]`;
+                    } catch {
+                        return `${t.id}: ${t.title.slice(0, 40)}`;
+                    }
+                }).join('\n');
+
+                // Very explicit JSON-only prompt for small model
+                const prompt = `Group these tabs by category. Output ONLY valid JSON, no other text.
+
+Format: [{"name":"Category","tabIds":[1,2]}]
 
 Tabs:
-${tabsForAI}`;
+${tabsForAI}
+
+JSON output:`;
 
                 const response = await webllmEngine!.chat.completions.create({
                     messages: [
-                        { role: 'system', content: 'You are a tab organizer. Return only valid JSON arrays.' },
+                        { role: 'system', content: 'You output only valid JSON arrays. No explanations, no text, only JSON.' },
                         { role: 'user', content: prompt }
                     ],
-                    max_tokens: 500,
-                    temperature: 0.2,
+                    max_tokens: 400,
+                    temperature: 0.1,
                 });
 
                 const aiText = response.choices[0]?.message?.content || '';
-                // Parse JSON from response
-                const jsonMatch = aiText.match(/\[[\s\S]*\]/);
+                console.log('[WebLLM] Raw response:', aiText);
+
+                // Try multiple JSON extraction patterns
+                let groups = null;
+
+                // Pattern 1: Direct JSON array
+                const jsonMatch = aiText.match(/\[\s*\{[\s\S]*?\}\s*\]/);
                 if (jsonMatch) {
-                    const groups = JSON.parse(jsonMatch[0]);
-                    // Send grouping to service worker
-                    const groupRes = await sendMessage('applyTabGroups', { groups });
-                    if (groupRes.success) {
-                        showStatus(`Created ${groups.length} groups`);
-                    } else {
-                        showStatus(groupRes.error || 'Grouping failed');
+                    try {
+                        groups = JSON.parse(jsonMatch[0]);
+                    } catch (e) {
+                        console.log('[WebLLM] Pattern 1 parse failed:', e);
                     }
+                }
+
+                // Pattern 2: JSON in code block
+                if (!groups) {
+                    const codeMatch = aiText.match(/```(?:json)?\s*([\s\S]*?)```/);
+                    if (codeMatch) {
+                        try {
+                            groups = JSON.parse(codeMatch[1].trim());
+                        } catch (e) {
+                            console.log('[WebLLM] Pattern 2 parse failed:', e);
+                        }
+                    }
+                }
+
+                // Fallback: Simple auto-grouping by domain if AI fails
+                if (!groups || !Array.isArray(groups) || groups.length === 0) {
+                    console.log('[WebLLM] Using fallback domain grouping');
+                    const domainGroups: Record<string, number[]> = {};
+                    tabs.forEach(t => {
+                        try {
+                            const host = new URL(t.url).hostname.replace('www.', '');
+                            const domain = host.split('.').slice(-2, -1)[0] || 'Other';
+                            const key = domain.charAt(0).toUpperCase() + domain.slice(1);
+                            if (!domainGroups[key]) domainGroups[key] = [];
+                            domainGroups[key].push(t.id);
+                        } catch {
+                            if (!domainGroups['Other']) domainGroups['Other'] = [];
+                            domainGroups['Other'].push(t.id);
+                        }
+                    });
+                    groups = Object.entries(domainGroups)
+                        .filter(([_, ids]) => ids.length > 0)
+                        .map(([name, tabIds]) => ({ name, tabIds }));
+                }
+
+                // Send grouping to service worker
+                const groupRes = await sendMessage('applyTabGroups', { groups });
+                if (groupRes.success) {
+                    showStatus(`Created ${groups.length} groups`);
                 } else {
-                    showStatus('AI response invalid');
+                    showStatus(groupRes.error || 'Grouping failed');
                 }
             } else {
                 // Use service worker for cloud providers

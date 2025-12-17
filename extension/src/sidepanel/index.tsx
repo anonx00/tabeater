@@ -182,11 +182,18 @@ const Sidepanel = () => {
 
         webllmInitializing = true;
         try {
-            webllmEngine = await webllm.CreateMLCEngine(WEBLLM_MODEL_ID, {
+            // Check storage for selected model
+            const storage = await chrome.storage.local.get(['webllmModel']);
+            const modelId = storage.webllmModel || WEBLLM_MODEL_ID;
+
+            webllmEngine = await webllm.CreateMLCEngine(modelId, {
                 initProgressCallback: (progress) => {
                     console.log('[WebLLM Sidepanel]', progress.text);
                 },
             });
+
+            // Mark model as cached
+            await chrome.storage.local.set({ webllmModelReady: modelId });
             webllmInitializing = false;
             return true;
         } catch (err) {

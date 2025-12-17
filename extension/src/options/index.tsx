@@ -60,13 +60,22 @@ const PROVIDERS = {
     anthropic: { name: 'CLAUDE', desc: 'Anthropic', color: '#d4a574', badge: 'PAID', models: ['claude-3-5-haiku-latest', 'claude-3-5-sonnet-latest'], default: 'claude-3-5-haiku-latest', url: 'https://console.anthropic.com/settings/keys' },
 };
 
-// Local AI info
+// Local AI info and available models
+const LOCAL_AI_MODELS = [
+    { id: 'SmolLM2-360M-Instruct-q4f16_1-MLC', name: 'SmolLM2-360M', size: '~200MB', desc: 'Fast, lightweight' },
+    { id: 'SmolLM2-1.7B-Instruct-q4f16_1-MLC', name: 'SmolLM2-1.7B', size: '~1GB', desc: 'Better quality' },
+    { id: 'Llama-3.2-1B-Instruct-q4f16_1-MLC', name: 'Llama-3.2-1B', size: '~700MB', desc: 'Good balance' },
+    { id: 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC', name: 'Qwen2.5-0.5B', size: '~350MB', desc: 'Efficient' },
+];
+
 const LOCAL_AI_INFO = {
     name: 'LOCAL AI',
     desc: 'SmolLM2',
     color: '#00ff88',
     badge: 'PRIVATE',
     size: '~200MB',
+    models: LOCAL_AI_MODELS,
+    default: 'SmolLM2-360M-Instruct-q4f16_1-MLC',
 };
 
 // Premium Provider Logo Components (SimpleIcons-based)
@@ -202,6 +211,7 @@ const OptionsPage: React.FC = () => {
     const [webllmState, setWebllmState] = useState<WebLLMState>({ status: 'not_initialized', progress: 0, message: 'Checking...', modelId: 'SmolLM2-360M-Instruct-q4f16_1-MLC' });
     const [webgpuCapabilities, setWebgpuCapabilities] = useState<WebGPUCapabilities | null>(null);
     const [webllmLoading, setWebllmLoading] = useState(false);
+    const [selectedLocalModel, setSelectedLocalModel] = useState(LOCAL_AI_INFO.default);
 
     // Load data
     useEffect(() => {
@@ -300,6 +310,12 @@ const OptionsPage: React.FC = () => {
             if (stateResponse.success && stateResponse.data) {
                 setWebllmState(stateResponse.data);
             }
+
+            // Load selected model from storage
+            const storage = await chrome.storage.local.get(['webllmModel']);
+            if (storage.webllmModel) {
+                setSelectedLocalModel(storage.webllmModel);
+            }
         } catch (err) {
             console.warn('Failed to load WebLLM state:', err);
         }
@@ -310,7 +326,10 @@ const OptionsPage: React.FC = () => {
         setWebllmLoading(true);
 
         try {
-            const response = await chrome.runtime.sendMessage({ action: 'initializeWebLLM' });
+            // Save selected model to storage for popup/sidepanel to use
+            await chrome.storage.local.set({ webllmModel: selectedLocalModel, preferWebLLM: true });
+
+            const response = await chrome.runtime.sendMessage({ action: 'initializeWebLLM', modelId: selectedLocalModel });
             if (response.success) {
                 setWebllmState(response.data.state);
                 if (response.data.initialized) {
@@ -323,6 +342,18 @@ const OptionsPage: React.FC = () => {
         }
 
         setWebllmLoading(false);
+    };
+
+    // Handle model selection change
+    const handleLocalModelChange = async (modelId: string) => {
+        setSelectedLocalModel(modelId);
+        await chrome.storage.local.set({ webllmModel: modelId });
+        // Clear cached model flag so next init downloads new model
+        await chrome.storage.local.remove(['webllmModelReady']);
+        if (webllmState.status === 'ready') {
+            // If already active, need to reinitialize with new model
+            setToast({ message: 'Restart Local AI to use new model', undo: () => {} });
+        }
     };
 
     const disableWebLLM = async () => {
@@ -657,6 +688,30 @@ const OptionsPage: React.FC = () => {
                                     <div style={{ ...s.progressBarFill, width: `${webllmState.progress}%` }} />
                                 </div>
                                 <span style={s.progressMessage}>{webllmState.message}</span>
+                            </div>
+                        )}
+
+                        {/* Local AI Model Selection */}
+                        {webgpuCapabilities?.webgpuSupported && (
+                            <div style={s.inputSection}>
+                                <label style={s.inputLabel}>LOCAL_AI_MODEL</label>
+                                <select
+                                    value={selectedLocalModel}
+                                    onChange={(e) => handleLocalModelChange(e.target.value)}
+                                    style={s.select}
+                                    disabled={webllmState.status === 'downloading' || webllmState.status === 'loading'}
+                                >
+                                    {LOCAL_AI_MODELS.map(m => (
+                                        <option key={m.id} value={m.id}>
+                                            {m.name} ({m.size}) - {m.desc}
+                                        </option>
+                                    ))}
+                                </select>
+                                <div style={s.inputMeta}>
+                                    <span style={{ ...s.inputStatus, color: colors.textDim }}>
+                                        {LOCAL_AI_MODELS.find(m => m.id === selectedLocalModel)?.desc || 'Select model'}
+                                    </span>
+                                </div>
                             </div>
                         )}
 
