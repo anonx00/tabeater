@@ -60,6 +60,15 @@ const PROVIDERS = {
     anthropic: { name: 'CLAUDE', desc: 'Anthropic', color: '#d4a574', badge: 'PAID', models: ['claude-3-5-haiku-latest', 'claude-3-5-sonnet-latest'], default: 'claude-3-5-haiku-latest', url: 'https://console.anthropic.com/settings/keys' },
 };
 
+// Local AI info
+const LOCAL_AI_INFO = {
+    name: 'LOCAL AI',
+    desc: 'SmolLM2',
+    color: '#00ff88',
+    badge: 'PRIVATE',
+    size: '~200MB',
+};
+
 // Premium Provider Logo Components (SimpleIcons-based)
 const GeminiLogo: React.FC<{ size?: number; active?: boolean }> = ({ size = 48, active = false }) => (
     <svg width={size} height={size} viewBox="0 0 24 24" fill={active ? '#4285f4' : colors.textDim}>
@@ -76,6 +85,30 @@ const OpenAILogo: React.FC<{ size?: number; active?: boolean }> = ({ size = 48, 
 const ClaudeLogo: React.FC<{ size?: number; active?: boolean }> = ({ size = 48, active = false }) => (
     <svg width={size} height={size} viewBox="0 0 24 24" fill={active ? '#d4a574' : colors.textDim}>
         <path d="M4.709 15.955l4.72-2.647.08-.23-.08-.128H9.2l-.79-.048-2.698-.08-2.809-.112-.72-.048.048-.208.336-.192.368-.032 2.809.144 2.377.096 1.278.064-.336-.336-.945-1.04-1.663-1.68-1.727-1.888-.592-.672.16-.144.4.048.224.208 1.584 1.728 1.615 1.632 1.023 1.072-.032-.16-.16-1.136-.336-2.192-.4-2.72-.224-1.664.24-.112.304.128.128.288.192 1.712.32 2.017.352 2.16.176.992.048-.016.16-.128.16-.592.144-1.472.32-1.328.288-.608.128-.048.336.192.256-.064 1.263-.288 1.712-.4 1.376-.288-.48.64-1.055 1.391-.656.88-.64.815-.096.176.144.224.24.08.352-.08 1.407-.48 3.12-1.072.784-.256 1.055-.368.608-.192.128.064.048.208-.064.288-1.12.48-2.32.768-2.592.88-.592.176-.16.16.064.144.784.064 2.176.192 2.688.192.88.064.176.144v.224l-.32.192-.288.064-2.608-.176-2.593-.128-.816-.048.048.192.288.288.096.112 1.264 1.28 1.439 1.504.416.416-.032.24-.24.128-.24-.032-1.695-1.744-1.233-1.2-.336-.336-.128.176-.048.192.176 2.016.256 2.993.048.736-.24.144-.272-.096-.112-.4-.224-2.16-.208-2.16-.096-.816-.032-.24-.288.16-.224.176-.88.592-1.904 1.264-.704.464-.16-.032-.096-.256.064-.16.88-.64 1.343-.928-.255-.112-.992-.096-2.641-.192-2.848-.208-.656-.048.016-.208.32-.24.256-.032 2.048.144 3.265.24.464.016.08-.112.016-.176-.56-.528-2.096-2.017-.976-.912-.128-.208.064-.256.288-.144.224.144.224.192 1.68 1.632 1.488 1.424.224-.112.064-.224-.08-.544-.272-1.04-.624-2.369-.544-2.16-.064-.256.144-.192.336-.016.176.32.64 2.16.592 2.16.304 1.088.176.624.08.112.176-.016.192-.192.608-1.008.88-1.472.816-1.392.176-.32.24-.064.288.192-.032.288-.544.976-1.28 2.096-.56.976.16.064.192-.048 1.04-.224 2.72-.592 2.225-.48.544-.128.112.128.016.32-.176.24-.72.208-1.712.4-2.881.624-.816.16-.176.224.032.208.88.816 1.312 1.216 1.247 1.136.112.144-.016.224-.24.144-.192-.048-.224-.176L4.709 15.955z"/>
+    </svg>
+);
+
+// Local AI Logo (CPU/chip icon representing on-device processing)
+const LocalAILogo: React.FC<{ size?: number; active?: boolean; loading?: boolean; progress?: number }> = ({ size = 48, active = false, loading = false, progress = 0 }) => (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <rect x="6" y="6" width="12" height="12" rx="2" stroke={active ? '#00ff88' : colors.textDim} strokeWidth="1.5" fill={active ? 'rgba(0,255,136,0.1)' : 'none'}/>
+        <rect x="9" y="9" width="6" height="6" fill={active ? '#00ff88' : colors.textDim}/>
+        {/* Connection pins */}
+        <line x1="8" y1="3" x2="8" y2="6" stroke={active ? '#00ff88' : colors.textDim} strokeWidth="1.5"/>
+        <line x1="12" y1="3" x2="12" y2="6" stroke={active ? '#00ff88' : colors.textDim} strokeWidth="1.5"/>
+        <line x1="16" y1="3" x2="16" y2="6" stroke={active ? '#00ff88' : colors.textDim} strokeWidth="1.5"/>
+        <line x1="8" y1="18" x2="8" y2="21" stroke={active ? '#00ff88' : colors.textDim} strokeWidth="1.5"/>
+        <line x1="12" y1="18" x2="12" y2="21" stroke={active ? '#00ff88' : colors.textDim} strokeWidth="1.5"/>
+        <line x1="16" y1="18" x2="16" y2="21" stroke={active ? '#00ff88' : colors.textDim} strokeWidth="1.5"/>
+        <line x1="3" y1="8" x2="6" y2="8" stroke={active ? '#00ff88' : colors.textDim} strokeWidth="1.5"/>
+        <line x1="3" y1="12" x2="6" y2="12" stroke={active ? '#00ff88' : colors.textDim} strokeWidth="1.5"/>
+        <line x1="3" y1="16" x2="6" y2="16" stroke={active ? '#00ff88' : colors.textDim} strokeWidth="1.5"/>
+        <line x1="18" y1="8" x2="21" y2="8" stroke={active ? '#00ff88' : colors.textDim} strokeWidth="1.5"/>
+        <line x1="18" y1="12" x2="21" y2="12" stroke={active ? '#00ff88' : colors.textDim} strokeWidth="1.5"/>
+        <line x1="18" y1="16" x2="21" y2="16" stroke={active ? '#00ff88' : colors.textDim} strokeWidth="1.5"/>
+        {loading && (
+            <circle cx="12" cy="12" r="8" stroke="#00ff88" strokeWidth="2" strokeDasharray={`${progress * 0.5} 50`} fill="none" opacity="0.5"/>
+        )}
     </svg>
 );
 
@@ -536,127 +569,55 @@ const OptionsPage: React.FC = () => {
                             </div>
                         </div>
 
-                        {/* Local AI Section */}
-                        <div style={s.localAiSection}>
-                            <div style={s.localAiHeader}>
-                                <div style={s.localAiTitleRow}>
-                                    <span style={s.localAiTitle}>LOCAL AI</span>
-                                    <span style={s.localAiBadge}>PRIVATE</span>
+                        {/* Provider Cards - 4 column grid with Local AI first */}
+                        <div style={{ ...s.providerGrid, gridTemplateColumns: 'repeat(4, 1fr)' }}>
+                            {/* Local AI Card */}
+                            <button
+                                className={`provider-card ${webllmState.status === 'ready' ? 'active' : ''}`}
+                                style={{
+                                    ...s.providerCard,
+                                    borderColor: webllmState.status === 'ready' ? '#00ff88' : colors.borderIdle,
+                                    boxShadow: webllmState.status === 'ready' ? '0 0 20px rgba(0, 255, 136, 0.3)' : 'none',
+                                    opacity: !webgpuCapabilities?.webgpuSupported ? 0.5 : 1,
+                                    cursor: !webgpuCapabilities?.webgpuSupported ? 'not-allowed' : 'pointer',
+                                }}
+                                onClick={() => {
+                                    if (!webgpuCapabilities?.webgpuSupported) return;
+                                    if (webllmState.status === 'ready') {
+                                        disableWebLLM();
+                                    } else if (webllmState.status === 'not_initialized' || webllmState.status === 'error') {
+                                        enableWebLLM();
+                                    }
+                                }}
+                                disabled={webllmLoading || webllmState.status === 'downloading' || webllmState.status === 'loading'}
+                            >
+                                {webllmState.status === 'ready' && <span style={s.checkIcon}>&#10003;</span>}
+                                <div style={s.providerLogoWrap}>
+                                    <LocalAILogo
+                                        size={48}
+                                        active={webllmState.status === 'ready'}
+                                        loading={webllmState.status === 'downloading' || webllmState.status === 'loading'}
+                                        progress={webllmState.progress}
+                                    />
                                 </div>
-                                <span style={s.localAiDesc}>
-                                    {webgpuCapabilities?.webgpuSupported
-                                        ? `Runs on your GPU (${webgpuCapabilities.webgpuAdapter || 'WebGPU'})`
-                                        : 'WebGPU not available'}
+                                <div style={s.providerName}>{LOCAL_AI_INFO.name}</div>
+                                <div style={s.providerDesc}>
+                                    {webllmState.status === 'downloading' || webllmState.status === 'loading'
+                                        ? `${webllmState.progress}%`
+                                        : webllmState.status === 'ready'
+                                            ? 'Active'
+                                            : !webgpuCapabilities?.webgpuSupported
+                                                ? 'No WebGPU'
+                                                : LOCAL_AI_INFO.desc}
+                                </div>
+                                <span style={{ ...s.providerBadge, background: '#00ff88' }}>
+                                    {LOCAL_AI_INFO.badge}
                                 </span>
-                            </div>
+                            </button>
 
-                            {/* WebGPU Not Supported */}
-                            {webgpuCapabilities && !webgpuCapabilities.webgpuSupported && (
-                                <div style={s.localAiUnsupported}>
-                                    <span style={s.unsupportedIcon}>⚠</span>
-                                    <div>
-                                        <div style={s.unsupportedTitle}>WebGPU Not Available</div>
-                                        <div style={s.unsupportedDesc}>
-                                            Use Chrome 113+ or Edge 113+ with a compatible GPU.
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* WebGPU Supported - Show Status/Progress */}
-                            {webgpuCapabilities?.webgpuSupported && (
-                                <>
-                                    {/* Ready State */}
-                                    {webllmState.status === 'ready' && (
-                                        <div style={s.localAiReady}>
-                                            <div style={s.readyIndicator}>
-                                                <span style={s.readyDot}>●</span>
-                                                <span style={s.readyText}>ACTIVE</span>
-                                            </div>
-                                            <div style={s.modelInfo}>
-                                                <span style={s.modelName}>SmolLM2 360M</span>
-                                                <span style={s.modelSize}>~200MB • 100% Private</span>
-                                            </div>
-                                            <button style={s.disableBtn} onClick={disableWebLLM}>
-                                                DISABLE
-                                            </button>
-                                        </div>
-                                    )}
-
-                                    {/* Downloading/Loading State */}
-                                    {(webllmState.status === 'downloading' || webllmState.status === 'loading') && (
-                                        <div style={s.localAiProgress}>
-                                            <div style={s.progressHeader}>
-                                                <span style={s.progressLabel}>
-                                                    {webllmState.status === 'downloading' ? 'DOWNLOADING' : 'INITIALIZING'}
-                                                </span>
-                                                <span style={s.progressPercent}>{webllmState.progress}%</span>
-                                            </div>
-                                            <div style={s.progressBarBg}>
-                                                <div style={{ ...s.progressBarFill, width: `${webllmState.progress}%` }} />
-                                            </div>
-                                            <span style={s.progressMessage}>{webllmState.message}</span>
-                                            {webllmState.downloadedMB && webllmState.totalMB && (
-                                                <span style={s.progressBytes}>
-                                                    {webllmState.downloadedMB.toFixed(1)} / {webllmState.totalMB.toFixed(1)} MB
-                                                </span>
-                                            )}
-                                        </div>
-                                    )}
-
-                                    {/* Error State */}
-                                    {webllmState.status === 'error' && (
-                                        <div style={s.localAiError}>
-                                            <span style={s.errorIcon}>✕</span>
-                                            <div>
-                                                <div style={s.errorTitle}>Failed to Load</div>
-                                                <div style={s.errorDesc}>{webllmState.error || webllmState.message}</div>
-                                            </div>
-                                            <button style={s.retryBtn} onClick={enableWebLLM}>
-                                                RETRY
-                                            </button>
-                                        </div>
-                                    )}
-
-                                    {/* Not Initialized - Enable Button */}
-                                    {(webllmState.status === 'not_initialized' || webllmState.status === 'not_supported') && (
-                                        <div style={s.localAiEnable}>
-                                            <div style={s.enableInfo}>
-                                                <div style={s.enableTitle}>SmolLM2 360M</div>
-                                                <div style={s.enableDesc}>
-                                                    Fast local AI (~200MB download). No data leaves your device.
-                                                </div>
-                                            </div>
-                                            <button
-                                                style={{ ...s.enableBtn, opacity: webllmLoading ? 0.6 : 1 }}
-                                                onClick={enableWebLLM}
-                                                disabled={webllmLoading}
-                                            >
-                                                {webllmLoading ? 'LOADING...' : 'ENABLE LOCAL AI'}
-                                            </button>
-                                        </div>
-                                    )}
-
-                                    {/* Checking State */}
-                                    {webllmState.status === 'checking_support' && (
-                                        <div style={s.localAiChecking}>
-                                            <span style={s.checkingSpinner}>◐</span>
-                                            <span style={s.checkingText}>Checking WebGPU support...</span>
-                                        </div>
-                                    )}
-                                </>
-                            )}
-                        </div>
-
-                        {/* Divider */}
-                        <div style={s.sectionDivider}>
-                            <span style={s.dividerText}>OR USE CLOUD AI</span>
-                        </div>
-
-                        {/* Provider Cards - Premium 4:5 ratio with centered logos */}
-                        <div style={s.providerGrid}>
+                            {/* Cloud Provider Cards */}
                             {(Object.keys(PROVIDERS) as CloudProvider[]).map(p => {
-                                const isActive = cloudProvider === p;
+                                const isActive = cloudProvider === p && webllmState.status !== 'ready';
                                 return (
                                     <button
                                         key={p}
@@ -682,6 +643,22 @@ const OptionsPage: React.FC = () => {
                                 );
                             })}
                         </div>
+
+                        {/* Download Progress (shown below cards when downloading) */}
+                        {(webllmState.status === 'downloading' || webllmState.status === 'loading') && (
+                            <div style={s.downloadProgress}>
+                                <div style={s.progressHeader}>
+                                    <span style={s.progressLabel}>
+                                        {webllmState.status === 'downloading' ? 'DOWNLOADING LOCAL AI' : 'INITIALIZING'}
+                                    </span>
+                                    <span style={s.progressPercent}>{webllmState.progress}%</span>
+                                </div>
+                                <div style={s.progressBarBg}>
+                                    <div style={{ ...s.progressBarFill, width: `${webllmState.progress}%` }} />
+                                </div>
+                                <span style={s.progressMessage}>{webllmState.message}</span>
+                            </div>
+                        )}
 
                         {/* API Input - Secure Code-Block Style */}
                         <div style={s.inputSection}>
@@ -1025,13 +1002,13 @@ const OptionsPage: React.FC = () => {
                                 )}
 
                                 <div style={s.licensePrice}>
-                                    AUD $6 <span style={s.licensePriceNote}>LIFETIME</span>
+                                    AUD $2 <span style={s.licensePriceNote}>/MONTH</span>
                                 </div>
                                 <ul style={s.featureList}>
+                                    <li style={s.featureItem}><span style={s.checkMark}>&#10003;</span> Local AI (100% private)</li>
                                     <li style={s.featureItem}><span style={s.checkMark}>&#10003;</span> Unlimited AI scans</li>
                                     <li style={s.featureItem}><span style={s.checkMark}>&#10003;</span> Auto Pilot mode</li>
                                     <li style={s.featureItem}><span style={s.checkMark}>&#10003;</span> Smart tab grouping</li>
-                                    <li style={s.featureItem}><span style={s.checkMark}>&#10003;</span> Contextual grouping</li>
                                     <li style={s.featureItem}><span style={s.checkMark}>&#10003;</span> Up to 3 devices</li>
                                 </ul>
                                 <button
@@ -1373,6 +1350,13 @@ const s: { [key: string]: React.CSSProperties } = {
         fontFamily: typography.fontMono,
         fontSize: typography.sizeXs,
         cursor: 'pointer',
+    },
+    downloadProgress: {
+        gridColumn: '1 / -1',
+        marginTop: spacing.md,
+        padding: spacing.md,
+        background: colors.voidBlack,
+        border: `1px solid ${colors.accentCyan}`,
     },
     localAiProgress: {
         padding: spacing.md,

@@ -53,9 +53,9 @@ Direct API Calls: Cloud AI requests go directly to your chosen provider.
 
 PRICING
 
-Pay Once, Use Forever. No monthly subscriptions.
+Simple, affordable subscription.
 
-Pro Access: A$6.00 one-time payment for unlimited AI features and Auto-Pilot modes.
+Pro Access: A$2.00/month for Local AI, unlimited scans, and Auto-Pilot modes.
 7-Day Trial: Experience TabEater for free with 20 AI queries per day.
 
 PERFECT FOR

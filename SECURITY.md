@@ -162,7 +162,7 @@ When `DEV_MODE=true`:
 1. **Code transparency** - Users can audit privacy/security
 2. **Self-hosting allowed** - Advanced users can run their own backend
 3. **Convenience tax** - Most users pay for hosted service
-4. **Fair pricing** - $6 one-time payment (not subscription)
+4. **Fair pricing** - $2 AUD/month subscription
 
 ### What You're Paying For
 

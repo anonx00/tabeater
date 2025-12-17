@@ -573,8 +573,8 @@ const SettingsView: React.FC<{ license: LicenseStatus | null }> = ({ license }) 
                     <h2 style={styles.upgradeTitle}>Upgrade to Pro</h2>
                     <div style={styles.upgradePrice}>
                         <span style={styles.upgradePriceCurrency}>$</span>
-                        <span style={styles.upgradePriceAmount}>6</span>
-                        <span style={styles.upgradePriceNote}>one-time</span>
+                        <span style={styles.upgradePriceAmount}>2</span>
+                        <span style={styles.upgradePriceNote}>/month</span>
                     </div>
                 </div>
 

@@ -269,6 +269,27 @@ async function handleMessage(message: Message): Promise<MessageResponse> {
         case 'smartOrganizePreview':
             return await smartOrganizePreview();
 
+        case 'applyTabGroups':
+            // Apply tab groups from local AI results (used by popup/sidepanel with WebLLM)
+            try {
+                const groups = message.payload.groups as { name: string; tabIds: number[] }[];
+                const groupColors: chrome.tabGroups.ColorEnum[] = ['blue', 'red', 'yellow', 'green', 'pink', 'purple', 'cyan', 'orange'];
+                let created = 0;
+                for (const group of groups) {
+                    if (group.tabIds && group.tabIds.length > 0) {
+                        const groupId = await chrome.tabs.group({ tabIds: group.tabIds });
+                        await chrome.tabGroups.update(groupId, {
+                            title: group.name,
+                            color: groupColors[created % groupColors.length]
+                        });
+                        created++;
+                    }
+                }
+                return { success: true, data: { message: `Created ${created} groups` } };
+            } catch (err: any) {
+                return { success: false, error: err.message };
+            }
+
         case 'getAIProvider':
             return { success: true, data: { provider: aiService.getProvider() } };
 

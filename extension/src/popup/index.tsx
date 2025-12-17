@@ -3,6 +3,14 @@ import { createRoot } from 'react-dom/client';
 import { colors, spacing, typography, borderRadius, transitions, shadows } from '../shared/theme';
 import { UndoToast } from '../ui/components/UndoToast';
 import { EmptyState } from '../ui/components/EmptyState';
+import * as webllm from '@mlc-ai/web-llm';
+
+// WebLLM Model ID
+const WEBLLM_MODEL_ID = 'SmolLM2-360M-Instruct-q4f16_1-MLC';
+
+// Global WebLLM engine for popup context
+let webllmEngine: webllm.MLCEngineInterface | null = null;
+let webllmInitializing = false;
 
 interface TabInfo {
     id: number;
@@ -118,8 +126,14 @@ const Popup = () => {
     }, [sendMessage]);
 
     const checkProvider = useCallback(async () => {
-        const response = await sendMessage('getAIProvider');
-        if (response.success) setProvider(response.data.provider);
+        // Check if WebLLM is preferred (stored in local storage)
+        const stored = await chrome.storage.local.get(['aiConfig', 'webllmReady']);
+        if (stored.aiConfig?.preferWebLLM || stored.webllmReady) {
+            setProvider('webllm');
+        } else {
+            const response = await sendMessage('getAIProvider');
+            if (response.success) setProvider(response.data.provider);
+        }
     }, [sendMessage]);
 
     const checkLicense = useCallback(async () => {
@@ -165,6 +179,33 @@ const Popup = () => {
         setTimeout(() => { loadTabs(); findDuplicates(); }, 100);
     }, [duplicates, sendMessage, loadTabs, findDuplicates]);
 
+    // Initialize WebLLM in popup context
+    const initWebLLM = useCallback(async (): Promise<boolean> => {
+        if (webllmEngine) return true;
+        if (webllmInitializing) {
+            while (webllmInitializing) {
+                await new Promise(r => setTimeout(r, 100));
+            }
+            return webllmEngine !== null;
+        }
+        webllmInitializing = true;
+        try {
+            showStatus('Loading Local AI...');
+            webllmEngine = await webllm.CreateMLCEngine(WEBLLM_MODEL_ID, {
+                initProgressCallback: (progress) => {
+                    const pct = Math.round(progress.progress * 100);
+                    showStatus(`Loading AI: ${pct}%`);
+                },
+            });
+            webllmInitializing = false;
+            return true;
+        } catch (err) {
+            console.error('[WebLLM Popup] Init failed:', err);
+            webllmInitializing = false;
+            return false;
+        }
+    }, [showStatus]);
+
     const smartOrganize = useCallback(async () => {
         if (provider === 'none') {
             showStatus('Configure AI in settings first');
@@ -173,16 +214,68 @@ const Popup = () => {
         setGrouping(true);
         setLoading(true);
         showStatus('Organizing tabs...');
-        const response = await sendMessage('smartOrganize');
-        if (response.success) {
-            showStatus(response.data.message);
+
+        try {
+            // If WebLLM, do AI locally then send grouping to service worker
+            if (provider === 'webllm') {
+                const ok = await initWebLLM();
+                if (!ok) {
+                    showStatus('Failed to load Local AI');
+                    setLoading(false);
+                    setGrouping(false);
+                    return;
+                }
+
+                // Get tabs and create prompt
+                const tabsForAI = tabs.map(t => `${t.id}|${t.title}|${new URL(t.url).hostname}`).join('\n');
+                const prompt = `Analyze these browser tabs and group them into categories.
+Return ONLY a JSON array of groups: [{"name": "GroupName", "tabIds": [1,2,3]}]
+Keep group names short (1-2 words). Use categories like: Work, Research, Shopping, Social, Entertainment, News, Dev, Other.
+
+Tabs:
+${tabsForAI}`;
+
+                const response = await webllmEngine!.chat.completions.create({
+                    messages: [
+                        { role: 'system', content: 'You are a tab organizer. Return only valid JSON arrays.' },
+                        { role: 'user', content: prompt }
+                    ],
+                    max_tokens: 500,
+                    temperature: 0.2,
+                });
+
+                const aiText = response.choices[0]?.message?.content || '';
+                // Parse JSON from response
+                const jsonMatch = aiText.match(/\[[\s\S]*\]/);
+                if (jsonMatch) {
+                    const groups = JSON.parse(jsonMatch[0]);
+                    // Send grouping to service worker
+                    const groupRes = await sendMessage('applyTabGroups', { groups });
+                    if (groupRes.success) {
+                        showStatus(`Created ${groups.length} groups`);
+                    } else {
+                        showStatus(groupRes.error || 'Grouping failed');
+                    }
+                } else {
+                    showStatus('AI response invalid');
+                }
+            } else {
+                // Use service worker for cloud providers
+                const response = await sendMessage('smartOrganize');
+                if (response.success) {
+                    showStatus(response.data.message);
+                } else {
+                    showStatus(response.error || 'Organization failed');
+                }
+            }
             loadTabs();
-        } else {
-            showStatus(response.error || 'Organization failed');
+        } catch (err: any) {
+            showStatus(err.message || 'Organization failed');
         }
+
         setLoading(false);
         setGrouping(false);
-    }, [provider, sendMessage, loadTabs, showStatus]);
+    }, [provider, tabs, sendMessage, loadTabs, showStatus, initWebLLM]);
 
     const handleUpgrade = useCallback(async () => {
         setLoading(true);
@@ -594,13 +687,13 @@ const Popup = () => {
                     <div style={s.upgradeContent}>
                         <div style={s.upgradeHeader}>
                             <span style={s.upgradeTitle}>Upgrade to Pro</span>
-                            <span style={s.upgradePrice}>AUD $6</span>
-                            <span style={s.upgradePriceNote}>one-time</span>
+                            <span style={s.upgradePrice}>AUD $2</span>
+                            <span style={s.upgradePriceNote}>/month</span>
                         </div>
                         <ul style={s.upgradeFeatures}>
+                            <li>Local AI (100% private)</li>
                             <li>Unlimited AI scans</li>
                             <li>Auto Pilot mode</li>
-                            <li>Smart grouping</li>
                             <li>Up to 3 devices</li>
                         </ul>
                         <button style={s.upgradeBtn} onClick={handleUpgrade} disabled={loading}>
