@@ -300,6 +300,22 @@ async function handleMessage(message: Message): Promise<MessageResponse> {
             await aiService.setRateLimits(message.payload);
             return { success: true };
 
+        // WebLLM (Local AI) handlers
+        case 'initializeWebLLM':
+            const webllmSuccess = await aiService.initializeWebLLM();
+            return { success: true, data: { initialized: webllmSuccess, state: aiService.getWebLLMState() } };
+
+        case 'getWebLLMState':
+            return { success: true, data: aiService.getWebLLMState() };
+
+        case 'unloadWebLLM':
+            await aiService.unloadWebLLM();
+            return { success: true, data: { provider: aiService.getProvider() } };
+
+        case 'checkWebGPUSupport':
+            const capabilities = await aiService.checkWebGPUSupport();
+            return { success: true, data: capabilities };
+
         case 'getRateLimits':
             const rateLimits = aiService.getRateLimits();
             return { success: true, data: rateLimits };

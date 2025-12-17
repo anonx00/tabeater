@@ -16,7 +16,20 @@ TabEater supports multiple AI providers:
 
 ### Local AI (Privacy First)
 
-**Chrome Gemini Nano** - Runs entirely on your device
+**SmolLM2 360M via WebLLM** - Runs 100% locally using WebGPU
+
+**Requirements:**
+- Chrome 113+ or Edge 113+ with WebGPU support
+- ~200MB download (one-time, cached)
+- Any modern GPU
+
+**Setup:**
+1. Open TabEater Settings → AI Provider
+2. Click "ENABLE LOCAL AI"
+3. Wait for model download (~200MB)
+4. Done! AI runs entirely on your device
+
+**Chrome Gemini Nano** - Chrome's built-in AI (experimental)
 
 **Requirements:**
 - Chrome 128+ (Dev/Canary) or Chrome 131+ (Stable with high-end hardware)
