@@ -208,19 +208,22 @@ const Popup = () => {
             let lastProgress = 0;
             webllmEngine = await webllm.CreateMLCEngine(modelId, {
                 initProgressCallback: (progress) => {
-                    // Detect actual download vs cache load
                     const text = progress.text || '';
-                    if (text.includes('Fetching') || text.includes('Loading model from')) {
+                    // Only mark as downloading if actually fetching (not from cache)
+                    if (text.includes('Fetching') && !text.includes('cache')) {
                         isDownloading = true;
                     }
 
-                    // Only show download progress, not cache loading
+                    // Show progress only for actual downloads
                     if (isDownloading) {
                         const pct = Math.round(progress.progress * 100);
                         if (pct >= lastProgress + 5 || pct === 100) {
                             lastProgress = pct;
                             setStatusMessage(`Downloading: ${pct}%`);
                         }
+                    } else if (text.includes('Loading')) {
+                        // Show brief loading message for cached model
+                        setStatusMessage('Loading AI...');
                     }
                 },
             });
@@ -266,7 +269,7 @@ const Popup = () => {
 
                 showStatus('Grouping tabs...');
 
-                // Use EXACT same format as Gemini cloud AI (which works perfectly)
+                // Build tab list with full context for better grouping
                 const tabList = tabs.map((t, idx) => {
                     try {
                         return `${idx}: ${t.title} (${new URL(t.url).hostname})`;
@@ -275,28 +278,42 @@ const Popup = () => {
                     }
                 }).join('\n');
 
-                // Calculate target groups based on tab count (same as Gemini)
+                // Calculate target groups based on tab count
                 const minGroups = Math.max(2, Math.ceil(tabs.length / 8));
-                const maxGroups = Math.min(10, Math.ceil(tabs.length / 3));
+                const maxGroups = Math.min(8, Math.ceil(tabs.length / 3));
 
-                // Use EXACT same prompt as Gemini (proven to work)
-                const prompt = `Group these tabs by activity. Return ONLY JSON array.
+                // Clear, explicit prompt that prevents nested arrays
+                const prompt = `You are a tab organizer. Group these ${tabs.length} browser tabs by topic/activity.
 
+TABS:
 ${tabList}
 
-Create ${minGroups}-${maxGroups} groups. Keep names SHORT (1 word only, max 6 letters).
-Format: [{"name":"Name","ids":[0,1,2]}]`;
+RULES:
+- Create ${minGroups} to ${maxGroups} groups
+- Group similar sites together (e.g., all streaming sites, all dev tools, all social media)
+- Use SHORT group names (1 word, max 6 letters): Work, Code, Social, Video, Mail, Shop, News, Dev, Docs, Chat
+- Each tab index can only appear in ONE group
+- Output ONLY a JSON array, no explanation
+
+OUTPUT FORMAT (flat array, NOT nested):
+[{"name":"Code","ids":[0,1,5]},{"name":"Video","ids":[2,3]},{"name":"Mail","ids":[4,6]}]
+
+JSON:`;
 
                 try {
-                    // Generous token limit for output
-                    const dynamicMaxTokens = Math.min(2000, Math.max(1000, tabs.length * 30));
+                    // Large token limit to prevent truncation
+                    const dynamicMaxTokens = Math.min(4000, Math.max(1500, tabs.length * 50));
 
                     const response = await webllmEngine!.chat.completions.create({
                         messages: [
+                            {
+                                role: 'system',
+                                content: 'You output ONLY valid JSON arrays. No markdown, no explanation, no code blocks. Just raw JSON starting with [ and ending with ].'
+                            },
                             { role: 'user', content: prompt }
                         ],
                         max_tokens: dynamicMaxTokens,
-                        temperature: 0.0,  // Zero temperature for deterministic output
+                        temperature: 0.1,  // Low temperature for consistent output
                     });
 
                     const aiText = response.choices[0]?.message?.content?.trim() || '';
