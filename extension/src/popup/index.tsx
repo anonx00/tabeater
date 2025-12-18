@@ -252,7 +252,10 @@ const Popup = () => {
         try {
             // If WebLLM, do AI locally then send grouping to service worker
             if (provider === 'webllm') {
-                showStatus('Initializing AI...');
+                // Only show "Loading AI" if engine isn't ready yet
+                if (!webllmEngine) {
+                    showStatus('Loading AI...');
+                }
                 const ok = await initWebLLM();
                 if (!ok) {
                     showStatus('Failed to load Local AI');
@@ -261,7 +264,7 @@ const Popup = () => {
                     return;
                 }
 
-                showStatus('Analyzing tabs...');
+                showStatus('Grouping tabs...');
 
                 // Use EXACT same format as Gemini cloud AI (which works perfectly)
                 const tabList = tabs.map((t, idx) => {
@@ -335,17 +338,23 @@ Format: [{"name":"Name","ids":[0,1,2]}]`;
 
                     // Validate and map indices to real tab IDs
                     if (groups && Array.isArray(groups) && groups.length > 0) {
+                        // Fix nested arrays: [[{...}], [{...}]] -> [{...}, {...}]
+                        if (Array.isArray(groups[0]) && groups[0].length > 0) {
+                            console.log('[Local AI] Flattening nested array structure');
+                            groups = groups.flat().filter((g: any) => g && typeof g === 'object');
+                        }
+
                         const usedIndices = new Set<number>();
 
                         // Map indices to real tab IDs (same logic as Gemini)
                         const validGroups = groups
-                            .filter(g =>
+                            .filter((g: any) =>
                                 g &&
                                 typeof g.name === 'string' &&
                                 g.name.length > 0 &&
                                 getGroupIds(g).length >= 2  // Require at least 2 tabs like Gemini
                             )
-                            .map(g => {
+                            .map((g: any) => {
                                 // Convert indices to real tab IDs
                                 const groupIds = getGroupIds(g);
                                 const realTabIds = groupIds
