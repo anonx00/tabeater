@@ -80,10 +80,10 @@ const PROVIDERS = {
 // Local AI info
 const LOCAL_AI_INFO = {
     name: 'LOCAL AI',
-    desc: 'SmolLM2',
+    desc: 'Llama 3.2',
     color: '#00ff88',
     badge: 'PRIVATE',
-    size: '~200MB',
+    size: '~700MB',
 };
 
 // Premium Provider Logo Components (SimpleIcons-based)
@@ -869,8 +869,8 @@ const OptionsPage: React.FC = () => {
                             </div>
                         )}
 
-                        {/* Local AI Settings - Only show if WebGPU supported */}
-                        {webgpuCapabilities?.webgpuSupported && (
+                        {/* Local AI Settings - Only show when Local AI is active or loading */}
+                        {webgpuCapabilities?.webgpuSupported && (webllmState.status === 'ready' || webllmState.status === 'downloading' || webllmState.status === 'loading') && (
                             <div style={{ marginTop: spacing.lg }}>
                                 {/* Section Header */}
                                 <div style={{

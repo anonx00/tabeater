@@ -198,36 +198,47 @@ const Popup = () => {
         webllmInitializing = true;
         try {
             // Get selected model from storage
-            const stored = await chrome.storage.local.get(['webllmModel', 'webllmReady']);
+            const stored = await chrome.storage.local.get(['webllmModel']);
             const modelId = stored.webllmModel || WEBLLM_MODEL_ID;
-            const isCached = stored.webllmReady;
 
-            // Show appropriate status
-            showStatus(isCached ? 'Starting AI...' : 'Loading AI model...');
+            // Show initial status
+            setStatusMessage('Starting AI...');
 
             let isDownloading = false;
+            let lastProgress = 0;
             webllmEngine = await webllm.CreateMLCEngine(modelId, {
                 initProgressCallback: (progress) => {
-                    // Only show percentage if actually downloading
-                    if (progress.text?.includes('Fetching') || progress.text?.includes('Loading model')) {
+                    // Detect actual download vs cache load
+                    const text = progress.text || '';
+                    if (text.includes('Fetching') || text.includes('Loading model from')) {
                         isDownloading = true;
+                    }
+
+                    // Only show download progress, not cache loading
+                    if (isDownloading) {
                         const pct = Math.round(progress.progress * 100);
-                        showStatus(`Downloading: ${pct}%`);
-                    } else if (!isDownloading) {
-                        showStatus('Initializing...');
+                        if (pct >= lastProgress + 5 || pct === 100) {
+                            lastProgress = pct;
+                            setStatusMessage(`Downloading: ${pct}%`);
+                        }
                     }
                 },
             });
 
+            // Mark as ready in storage so options page knows
+            await chrome.storage.local.set({ webllmReady: true });
+
             webllmInitializing = false;
+            setStatusMessage(''); // Clear status when done
             console.log('[WebLLM] Engine ready');
             return true;
         } catch (err) {
             console.error('[WebLLM Popup] Init failed:', err);
             webllmInitializing = false;
+            setStatusMessage('');
             return false;
         }
-    }, [showStatus]);
+    }, []);
 
     const smartOrganize = useCallback(async () => {
         if (provider === 'none') {
@@ -255,49 +266,39 @@ const Popup = () => {
                 // Create a map of tab IDs for the AI to use
                 const tabIds = tabs.map(t => t.id);
 
-                // Simple format: just list tab info with clear IDs
+                // Compact format to save input tokens: just ID and domain
                 const tabsForAI = tabs.map(t => {
                     try {
-                        const host = new URL(t.url).hostname.replace('www.', '');
-                        return `[${t.id}] ${host} - ${t.title.substring(0, 40)}`;
+                        const host = new URL(t.url).hostname.replace('www.', '').split('.')[0];
+                        return `${t.id}:${host}`;
                     } catch {
-                        return `[${t.id}] ${t.title.substring(0, 40)}`;
+                        return `${t.id}:other`;
                     }
-                }).join('\n');
+                }).join(',');
 
-                // Clear prompt with explicit instructions and example using actual IDs
-                const exampleIds = tabIds.slice(0, 4);
-                const prompt = `Categorize these browser tabs into groups.
+                // Minimal prompt - must explicitly say ALL tabs
+                const prompt = `Group ALL these ${tabs.length} tabs by category. Every tab ID must appear in exactly one group.
 
-TABS:
-${tabsForAI}
+Tabs: ${tabsForAI}
 
-INSTRUCTIONS:
-1. Group tabs by category (work, social, shopping, entertainment, etc.)
-2. Use the exact tab IDs shown in brackets [ID]
-3. Return ONLY valid JSON, no other text
-
-OUTPUT FORMAT - Return exactly this structure:
-[{"name":"GroupName","tabIds":[${exampleIds[0] || 1},${exampleIds[1] || 2}]},{"name":"Another","tabIds":[${exampleIds[2] || 3}]}]
-
-Your JSON response:`;
+Return JSON array only: [{"name":"Category","tabIds":[id1,id2,...]},...]`;
 
                 try {
-                    // Scale max_tokens based on tab count (500-1200 for balanced model)
-                    const dynamicMaxTokens = Math.min(1200, Math.max(500, 250 + tabs.length * 8));
+                    // Need enough tokens to output all tab IDs
+                    // Each group entry ~30 tokens, each tab ID ~3 tokens
+                    // For 30 tabs: need ~30*3 + 5*30 = 240 tokens minimum
+                    const dynamicMaxTokens = Math.min(2000, Math.max(800, tabs.length * 15));
 
                     const response = await webllmEngine!.chat.completions.create({
                         messages: [
                             {
                                 role: 'system',
-                                content: 'You categorize browser tabs. Output ONLY a JSON array like [{"name":"Category","tabIds":[1,2]}]. No explanations.'
+                                content: 'You group browser tabs. Include EVERY tab ID in your response. Output only JSON: [{"name":"Name","tabIds":[...]}]'
                             },
                             { role: 'user', content: prompt }
                         ],
                         max_tokens: dynamicMaxTokens,
-                        temperature: 0.1,  // Lower temperature for more consistent JSON
-                        frequency_penalty: 0.5,
-                        presence_penalty: 0.3,
+                        temperature: 0.2,
                     });
 
                     const aiText = response.choices[0]?.message?.content?.trim() || '';
@@ -367,6 +368,7 @@ Your JSON response:`;
                     if (groups && Array.isArray(groups) && groups.length > 0) {
                         // Get valid tab IDs from actual tabs
                         const validTabIds = new Set(tabIds);
+                        const groupedTabIds = new Set<number>();
 
                         const validGroups = groups
                             .filter(g =>
@@ -378,11 +380,22 @@ Your JSON response:`;
                             )
                             .map(g => ({
                                 name: g.name.substring(0, 20), // Limit name length
-                                tabIds: g.tabIds.filter((id: any) =>
-                                    typeof id === 'number' && validTabIds.has(id)
-                                )
+                                tabIds: g.tabIds.filter((id: any) => {
+                                    if (typeof id === 'number' && validTabIds.has(id) && !groupedTabIds.has(id)) {
+                                        groupedTabIds.add(id);
+                                        return true;
+                                    }
+                                    return false;
+                                })
                             }))
                             .filter(g => g.tabIds.length > 0); // Only groups with valid tabs
+
+                        // Add any ungrouped tabs to "Other" group
+                        const ungroupedTabs = tabIds.filter(id => !groupedTabIds.has(id));
+                        if (ungroupedTabs.length > 0 && validGroups.length > 0) {
+                            validGroups.push({ name: 'Other', tabIds: ungroupedTabs });
+                            console.log('[Local AI] Added', ungroupedTabs.length, 'ungrouped tabs to Other');
+                        }
 
                         if (validGroups.length > 0) {
                             console.log('[Local AI] Valid groups:', validGroups);
@@ -535,8 +548,17 @@ Your JSON response:`;
                 </div>
             </header>
 
-            {/* Status - subtle */}
-            {statusMessage && <div style={s.statusBar}>{statusMessage}</div>}
+            {/* Status - fixed height to prevent layout shifts */}
+            <div style={{
+                ...s.statusBar,
+                opacity: statusMessage ? 1 : 0,
+                height: statusMessage ? 'auto' : 0,
+                padding: statusMessage ? `${spacing.sm}px ${spacing.lg}px` : 0,
+                overflow: 'hidden',
+                transition: 'opacity 0.15s ease',
+            }}>
+                {statusMessage || '\u00A0'}
+            </div>
 
             {/* Hero Action - refined */}
             <div style={s.heroSection}>
