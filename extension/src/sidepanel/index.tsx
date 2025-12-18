@@ -207,15 +207,47 @@ const Sidepanel = () => {
             messages: [
                 {
                     role: 'system',
-                    content: `You are TabEater, a tactical tab intelligence assistant. Provide concise, actionable insights about browser tabs. Keep responses brief.`
+                    content: `You are TabEater, a helpful browser tab assistant.
+Rules:
+- Give SHORT, direct answers (2-3 sentences max)
+- Never repeat yourself
+- Never use numbered lists with more than 5 items
+- If asked about tabs, briefly summarize what you see
+- Be conversational, not robotic`
                 },
                 { role: 'user', content: prompt }
             ],
-            max_tokens: 500,
-            temperature: 0.3,
+            max_tokens: 200,
+            temperature: 0.7,
+            frequency_penalty: 1.5,  // Strongly penalize repetition
+            presence_penalty: 1.0,   // Encourage new topics
         });
 
-        return response.choices[0]?.message?.content || 'No response';
+        let content = response.choices[0]?.message?.content || 'No response';
+
+        // Post-process: detect and cut off repetition
+        const lines = content.split('\n');
+        const seenLines = new Set<string>();
+        const uniqueLines: string[] = [];
+        let repetitionCount = 0;
+
+        for (const line of lines) {
+            const normalized = line.trim().toLowerCase();
+            if (normalized.length < 5) {
+                uniqueLines.push(line);
+                continue;
+            }
+            if (seenLines.has(normalized)) {
+                repetitionCount++;
+                if (repetitionCount > 2) break; // Stop after 2 repeated lines
+            } else {
+                seenLines.add(normalized);
+                uniqueLines.push(line);
+                repetitionCount = 0;
+            }
+        }
+
+        return uniqueLines.join('\n').trim() || 'I can help you organize your tabs. What would you like to know?';
     }, [initWebLLM]);
 
     const askAI = useCallback(async () => {
@@ -231,14 +263,18 @@ const Sidepanel = () => {
         setLoading(true);
 
         try {
-            const tabContext = tabs.map(t => {
+            // Limit tab context to first 15 tabs for small models
+            const limitedTabs = tabs.slice(0, 15);
+            const tabContext = limitedTabs.map(t => {
                 try {
-                    return `${t.title} (${new URL(t.url).hostname})`;
+                    const host = new URL(t.url).hostname.replace('www.', '');
+                    return `${t.title.substring(0, 30)} (${host})`;
                 } catch {
-                    return t.title;
+                    return t.title.substring(0, 30);
                 }
-            }).join(', ');
-            const prompt = `Context: User has ${tabs.length} tabs open: ${tabContext}\n\nUser question: ${userMessage}`;
+            }).join('; ');
+
+            const prompt = `You have ${tabs.length} tabs. Here are some: ${tabContext}${tabs.length > 15 ? '...' : ''}\n\nQuestion: ${userMessage}\n\nAnswer briefly:`;
 
             let aiResponse: string;
 
