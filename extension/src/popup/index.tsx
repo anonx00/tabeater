@@ -99,7 +99,7 @@ const Popup = () => {
     const [view, setView] = useState<View>('tabs');
     const [loading, setLoading] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
-    const [provider, setProvider] = useState<string>('none');
+    const [provider, setProvider] = useState<string>('webllm');
     const [license, setLicense] = useState<LicenseStatus | null>(null);
     const [autoPilotReport, setAutoPilotReport] = useState<AutoPilotReport | null>(null);
     const [statusMessage, setStatusMessage] = useState<string>('');
@@ -126,15 +126,9 @@ const Popup = () => {
     }, [sendMessage]);
 
     const checkProvider = useCallback(async () => {
-        // Check if WebLLM is preferred (stored in local storage)
-        const stored = await chrome.storage.local.get(['aiConfig', 'webllmReady']);
-        if (stored.aiConfig?.preferWebLLM || stored.webllmReady) {
-            setProvider('webllm');
-        } else {
-            const response = await sendMessage('getAIProvider');
-            if (response.success) setProvider(response.data.provider);
-        }
-    }, [sendMessage]);
+        // Local AI is the only provider now
+        setProvider('webllm');
+    }, []);
 
     const checkLicense = useCallback(async () => {
         const response = await sendMessage('getLicenseStatus', { forceRefresh: true });
