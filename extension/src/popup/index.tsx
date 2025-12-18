@@ -301,25 +301,13 @@ JSON output:`;
                     }
                 }
 
-                // Fallback: Simple auto-grouping by domain if AI fails
+                // No fallback - AI only
                 if (!groups || !Array.isArray(groups) || groups.length === 0) {
-                    console.log('[WebLLM] Using fallback domain grouping');
-                    const domainGroups: Record<string, number[]> = {};
-                    tabs.forEach(t => {
-                        try {
-                            const host = new URL(t.url).hostname.replace('www.', '');
-                            const domain = host.split('.').slice(-2, -1)[0] || 'Other';
-                            const key = domain.charAt(0).toUpperCase() + domain.slice(1);
-                            if (!domainGroups[key]) domainGroups[key] = [];
-                            domainGroups[key].push(t.id);
-                        } catch {
-                            if (!domainGroups['Other']) domainGroups['Other'] = [];
-                            domainGroups['Other'].push(t.id);
-                        }
-                    });
-                    groups = Object.entries(domainGroups)
-                        .filter(([_, ids]) => ids.length > 0)
-                        .map(([name, tabIds]) => ({ name, tabIds }));
+                    console.log('[WebLLM] AI failed to return valid JSON:', aiText);
+                    showStatus('AI failed to parse tabs. Try again.');
+                    setLoading(false);
+                    setGrouping(false);
+                    return;
                 }
 
                 // Send grouping to service worker
