@@ -202,32 +202,32 @@ const Popup = () => {
             const modelId = stored.webllmModel || WEBLLM_MODEL_ID;
             const isCached = stored.webllmReady;
 
-            // Show appropriate status
-            showStatus(isCached ? 'Starting AI...' : 'Loading AI model...');
+            // Show single status - avoid rapid updates that cause flickering
+            setStatusMessage(isCached ? 'Starting AI...' : 'Loading AI model...');
 
-            let isDownloading = false;
+            let lastProgress = 0;
             webllmEngine = await webllm.CreateMLCEngine(modelId, {
                 initProgressCallback: (progress) => {
-                    // Only show percentage if actually downloading
-                    if (progress.text?.includes('Fetching') || progress.text?.includes('Loading model')) {
-                        isDownloading = true;
-                        const pct = Math.round(progress.progress * 100);
-                        showStatus(`Downloading: ${pct}%`);
-                    } else if (!isDownloading) {
-                        showStatus('Initializing...');
+                    // Throttle updates: only update every 10% to prevent flickering
+                    const pct = Math.round(progress.progress * 100);
+                    if (pct >= lastProgress + 10 || pct === 100) {
+                        lastProgress = pct;
+                        setStatusMessage(`Loading AI: ${pct}%`);
                     }
                 },
             });
 
             webllmInitializing = false;
+            setStatusMessage(''); // Clear status when done
             console.log('[WebLLM] Engine ready');
             return true;
         } catch (err) {
             console.error('[WebLLM Popup] Init failed:', err);
             webllmInitializing = false;
+            setStatusMessage('');
             return false;
         }
-    }, [showStatus]);
+    }, []);
 
     const smartOrganize = useCallback(async () => {
         if (provider === 'none') {
@@ -535,8 +535,17 @@ Your JSON response:`;
                 </div>
             </header>
 
-            {/* Status - subtle */}
-            {statusMessage && <div style={s.statusBar}>{statusMessage}</div>}
+            {/* Status - fixed height to prevent layout shifts */}
+            <div style={{
+                ...s.statusBar,
+                opacity: statusMessage ? 1 : 0,
+                height: statusMessage ? 'auto' : 0,
+                padding: statusMessage ? `${spacing.sm}px ${spacing.lg}px` : 0,
+                overflow: 'hidden',
+                transition: 'opacity 0.15s ease',
+            }}>
+                {statusMessage || '\u00A0'}
+            </div>
 
             {/* Hero Action - refined */}
             <div style={s.heroSection}>
