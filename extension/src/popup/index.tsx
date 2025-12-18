@@ -179,25 +179,48 @@ const Popup = () => {
         setTimeout(() => { loadTabs(); findDuplicates(); }, 100);
     }, [duplicates, sendMessage, loadTabs, findDuplicates]);
 
-    // Initialize WebLLM in popup context
+    // Initialize WebLLM in popup context (engine persists while popup is open)
     const initWebLLM = useCallback(async (): Promise<boolean> => {
-        if (webllmEngine) return true;
+        // Engine already loaded - reuse it
+        if (webllmEngine) {
+            console.log('[WebLLM] Reusing existing engine');
+            return true;
+        }
+
+        // Wait if another init is in progress
         if (webllmInitializing) {
             while (webllmInitializing) {
                 await new Promise(r => setTimeout(r, 100));
             }
             return webllmEngine !== null;
         }
+
         webllmInitializing = true;
         try {
-            showStatus('Loading Local AI...');
-            webllmEngine = await webllm.CreateMLCEngine(WEBLLM_MODEL_ID, {
+            // Get selected model from storage
+            const stored = await chrome.storage.local.get(['webllmModel', 'webllmReady']);
+            const modelId = stored.webllmModel || WEBLLM_MODEL_ID;
+            const isCached = stored.webllmReady;
+
+            // Show appropriate status
+            showStatus(isCached ? 'Starting AI...' : 'Loading AI model...');
+
+            let isDownloading = false;
+            webllmEngine = await webllm.CreateMLCEngine(modelId, {
                 initProgressCallback: (progress) => {
-                    const pct = Math.round(progress.progress * 100);
-                    showStatus(`Loading AI: ${pct}%`);
+                    // Only show percentage if actually downloading
+                    if (progress.text?.includes('Fetching') || progress.text?.includes('Loading model')) {
+                        isDownloading = true;
+                        const pct = Math.round(progress.progress * 100);
+                        showStatus(`Downloading: ${pct}%`);
+                    } else if (!isDownloading) {
+                        showStatus('Initializing...');
+                    }
                 },
             });
+
             webllmInitializing = false;
+            console.log('[WebLLM] Engine ready');
             return true;
         } catch (err) {
             console.error('[WebLLM Popup] Init failed:', err);
@@ -218,6 +241,7 @@ const Popup = () => {
         try {
             // If WebLLM, do AI locally then send grouping to service worker
             if (provider === 'webllm') {
+                showStatus('Initializing AI...');
                 const ok = await initWebLLM();
                 if (!ok) {
                     showStatus('Failed to load Local AI');
@@ -226,38 +250,97 @@ const Popup = () => {
                     return;
                 }
 
-                // Get tabs and create prompt
-                const tabsForAI = tabs.map(t => `${t.id}|${t.title}|${new URL(t.url).hostname}`).join('\n');
-                const prompt = `Analyze these browser tabs and group them into categories.
-Return ONLY a JSON array of groups: [{"name": "GroupName", "tabIds": [1,2,3]}]
-Keep group names short (1-2 words). Use categories like: Work, Research, Shopping, Social, Entertainment, News, Dev, Other.
+                showStatus('Analyzing tabs...');
 
-Tabs:
-${tabsForAI}`;
-
-                const response = await webllmEngine!.chat.completions.create({
-                    messages: [
-                        { role: 'system', content: 'You are a tab organizer. Return only valid JSON arrays.' },
-                        { role: 'user', content: prompt }
-                    ],
-                    max_tokens: 500,
-                    temperature: 0.2,
-                });
-
-                const aiText = response.choices[0]?.message?.content || '';
-                // Parse JSON from response
-                const jsonMatch = aiText.match(/\[[\s\S]*\]/);
-                if (jsonMatch) {
-                    const groups = JSON.parse(jsonMatch[0]);
-                    // Send grouping to service worker
-                    const groupRes = await sendMessage('applyTabGroups', { groups });
-                    if (groupRes.success) {
-                        showStatus(`Created ${groups.length} groups`);
-                    } else {
-                        showStatus(groupRes.error || 'Grouping failed');
+                // Simple tab format for small models
+                const tabsForAI = tabs.map(t => {
+                    try {
+                        const host = new URL(t.url).hostname.replace('www.', '');
+                        return `${t.id}: ${t.title.substring(0, 50)} (${host})`;
+                    } catch {
+                        return `${t.id}: ${t.title.substring(0, 50)}`;
                     }
-                } else {
-                    showStatus('AI response invalid');
+                }).join('\n');
+
+                // Very strict JSON-only prompt
+                const prompt = `Group these browser tabs by topic. Return ONLY a JSON array.
+
+Example output format:
+[{"name":"Work","tabIds":[1,5]},{"name":"Social","tabIds":[2,3]}]
+
+Rules:
+- Output ONLY the JSON array, nothing else
+- No explanations, no text before or after
+- Group names: 1-2 words max
+- Every tab ID must be in exactly one group
+
+Tabs to group:
+${tabsForAI}
+
+JSON:`;
+
+                try {
+                    const response = await webllmEngine!.chat.completions.create({
+                        messages: [
+                            { role: 'system', content: 'You are a JSON generator. Output ONLY valid JSON arrays. Never output explanations or text.' },
+                            { role: 'user', content: prompt }
+                        ],
+                        max_tokens: 300,
+                        temperature: 0.1,
+                    });
+
+                    const aiText = response.choices[0]?.message?.content?.trim() || '';
+                    console.log('[Local AI] Response:', aiText);
+
+                    // Try to extract JSON array
+                    let groups = null;
+
+                    // Method 1: Response is pure JSON
+                    if (aiText.startsWith('[') && aiText.endsWith(']')) {
+                        try {
+                            groups = JSON.parse(aiText);
+                        } catch (e) {
+                            console.log('[Local AI] Direct parse failed');
+                        }
+                    }
+
+                    // Method 2: Extract JSON array from response
+                    if (!groups) {
+                        const jsonMatch = aiText.match(/\[\s*\{\s*"name"[\s\S]*?\}\s*\]/);
+                        if (jsonMatch) {
+                            try {
+                                groups = JSON.parse(jsonMatch[0]);
+                            } catch (e) {
+                                console.log('[Local AI] Regex parse failed');
+                            }
+                        }
+                    }
+
+                    // Validate the groups
+                    if (groups && Array.isArray(groups) && groups.length > 0) {
+                        const validGroups = groups.filter(g =>
+                            g && typeof g.name === 'string' &&
+                            Array.isArray(g.tabIds) &&
+                            g.tabIds.every((id: any) => typeof id === 'number')
+                        );
+
+                        if (validGroups.length > 0) {
+                            const groupRes = await sendMessage('applyTabGroups', { groups: validGroups });
+                            if (groupRes.success) {
+                                showStatus(`Created ${validGroups.length} groups`);
+                            } else {
+                                showStatus(groupRes.error || 'Grouping failed');
+                            }
+                        } else {
+                            showStatus('AI returned invalid groups');
+                        }
+                    } else {
+                        console.log('[Local AI] Failed to parse:', aiText);
+                        showStatus('AI failed - try again');
+                    }
+                } catch (aiErr: any) {
+                    console.error('[Local AI] Error:', aiErr);
+                    showStatus('AI error - try again');
                 }
             } else {
                 // Use service worker for cloud providers
