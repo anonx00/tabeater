@@ -8,8 +8,8 @@ import { MicroLabel } from '../ui/components/MicroLabel';
 import { ScrambleText } from '../ui/components/ScrambleText';
 import * as webllm from '@mlc-ai/web-llm';
 
-// WebLLM Model ID
-const WEBLLM_MODEL_ID = 'SmolLM2-360M-Instruct-q4f16_1-MLC';
+// WebLLM Model ID - Default to balanced model (Llama 3.2 1B)
+const WEBLLM_MODEL_ID = 'Llama-3.2-1B-Instruct-q4f16_1-MLC';
 
 // Global WebLLM engine for this page context
 let webllmEngine: webllm.MLCEngineInterface | null = null;
@@ -182,7 +182,11 @@ const Sidepanel = () => {
 
         webllmInitializing = true;
         try {
-            webllmEngine = await webllm.CreateMLCEngine(WEBLLM_MODEL_ID, {
+            // Get selected model from storage
+            const stored = await chrome.storage.local.get(['webllmModel']);
+            const modelId = stored.webllmModel || WEBLLM_MODEL_ID;
+
+            webllmEngine = await webllm.CreateMLCEngine(modelId, {
                 initProgressCallback: (progress) => {
                     console.log('[WebLLM Sidepanel]', progress.text);
                 },

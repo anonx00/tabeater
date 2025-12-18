@@ -3,20 +3,17 @@ import { createRoot } from 'react-dom/client';
 import { colors, spacing, typography, borderRadius, shadows, transitions, scanlineOverlay } from '../shared/theme';
 import * as webllm from '@mlc-ai/web-llm';
 
-// WebLLM Model ID (default)
-const WEBLLM_MODEL_ID = 'SmolLM2-360M-Instruct-q4f16_1-MLC';
+// WebLLM Model ID (default) - Balanced model for good speed/quality
+const WEBLLM_MODEL_ID = 'Llama-3.2-1B-Instruct-q4f16_1-MLC';
 
-// Available Local AI Models - organized by capability
+// Available Local AI Models - only balanced and quality tiers
 const LOCAL_AI_MODELS = [
-    // Fast & Light (recommended for most users)
-    { id: 'SmolLM2-360M-Instruct-q4f16_1-MLC', name: 'SmolLM2 360M', size: '200MB', vram: '0.5GB', speed: 'Fast', quality: 'Good', category: 'light', recommended: true },
-    { id: 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC', name: 'Qwen2.5 0.5B', size: '350MB', vram: '0.7GB', speed: 'Fast', quality: 'Good', category: 'light', recommended: false },
-    // Balanced (good quality, reasonable speed)
-    { id: 'Llama-3.2-1B-Instruct-q4f16_1-MLC', name: 'Llama 3.2 1B', size: '700MB', vram: '1.2GB', speed: 'Medium', quality: 'Better', category: 'balanced', recommended: false },
-    { id: 'SmolLM2-1.7B-Instruct-q4f16_1-MLC', name: 'SmolLM2 1.7B', size: '1GB', vram: '1.5GB', speed: 'Medium', quality: 'Better', category: 'balanced', recommended: false },
-    // High Quality (slower but more capable)
-    { id: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC', name: 'Qwen2.5 1.5B', size: '1GB', vram: '1.8GB', speed: 'Slower', quality: 'Best', category: 'quality', recommended: false },
-    { id: 'Llama-3.2-3B-Instruct-q4f16_1-MLC', name: 'Llama 3.2 3B', size: '2GB', vram: '3GB', speed: 'Slow', quality: 'Best', category: 'quality', recommended: false },
+    // Balanced (recommended - good speed and quality)
+    { id: 'Llama-3.2-1B-Instruct-q4f16_1-MLC', name: 'Llama 3.2 1B', size: '700MB', vram: '1.2GB', speed: 'Fast', quality: 'Good', category: 'balanced', recommended: true },
+    { id: 'SmolLM2-1.7B-Instruct-q4f16_1-MLC', name: 'SmolLM2 1.7B', size: '1GB', vram: '1.5GB', speed: 'Medium', quality: 'Good', category: 'balanced', recommended: false },
+    // High Quality (for better accuracy, needs more VRAM)
+    { id: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC', name: 'Qwen2.5 1.5B', size: '1GB', vram: '1.8GB', speed: 'Medium', quality: 'Better', category: 'quality', recommended: false },
+    { id: 'Llama-3.2-3B-Instruct-q4f16_1-MLC', name: 'Llama 3.2 3B', size: '2GB', vram: '3GB', speed: 'Slower', quality: 'Best', category: 'quality', recommended: false },
 ];
 
 // Global engine reference (persists across re-renders)
@@ -493,7 +490,30 @@ const OptionsPage: React.FC = () => {
         }
     };
 
-    const disableWebLLM = async () => {
+    // Clear WebLLM IndexedDB cache to free up storage
+    const clearWebLLMCache = async () => {
+        try {
+            // WebLLM stores models in IndexedDB under these databases
+            const dbNames = ['webllm-model-cache', 'webllm-wasm-cache', 'tvmjs'];
+            for (const dbName of dbNames) {
+                try {
+                    await new Promise<void>((resolve, reject) => {
+                        const req = indexedDB.deleteDatabase(dbName);
+                        req.onsuccess = () => resolve();
+                        req.onerror = () => reject(req.error);
+                        req.onblocked = () => resolve(); // Continue even if blocked
+                    });
+                    console.log(`[WebLLM] Cleared ${dbName} cache`);
+                } catch (e) {
+                    console.log(`[WebLLM] Could not clear ${dbName}:`, e);
+                }
+            }
+        } catch (e) {
+            console.error('[WebLLM] Cache cleanup error:', e);
+        }
+    };
+
+    const disableWebLLM = async (clearCache = false) => {
         try {
             // Unload engine directly
             if (webllmEngine) {
@@ -501,11 +521,17 @@ const OptionsPage: React.FC = () => {
                 webllmEngine = null;
             }
 
-            // Clear storage preference
+            // Clear storage preference and model selection
             await chrome.storage.local.set({
                 aiConfig: { preferWebLLM: false },
                 webllmReady: false,
+                webllmModel: null, // Clear model selection
             });
+
+            // Optionally clear the cached model data from IndexedDB
+            if (clearCache) {
+                await clearWebLLMCache();
+            }
 
             setWebllmState({
                 status: 'not_initialized',
@@ -513,6 +539,7 @@ const OptionsPage: React.FC = () => {
                 message: 'Not initialized',
                 modelId: WEBLLM_MODEL_ID,
             });
+            setSelectedLocalModel(WEBLLM_MODEL_ID); // Reset to default
             setActiveProvider('none');
             setToast({ message: 'Local AI disabled', undo: () => {} });
         } catch (err) {
@@ -878,9 +905,9 @@ const OptionsPage: React.FC = () => {
                                     color: colors.textMuted,
                                     lineHeight: 1.5,
                                 }}>
-                                    <strong style={{ color: colors.phosphorGreen }}>SmolLM2 360M</strong> is the default model (200MB, fast).
-                                    Advanced users can select larger models for better quality.
-                                    Models are downloaded once and cached locally.
+                                    <strong style={{ color: colors.phosphorGreen }}>Llama 3.2 1B</strong> is the default model (700MB download, good balance of speed and quality).
+                                    Requires 1.2GB VRAM. Select a larger model for better accuracy if you have more GPU memory.
+                                    Models download once and are cached locally.
                                 </div>
 
                                 {/* Model Selector */}
@@ -903,17 +930,10 @@ const OptionsPage: React.FC = () => {
                                         }}
                                         disabled={webllmState.status === 'downloading' || webllmState.status === 'loading'}
                                     >
-                                        <optgroup label="⚡ Fast & Light (Recommended)">
-                                            {LOCAL_AI_MODELS.filter(m => m.category === 'light').map(m => (
-                                                <option key={m.id} value={m.id}>
-                                                    {m.name} • {m.size} {m.recommended ? '★ Default' : ''}
-                                                </option>
-                                            ))}
-                                        </optgroup>
-                                        <optgroup label="⚖️ Balanced">
+                                        <optgroup label="⚖️ Balanced (Recommended)">
                                             {LOCAL_AI_MODELS.filter(m => m.category === 'balanced').map(m => (
                                                 <option key={m.id} value={m.id}>
-                                                    {m.name} • {m.size}
+                                                    {m.name} • {m.size} {m.recommended ? '★ Default' : ''}
                                                 </option>
                                             ))}
                                         </optgroup>
@@ -970,46 +990,78 @@ const OptionsPage: React.FC = () => {
                                 }}>
                                     🔒 100% private • No data sent anywhere • Runs on your GPU
                                 </div>
+
+                                {/* Delete Model Button - only show when model is loaded */}
+                                {webllmState.status === 'ready' && (
+                                    <button
+                                        onClick={async () => {
+                                            if (confirm('Delete cached model data? This will free up storage but the model will need to be re-downloaded.')) {
+                                                await disableWebLLM(true);
+                                                setToast({ message: 'Model data deleted', undo: () => {} });
+                                            }
+                                        }}
+                                        style={{
+                                            width: '100%',
+                                            marginTop: spacing.sm,
+                                            padding: `${spacing.xs}px ${spacing.md}px`,
+                                            background: 'transparent',
+                                            border: `1px solid ${colors.criticalRed}`,
+                                            borderRadius: borderRadius.xs,
+                                            color: colors.criticalRed,
+                                            fontFamily: typography.fontMono,
+                                            fontSize: 10,
+                                            cursor: 'pointer',
+                                            transition: transitions.fast,
+                                        }}
+                                    >
+                                        🗑️ Delete Model Data
+                                    </button>
+                                )}
                             </div>
                         )}
 
-                        {/* API Input - Secure Code-Block Style */}
-                        <div style={s.inputSection}>
-                            <label style={s.inputLabel}>API_KEY</label>
-                            <div style={s.secureInput} className="secure-input">
-                                <span style={s.inputPrefix}>$</span>
-                                <input
-                                    type="password"
-                                    value={apiKey}
-                                    onChange={(e) => setApiKey(e.target.value)}
-                                    placeholder="sk-..."
-                                    style={s.input}
-                                />
-                                <div style={s.inputIndicator}>
-                                    <div style={getIndicatorStyle()} />
+                        {/* Cloud Provider Settings - Hidden when Local AI is active */}
+                        {webllmState.status !== 'ready' && webllmState.status !== 'downloading' && webllmState.status !== 'loading' && (
+                            <>
+                                {/* API Input - Secure Code-Block Style */}
+                                <div style={s.inputSection}>
+                                    <label style={s.inputLabel}>API_KEY</label>
+                                    <div style={s.secureInput} className="secure-input">
+                                        <span style={s.inputPrefix}>$</span>
+                                        <input
+                                            type="password"
+                                            value={apiKey}
+                                            onChange={(e) => setApiKey(e.target.value)}
+                                            placeholder="sk-..."
+                                            style={s.input}
+                                        />
+                                        <div style={s.inputIndicator}>
+                                            <div style={getIndicatorStyle()} />
+                                        </div>
+                                    </div>
+                                    <div style={s.inputMeta}>
+                                        <span style={s.inputStatus}>
+                                            {apiKey ? <MaskedApiKey apiKey={apiKey} /> : 'AWAITING_INPUT'}
+                                        </span>
+                                        <a href={PROVIDERS[cloudProvider].url} target="_blank" rel="noopener noreferrer" style={s.link}>
+                                            GET KEY &#8599;
+                                        </a>
+                                    </div>
                                 </div>
-                            </div>
-                            <div style={s.inputMeta}>
-                                <span style={s.inputStatus}>
-                                    {apiKey ? <MaskedApiKey apiKey={apiKey} /> : 'AWAITING_INPUT'}
-                                </span>
-                                <a href={PROVIDERS[cloudProvider].url} target="_blank" rel="noopener noreferrer" style={s.link}>
-                                    GET KEY &#8599;
-                                </a>
-                            </div>
-                        </div>
 
-                        {/* Model Select */}
-                        <div style={s.inputSection}>
-                            <label style={s.inputLabel}>MODEL</label>
-                            <select
-                                value={model || PROVIDERS[cloudProvider].default}
-                                onChange={(e) => setModel(e.target.value)}
-                                style={s.select}
-                            >
-                                {PROVIDERS[cloudProvider].models.map(m => <option key={m} value={m}>{m}</option>)}
-                            </select>
-                        </div>
+                                {/* Model Select */}
+                                <div style={s.inputSection}>
+                                    <label style={s.inputLabel}>MODEL</label>
+                                    <select
+                                        value={model || PROVIDERS[cloudProvider].default}
+                                        onChange={(e) => setModel(e.target.value)}
+                                        style={s.select}
+                                    >
+                                        {PROVIDERS[cloudProvider].models.map(m => <option key={m} value={m}>{m}</option>)}
+                                    </select>
+                                </div>
+                            </>
+                        )}
                     </div>
                 )}
 

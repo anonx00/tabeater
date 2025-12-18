@@ -5,8 +5,8 @@ import { UndoToast } from '../ui/components/UndoToast';
 import { EmptyState } from '../ui/components/EmptyState';
 import * as webllm from '@mlc-ai/web-llm';
 
-// WebLLM Model ID
-const WEBLLM_MODEL_ID = 'SmolLM2-360M-Instruct-q4f16_1-MLC';
+// WebLLM Model ID - Default to balanced model (Llama 3.2 1B)
+const WEBLLM_MODEL_ID = 'Llama-3.2-1B-Instruct-q4f16_1-MLC';
 
 // Global WebLLM engine for popup context
 let webllmEngine: webllm.MLCEngineInterface | null = null;
@@ -252,84 +252,140 @@ const Popup = () => {
 
                 showStatus('Analyzing tabs...');
 
-                // Simple tab format for small models
+                // Create a map of tab IDs for the AI to use
+                const tabIds = tabs.map(t => t.id);
+
+                // Simple format: just list tab info with clear IDs
                 const tabsForAI = tabs.map(t => {
                     try {
                         const host = new URL(t.url).hostname.replace('www.', '');
-                        return `${t.id}: ${t.title.substring(0, 50)} (${host})`;
+                        return `[${t.id}] ${host} - ${t.title.substring(0, 40)}`;
                     } catch {
-                        return `${t.id}: ${t.title.substring(0, 50)}`;
+                        return `[${t.id}] ${t.title.substring(0, 40)}`;
                     }
                 }).join('\n');
 
-                // Very strict JSON-only prompt
-                const prompt = `Group these browser tabs by topic. Return ONLY a JSON array.
+                // Clear prompt with explicit instructions and example using actual IDs
+                const exampleIds = tabIds.slice(0, 4);
+                const prompt = `Categorize these browser tabs into groups.
 
-Example output format:
-[{"name":"Work","tabIds":[1,5]},{"name":"Social","tabIds":[2,3]}]
-
-Rules:
-- Output ONLY the JSON array, nothing else
-- No explanations, no text before or after
-- Group names: 1-2 words max
-- Every tab ID must be in exactly one group
-
-Tabs to group:
+TABS:
 ${tabsForAI}
 
-JSON:`;
+INSTRUCTIONS:
+1. Group tabs by category (work, social, shopping, entertainment, etc.)
+2. Use the exact tab IDs shown in brackets [ID]
+3. Return ONLY valid JSON, no other text
+
+OUTPUT FORMAT - Return exactly this structure:
+[{"name":"GroupName","tabIds":[${exampleIds[0] || 1},${exampleIds[1] || 2}]},{"name":"Another","tabIds":[${exampleIds[2] || 3}]}]
+
+Your JSON response:`;
 
                 try {
-                    // Scale max_tokens based on tab count
-                    // ~40 chars per group, 1 token ≈ 4 chars
-                    // Min 400 tokens, max 1000 tokens, scales with tab count
-                    const dynamicMaxTokens = Math.min(1000, Math.max(400, 200 + tabs.length * 8));
+                    // Scale max_tokens based on tab count (500-1200 for balanced model)
+                    const dynamicMaxTokens = Math.min(1200, Math.max(500, 250 + tabs.length * 8));
 
                     const response = await webllmEngine!.chat.completions.create({
                         messages: [
-                            { role: 'system', content: 'You are a JSON generator. Output ONLY valid JSON arrays. Never output explanations or text.' },
+                            {
+                                role: 'system',
+                                content: 'You categorize browser tabs. Output ONLY a JSON array like [{"name":"Category","tabIds":[1,2]}]. No explanations.'
+                            },
                             { role: 'user', content: prompt }
                         ],
                         max_tokens: dynamicMaxTokens,
-                        temperature: 0.1,
+                        temperature: 0.1,  // Lower temperature for more consistent JSON
+                        frequency_penalty: 0.5,
+                        presence_penalty: 0.3,
                     });
 
                     const aiText = response.choices[0]?.message?.content?.trim() || '';
-                    console.log('[Local AI] Response:', aiText);
+                    console.log('[Local AI] Raw response:', aiText);
 
-                    // Try to extract JSON array
+                    // Extract JSON from response using multiple methods
                     let groups = null;
 
-                    // Method 1: Response is pure JSON
-                    if (aiText.startsWith('[') && aiText.endsWith(']')) {
+                    // Method 1: Direct parse if it looks like JSON
+                    const trimmed = aiText.replace(/^[^[]*/, '').replace(/[^\]]*$/, '');
+                    if (trimmed.startsWith('[')) {
                         try {
-                            groups = JSON.parse(aiText);
+                            groups = JSON.parse(trimmed);
+                            console.log('[Local AI] Direct parse succeeded');
                         } catch (e) {
-                            console.log('[Local AI] Direct parse failed');
+                            console.log('[Local AI] Direct parse failed, trying regex');
                         }
                     }
 
-                    // Method 2: Extract JSON array from response
+                    // Method 2: Find JSON array pattern in response
                     if (!groups) {
-                        const jsonMatch = aiText.match(/\[\s*\{\s*"name"[\s\S]*?\}\s*\]/);
-                        if (jsonMatch) {
-                            try {
-                                groups = JSON.parse(jsonMatch[0]);
-                            } catch (e) {
-                                console.log('[Local AI] Regex parse failed');
+                        // More flexible regex to find JSON array
+                        const patterns = [
+                            /\[[\s\S]*\{[\s\S]*"name"[\s\S]*"tabIds"[\s\S]*\][\s\S]*\]/,
+                            /\[\s*\{[^}]*"name"[^}]*"tabIds"[^}]*\}[\s\S]*\]/,
+                        ];
+                        for (const pattern of patterns) {
+                            const match = aiText.match(pattern);
+                            if (match) {
+                                try {
+                                    // Clean up the match
+                                    let jsonStr = match[0];
+                                    // Find the last ] and cut there
+                                    const lastBracket = jsonStr.lastIndexOf(']');
+                                    if (lastBracket > 0) {
+                                        jsonStr = jsonStr.substring(0, lastBracket + 1);
+                                    }
+                                    groups = JSON.parse(jsonStr);
+                                    console.log('[Local AI] Regex parse succeeded');
+                                    break;
+                                } catch (e) {
+                                    console.log('[Local AI] Regex pattern failed:', e);
+                                }
                             }
                         }
                     }
 
-                    // Validate the groups
+                    // Method 3: Try to fix common JSON issues
+                    if (!groups && aiText.includes('"name"') && aiText.includes('"tabIds"')) {
+                        try {
+                            // Extract just the JSON-looking part
+                            const start = aiText.indexOf('[');
+                            let end = aiText.lastIndexOf(']');
+                            if (start >= 0 && end > start) {
+                                let jsonStr = aiText.substring(start, end + 1);
+                                // Fix common issues: trailing commas, missing brackets
+                                jsonStr = jsonStr.replace(/,\s*}/g, '}').replace(/,\s*\]/g, ']');
+                                groups = JSON.parse(jsonStr);
+                                console.log('[Local AI] Fixed JSON parse succeeded');
+                            }
+                        } catch (e) {
+                            console.log('[Local AI] Fixed parse failed:', e);
+                        }
+                    }
+
+                    // Validate and filter groups
                     if (groups && Array.isArray(groups) && groups.length > 0) {
-                        const validGroups = groups.filter(g =>
-                            g && typeof g.name === 'string' &&
-                            Array.isArray(g.tabIds) &&
-                            g.tabIds.every((id: any) => typeof id === 'number')
-                        );
+                        // Get valid tab IDs from actual tabs
+                        const validTabIds = new Set(tabIds);
+
+                        const validGroups = groups
+                            .filter(g =>
+                                g &&
+                                typeof g.name === 'string' &&
+                                g.name.length > 0 &&
+                                Array.isArray(g.tabIds) &&
+                                g.tabIds.length > 0
+                            )
+                            .map(g => ({
+                                name: g.name.substring(0, 20), // Limit name length
+                                tabIds: g.tabIds.filter((id: any) =>
+                                    typeof id === 'number' && validTabIds.has(id)
+                                )
+                            }))
+                            .filter(g => g.tabIds.length > 0); // Only groups with valid tabs
 
                         if (validGroups.length > 0) {
+                            console.log('[Local AI] Valid groups:', validGroups);
                             const groupRes = await sendMessage('applyTabGroups', { groups: validGroups });
                             if (groupRes.success) {
                                 showStatus(`Created ${validGroups.length} groups`);
@@ -337,10 +393,11 @@ JSON:`;
                                 showStatus(groupRes.error || 'Grouping failed');
                             }
                         } else {
-                            showStatus('AI returned invalid groups');
+                            console.log('[Local AI] No valid groups after filtering');
+                            showStatus('AI could not match tabs - try again');
                         }
                     } else {
-                        console.log('[Local AI] Failed to parse:', aiText);
+                        console.log('[Local AI] Failed to extract JSON from:', aiText.substring(0, 200));
                         showStatus('AI failed - try again');
                     }
                 } catch (aiErr: any) {
