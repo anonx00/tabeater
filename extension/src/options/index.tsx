@@ -237,8 +237,9 @@ const OptionsPage: React.FC = () => {
     const loadWebLLMState = async () => {
         try {
             // Check WebGPU support directly in page context
-            if (!webgpuCapabilities) {
-                const capabilities = await checkWebGPUDirectly();
+            let capabilities = webgpuCapabilities;
+            if (!capabilities) {
+                capabilities = await checkWebGPUDirectly();
                 setWebgpuCapabilities(capabilities);
             }
 
@@ -261,15 +262,16 @@ const OptionsPage: React.FC = () => {
                     modelId: currentModel,
                 });
                 setActiveProvider('webllm');
-            } else if (stored.aiConfig?.preferWebLLM && !webllmEngine) {
-                // Was enabled before but engine not loaded (page refresh)
-                // Show as "ready to re-enable"
+            } else if (capabilities?.webgpuSupported && !webllmEngine) {
+                // Auto-start download if WebGPU supported and model not ready
                 setWebllmState({
                     status: 'not_initialized',
                     progress: 0,
-                    message: 'Click to re-enable',
+                    message: 'Starting download...',
                     modelId: currentModel,
                 });
+                // Auto-download the model
+                setTimeout(() => enableWebLLM(), 500);
             }
         } catch (err) {
             console.warn('Failed to load WebLLM state:', err);
