@@ -265,9 +265,9 @@ const OptionsPage: React.FC = () => {
             } else if (capabilities?.webgpuSupported && !webllmEngine) {
                 // Auto-start download if WebGPU supported and model not ready
                 setWebllmState({
-                    status: 'not_initialized',
+                    status: 'downloading',
                     progress: 0,
-                    message: 'Starting download...',
+                    message: 'Preparing download...',
                     modelId: currentModel,
                 });
                 // Auto-download the model
@@ -682,113 +682,86 @@ const OptionsPage: React.FC = () => {
                     <div style={s.panel}>
                         <div style={s.panelHeader}>
                             <h2 style={s.panelTitle}>Local AI</h2>
-                        </div>
-
-                        {/* Local AI Card */}
-                        <div style={{ ...s.providerGrid, gridTemplateColumns: '1fr', maxWidth: 250 }}>
-                            {/* Local AI Card */}
-                            <button
-                                className={`provider-card ${webllmState.status === 'ready' ? 'active' : ''}`}
-                                style={{
-                                    ...s.providerCard,
-                                    borderColor: webllmState.status === 'ready' ? '#00ff88' : colors.borderIdle,
-                                    boxShadow: webllmState.status === 'ready' ? '0 0 20px rgba(0, 255, 136, 0.3)' : 'none',
-                                    opacity: !webgpuCapabilities?.webgpuSupported ? 0.5 : 1,
-                                    cursor: !webgpuCapabilities?.webgpuSupported ? 'not-allowed' : 'pointer',
-                                }}
-                                onClick={() => {
-                                    if (!webgpuCapabilities?.webgpuSupported) return;
-                                    if (webllmState.status === 'ready') {
-                                        disableWebLLM();
-                                    } else if (webllmState.status === 'not_initialized' || webllmState.status === 'error') {
-                                        enableWebLLM();
-                                    }
-                                }}
-                                disabled={webllmLoading || webllmState.status === 'downloading' || webllmState.status === 'loading'}
-                            >
-                                {webllmState.status === 'ready' && <span style={s.checkIcon}>&#10003;</span>}
-                                <div style={s.providerLogoWrap}>
-                                    <LocalAILogo
-                                        size={48}
-                                        active={webllmState.status === 'ready'}
-                                        loading={webllmState.status === 'downloading' || webllmState.status === 'loading'}
-                                        progress={webllmState.progress}
-                                    />
-                                </div>
-                                <div style={s.providerName}>{LOCAL_AI_INFO.name}</div>
-                                <div style={s.providerDesc}>
-                                    {webllmState.status === 'downloading' || webllmState.status === 'loading'
-                                        ? `${webllmState.progress}%`
-                                        : webllmState.status === 'ready'
-                                            ? 'Active'
-                                            : !webgpuCapabilities?.webgpuSupported
-                                                ? 'No WebGPU'
-                                                : LOCAL_AI_INFO.desc}
-                                </div>
-                                <span style={{ ...s.providerBadge, background: '#00ff88' }}>
-                                    {LOCAL_AI_INFO.badge}
+                            <div style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: spacing.sm,
+                                fontSize: 11,
+                                fontFamily: typography.fontMono,
+                            }}>
+                                <span style={{
+                                    color: webllmState.status === 'ready' ? colors.phosphorGreen
+                                        : (webllmState.status === 'downloading' || webllmState.status === 'loading') ? colors.warning
+                                        : colors.textDim,
+                                }}>
+                                    {webllmState.status === 'ready' ? '● READY'
+                                        : webllmState.status === 'downloading' ? `◐ ${webllmState.progress}%`
+                                        : webllmState.status === 'loading' ? '◐ LOADING'
+                                        : webllmState.status === 'error' ? '● ERROR'
+                                        : '○ WAITING'}
                                 </span>
-                            </button>
-
+                            </div>
                         </div>
 
-                        {/* Download Progress (shown below cards when downloading) */}
-                        {(webllmState.status === 'downloading' || webllmState.status === 'loading') && (
-                            <div style={s.downloadProgress}>
-                                <div style={s.progressHeader}>
-                                    <span style={s.progressLabel}>
-                                        {webllmState.status === 'downloading' ? 'DOWNLOADING LOCAL AI' : 'INITIALIZING'}
-                                    </span>
-                                    <span style={s.progressPercent}>{webllmState.progress}%</span>
+                        {/* Status Card */}
+                        <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: spacing.md,
+                            padding: spacing.md,
+                            background: colors.surfaceLight,
+                            border: `1px solid ${webllmState.status === 'ready' ? colors.phosphorGreen : colors.borderIdle}`,
+                            borderRadius: borderRadius.sm,
+                            marginBottom: spacing.md,
+                        }}>
+                            <LocalAILogo
+                                size={40}
+                                active={webllmState.status === 'ready'}
+                                loading={webllmState.status === 'downloading' || webllmState.status === 'loading'}
+                                progress={webllmState.progress}
+                            />
+                            <div style={{ flex: 1 }}>
+                                <div style={{
+                                    fontFamily: typography.fontMono,
+                                    fontSize: 13,
+                                    color: colors.textPrimary,
+                                    marginBottom: 4,
+                                }}>
+                                    {webllmState.status === 'ready' ? 'AI Ready'
+                                        : webllmState.status === 'downloading' ? 'Downloading Model...'
+                                        : webllmState.status === 'loading' ? 'Initializing...'
+                                        : webllmState.status === 'error' ? 'Error'
+                                        : 'Preparing...'}
                                 </div>
+                                <div style={{ fontSize: 11, color: colors.textMuted }}>
+                                    {webllmState.status === 'ready' ? 'Runs 100% on your device'
+                                        : webllmState.message}
+                                </div>
+                            </div>
+                            <span style={{
+                                padding: '4px 8px',
+                                background: 'rgba(0, 255, 136, 0.1)',
+                                border: `1px solid ${colors.phosphorGreen}`,
+                                borderRadius: borderRadius.xs,
+                                fontSize: 9,
+                                fontFamily: typography.fontMono,
+                                color: colors.phosphorGreen,
+                                letterSpacing: '0.1em',
+                            }}>PRIVATE</span>
+                        </div>
+
+                        {/* Download Progress Bar */}
+                        {(webllmState.status === 'downloading' || webllmState.status === 'loading') && (
+                            <div style={{ marginBottom: spacing.md }}>
                                 <div style={s.progressBarBg}>
                                     <div style={{ ...s.progressBarFill, width: `${webllmState.progress}%` }} />
                                 </div>
-                                <span style={s.progressMessage}>{webllmState.message}</span>
                             </div>
                         )}
 
-                        {/* Local AI Settings */}
+                        {/* Model Settings */}
                         {webgpuCapabilities?.webgpuSupported && (
-                            <div style={{ marginTop: spacing.lg }}>
-                                {/* Section Header */}
-                                <div style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'space-between',
-                                    marginBottom: spacing.sm,
-                                }}>
-                                    <div style={{
-                                        fontFamily: typography.fontMono,
-                                        fontSize: typography.sizeSm,
-                                        color: colors.phosphorGreen,
-                                        letterSpacing: '0.1em',
-                                    }}>LOCAL_AI_SETTINGS</div>
-                                    <div style={{
-                                        fontSize: 10,
-                                        color: webllmState.status === 'ready' ? colors.phosphorGreen : colors.textDim,
-                                        fontFamily: typography.fontMono,
-                                    }}>
-                                        {webllmState.status === 'ready' ? '● ACTIVE' : '○ INACTIVE'}
-                                    </div>
-                                </div>
-
-                                {/* Info Note */}
-                                <div style={{
-                                    padding: spacing.sm,
-                                    marginBottom: spacing.md,
-                                    background: 'rgba(0, 255, 136, 0.05)',
-                                    border: `1px solid ${colors.borderIdle}`,
-                                    borderRadius: borderRadius.xs,
-                                    fontSize: 11,
-                                    color: colors.textMuted,
-                                    lineHeight: 1.5,
-                                }}>
-                                    <strong style={{ color: colors.phosphorGreen }}>Llama 3.2 3B</strong> is the default model (2GB download, best quality for reliable AI responses).
-                                    Requires 3GB VRAM. Select Qwen 1.5B for faster performance on lower-end GPUs.
-                                    Models download once and are cached locally.
-                                </div>
-
+                            <div>
                                 {/* Model Selector */}
                                 <div style={{ marginBottom: spacing.md }}>
                                     <label style={{
@@ -798,7 +771,7 @@ const OptionsPage: React.FC = () => {
                                         color: colors.textMuted,
                                         marginBottom: spacing.xs,
                                         letterSpacing: '0.1em',
-                                    }}>SELECT_MODEL</label>
+                                    }}>MODEL</label>
                                     <select
                                         value={selectedLocalModel}
                                         onChange={(e) => handleLocalModelChange(e.target.value)}
@@ -851,16 +824,6 @@ const OptionsPage: React.FC = () => {
                                     );
                                 })()}
 
-                                {/* Privacy Badge */}
-                                <div style={{
-                                    textAlign: 'center',
-                                    fontSize: 10,
-                                    color: colors.textDim,
-                                    padding: `${spacing.xs}px 0`,
-                                }}>
-                                    🔒 100% private • No data sent anywhere • Runs on your GPU
-                                </div>
-
                                 {/* Delete Model Button - only show when model is loaded */}
                                 {webllmState.status === 'ready' && (
                                     <button
@@ -872,19 +835,19 @@ const OptionsPage: React.FC = () => {
                                         }}
                                         style={{
                                             width: '100%',
-                                            marginTop: spacing.sm,
+                                            marginTop: spacing.md,
                                             padding: `${spacing.xs}px ${spacing.md}px`,
                                             background: 'transparent',
-                                            border: `1px solid ${colors.criticalRed}`,
+                                            border: `1px solid ${colors.borderIdle}`,
                                             borderRadius: borderRadius.xs,
-                                            color: colors.criticalRed,
+                                            color: colors.textMuted,
                                             fontFamily: typography.fontMono,
                                             fontSize: 10,
                                             cursor: 'pointer',
                                             transition: transitions.fast,
                                         }}
                                     >
-                                        🗑️ Delete Model Data
+                                        Delete Model Data
                                     </button>
                                 )}
                             </div>

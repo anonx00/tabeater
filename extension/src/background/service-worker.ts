@@ -595,20 +595,32 @@ async function smartOrganizePreview(): Promise<MessageResponse> {
             return { success: true, data: { groups: [], message: 'Not enough tabs to organize' } };
         }
 
-        // Use simple indices (0, 1, 2...) instead of Chrome's large tab IDs
-        const tabList = tabs.map((t, idx) => `${idx}: ${t.title} (${new URL(t.url).hostname})`).join('\n');
+        // Use simple indices with clear format
+        const tabList = tabs.map((t, idx) => {
+            try {
+                const hostname = new URL(t.url).hostname.replace('www.', '');
+                return `${idx}. "${t.title}" [${hostname}]`;
+            } catch {
+                return `${idx}. "${t.title}"`;
+            }
+        }).join('\n');
 
         // Calculate target groups based on tab count
         const minGroups = Math.max(2, Math.ceil(tabs.length / 8));
         const maxGroups = Math.min(10, Math.ceil(tabs.length / 3));
 
         const aiResponse = await aiService.prompt(
-            `Group these tabs by activity. Return ONLY JSON array.
+            `Group these browser tabs by their PURPOSE.
 
+TABS:
 ${tabList}
 
-Create ${minGroups}-${maxGroups} groups. Keep names SHORT (1 word only, max 6 letters).
-Format: [{"name":"Name","ids":[0,1,2]}]`
+Examples: Video sites → "Video", Code sites → "Code", Email → "Mail", Social → "Social", Shopping → "Shop"
+
+Output ONLY JSON (no other text):
+[{"name":"Video","ids":[0,2]},{"name":"Code","ids":[1,3]}]
+
+Rules: name max 5 letters, minimum 2 tabs per group, every tab number used once`
         );
 
         console.log('[SmartOrganizePreview] AI response:', aiResponse);
@@ -675,20 +687,32 @@ async function smartOrganize(): Promise<MessageResponse> {
             return { success: true, data: { organized: [], message: 'Not enough tabs to organize' } };
         }
 
-        // Use simple indices (0, 1, 2...) instead of Chrome's large tab IDs
-        const tabList = tabs.map((t, idx) => `${idx}: ${t.title} (${new URL(t.url).hostname})`).join('\n');
+        // Use simple indices with clear format
+        const tabList = tabs.map((t, idx) => {
+            try {
+                const hostname = new URL(t.url).hostname.replace('www.', '');
+                return `${idx}. "${t.title}" [${hostname}]`;
+            } catch {
+                return `${idx}. "${t.title}"`;
+            }
+        }).join('\n');
 
         // Calculate target groups based on tab count
         const minGroups = Math.max(2, Math.ceil(tabs.length / 8));
         const maxGroups = Math.min(10, Math.ceil(tabs.length / 3));
 
         const aiResponse = await aiService.prompt(
-            `Group these tabs by activity. Return ONLY JSON array.
+            `Group these browser tabs by their PURPOSE.
 
+TABS:
 ${tabList}
 
-Create ${minGroups}-${maxGroups} groups. Keep names SHORT (1 word only, max 6 letters).
-Format: [{"name":"Name","ids":[0,1,2]}]`
+Examples: Video sites → "Video", Code sites → "Code", Email → "Mail", Social → "Social", Shopping → "Shop"
+
+Output ONLY JSON (no other text):
+[{"name":"Video","ids":[0,2]},{"name":"Code","ids":[1,3]}]
+
+Rules: name max 5 letters, minimum 2 tabs per group, every tab number used once`
         );
 
         const groups = parseJSONResponse<{ name: string; ids: (number | string)[] }[]>(aiResponse, 'SmartOrganize');

@@ -266,9 +266,10 @@ const Popup = () => {
                 // Build tab list with full context for better grouping
                 const tabList = tabs.map((t, idx) => {
                     try {
-                        return `${idx}: ${t.title} (${new URL(t.url).hostname})`;
+                        const hostname = new URL(t.url).hostname.replace('www.', '');
+                        return `${idx}. "${t.title}" [${hostname}]`;
                     } catch {
-                        return `${idx}: ${t.title}`;
+                        return `${idx}. "${t.title}"`;
                     }
                 }).join('\n');
 
@@ -276,19 +277,30 @@ const Popup = () => {
                 const minGroups = Math.max(2, Math.ceil(tabs.length / 8));
                 const maxGroups = Math.min(8, Math.ceil(tabs.length / 3));
 
-                // Direct prompt - Llama works better without system message
-                const prompt = `Categorize these browser tabs into ${minGroups}-${maxGroups} groups.
+                // Improved prompt - helps AI understand tab content before grouping
+                const prompt = `You are organizing browser tabs into groups. Look at each tab's title and domain to understand what it's for.
 
+TABS:
 ${tabList}
 
-Reply with ONLY a JSON array like this (no other text):
-[{"name":"Work","ids":[0,1,2]},{"name":"Fun","ids":[3,4,5]}]
+TASK: Group these tabs by their PURPOSE (what they're used for).
+
+Examples of good groupings:
+- Video streaming sites (netflix, youtube, hulu) → "Video"
+- Code/dev sites (github, stackoverflow, docs) → "Code"
+- Email/messaging (gmail, outlook, slack) → "Mail"
+- Social media (twitter/x, reddit, facebook) → "Social"
+- Shopping sites (amazon, ebay, store pages) → "Shop"
+- News/articles (news sites, blogs, articles) → "News"
+
+Output ONLY valid JSON (no other text):
+[{"name":"Video","ids":[0,2,5]},{"name":"Code","ids":[1,3,4]}]
 
 Rules:
-- Group names: 1 word, max 5 letters (e.g. Work, Code, Video, Mail, News, Shop, Chat)
-- Minimum 2 tabs per group
-- Each tab id used only once
-- FLAT array, not nested
+- name: Short word describing the group's purpose (max 5 letters)
+- ids: Array of tab numbers that belong together (minimum 2 tabs per group)
+- Every tab number must appear exactly once
+- Output must be a flat JSON array
 
 JSON:`;
 
