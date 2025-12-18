@@ -918,8 +918,8 @@ const OptionsPage: React.FC = () => {
                                     color: colors.textMuted,
                                     lineHeight: 1.5,
                                 }}>
-                                    <strong style={{ color: colors.phosphorGreen }}>Llama 3.2 1B</strong> is the default model (700MB download, good balance of speed and quality).
-                                    Requires 1.2GB VRAM. Select a larger model for better accuracy if you have more GPU memory.
+                                    <strong style={{ color: colors.phosphorGreen }}>Llama 3.2 3B</strong> is the default model (2GB download, best quality for reliable AI responses).
+                                    Requires 3GB VRAM. Select Qwen 1.5B for faster performance on lower-end GPUs.
                                     Models download once and are cached locally.
                                 </div>
 
