@@ -8,8 +8,8 @@ import { MicroLabel } from '../ui/components/MicroLabel';
 import { ScrambleText } from '../ui/components/ScrambleText';
 import * as webllm from '@mlc-ai/web-llm';
 
-// WebLLM Model ID - Default to reliable 3B model for better responses
-const WEBLLM_MODEL_ID = 'Llama-3.2-3B-Instruct-q4f16_1-MLC';
+// WebLLM Model ID - Default to smaller model for better compatibility
+const WEBLLM_MODEL_ID = 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC';
 
 // Global WebLLM engine for this page context
 let webllmEngine: webllm.MLCEngineInterface | null = null;

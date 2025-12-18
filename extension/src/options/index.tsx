@@ -3,13 +3,13 @@ import { createRoot } from 'react-dom/client';
 import { colors, spacing, typography, borderRadius, shadows, transitions, scanlineOverlay } from '../shared/theme';
 import * as webllm from '@mlc-ai/web-llm';
 
-// WebLLM Model ID (default) - Using 3B model for reliability
-const WEBLLM_MODEL_ID = 'Llama-3.2-3B-Instruct-q4f16_1-MLC';
+// WebLLM Model ID (default) - Using smaller model for better compatibility
+const WEBLLM_MODEL_ID = 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC';
 
 // Available Local AI Models
 const LOCAL_AI_MODELS = [
-    { id: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC', name: 'Qwen2.5 1.5B', size: '1GB', vram: '1.8GB', speed: 'Fast', quality: 'Good', recommended: false },
-    { id: 'Llama-3.2-3B-Instruct-q4f16_1-MLC', name: 'Llama 3.2 3B', size: '2GB', vram: '3GB', speed: 'Medium', quality: 'Best', recommended: true },
+    { id: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC', name: 'Qwen 1.5B', size: '1GB', vram: '1.8GB', speed: 'Fast', quality: 'Good', recommended: true },
+    { id: 'Llama-3.2-3B-Instruct-q4f16_1-MLC', name: 'Llama 3B', size: '2GB', vram: '3GB', speed: 'Medium', quality: 'Best', recommended: false },
 ];
 
 // Global engine reference (persists across re-renders)
@@ -263,15 +263,13 @@ const OptionsPage: React.FC = () => {
                 });
                 setActiveProvider('webllm');
             } else if (capabilities?.webgpuSupported && !webllmEngine) {
-                // Auto-start download if WebGPU supported and model not ready
+                // Show ready state - don't auto-download, let user click
                 setWebllmState({
-                    status: 'downloading',
+                    status: 'not_initialized',
                     progress: 0,
-                    message: 'Preparing download...',
+                    message: 'Click to download AI model',
                     modelId: currentModel,
                 });
-                // Auto-download the model
-                setTimeout(() => enableWebLLM(), 500);
             }
         } catch (err) {
             console.warn('Failed to load WebLLM state:', err);
@@ -392,10 +390,14 @@ const OptionsPage: React.FC = () => {
         } catch (err: any) {
             console.error('WebLLM initialization failed:', err);
             let errorMsg = err.message || 'Unknown error';
-            if (errorMsg.includes('WebGPU')) {
-                errorMsg = 'WebGPU initialization failed. Try updating your browser or GPU drivers.';
-            } else if (errorMsg.includes('memory') || errorMsg.includes('OOM')) {
-                errorMsg = 'Not enough GPU memory. Close other apps and try again.';
+
+            // Check for GPU memory errors
+            if (errorMsg.includes('OUTOFMEMORY') || errorMsg.includes('E_OUTOFMEMORY') ||
+                errorMsg.includes('memory') || errorMsg.includes('OOM') ||
+                errorMsg.includes('D3D12')) {
+                errorMsg = 'Not enough GPU memory. Try the smaller Qwen 1.5B model.';
+            } else if (errorMsg.includes('WebGPU') || errorMsg.includes('requestDevice')) {
+                errorMsg = 'GPU error. Try closing other apps or use a smaller model.';
             }
 
             setWebllmState({
@@ -710,7 +712,9 @@ const OptionsPage: React.FC = () => {
                             gap: spacing.md,
                             padding: spacing.md,
                             background: colors.surfaceLight,
-                            border: `1px solid ${webllmState.status === 'ready' ? colors.phosphorGreen : colors.borderIdle}`,
+                            border: `1px solid ${webllmState.status === 'ready' ? colors.phosphorGreen
+                                : webllmState.status === 'error' ? colors.criticalRed
+                                : colors.borderIdle}`,
                             borderRadius: borderRadius.sm,
                             marginBottom: spacing.md,
                         }}>
@@ -724,30 +728,54 @@ const OptionsPage: React.FC = () => {
                                 <div style={{
                                     fontFamily: typography.fontMono,
                                     fontSize: 13,
-                                    color: colors.textPrimary,
+                                    color: webllmState.status === 'error' ? colors.criticalRed : colors.textPrimary,
                                     marginBottom: 4,
                                 }}>
                                     {webllmState.status === 'ready' ? 'AI Ready'
-                                        : webllmState.status === 'downloading' ? 'Downloading Model...'
+                                        : webllmState.status === 'downloading' ? 'Downloading...'
                                         : webllmState.status === 'loading' ? 'Initializing...'
                                         : webllmState.status === 'error' ? 'Error'
-                                        : 'Preparing...'}
+                                        : 'Not Downloaded'}
                                 </div>
-                                <div style={{ fontSize: 11, color: colors.textMuted }}>
+                                <div style={{ fontSize: 11, color: webllmState.status === 'error' ? colors.criticalRed : colors.textMuted }}>
                                     {webllmState.status === 'ready' ? 'Runs 100% on your device'
+                                        : webllmState.status === 'error' ? webllmState.message
+                                        : webllmState.status === 'not_initialized' ? 'Click Download to get started'
                                         : webllmState.message}
                                 </div>
                             </div>
-                            <span style={{
-                                padding: '4px 8px',
-                                background: 'rgba(0, 255, 136, 0.1)',
-                                border: `1px solid ${colors.phosphorGreen}`,
-                                borderRadius: borderRadius.xs,
-                                fontSize: 9,
-                                fontFamily: typography.fontMono,
-                                color: colors.phosphorGreen,
-                                letterSpacing: '0.1em',
-                            }}>PRIVATE</span>
+                            {/* Download/Retry Button */}
+                            {(webllmState.status === 'not_initialized' || webllmState.status === 'error') && (
+                                <button
+                                    onClick={() => enableWebLLM()}
+                                    disabled={webllmLoading}
+                                    style={{
+                                        padding: '8px 16px',
+                                        background: colors.phosphorGreen,
+                                        border: 'none',
+                                        borderRadius: borderRadius.xs,
+                                        fontSize: 11,
+                                        fontFamily: typography.fontMono,
+                                        color: colors.voidBlack,
+                                        cursor: 'pointer',
+                                        fontWeight: 600,
+                                    }}
+                                >
+                                    {webllmState.status === 'error' ? 'Retry' : 'Download'}
+                                </button>
+                            )}
+                            {webllmState.status === 'ready' && (
+                                <span style={{
+                                    padding: '4px 8px',
+                                    background: 'rgba(0, 255, 136, 0.1)',
+                                    border: `1px solid ${colors.phosphorGreen}`,
+                                    borderRadius: borderRadius.xs,
+                                    fontSize: 9,
+                                    fontFamily: typography.fontMono,
+                                    color: colors.phosphorGreen,
+                                    letterSpacing: '0.1em',
+                                }}>READY</span>
+                            )}
                         </div>
 
                         {/* Download Progress Bar */}
