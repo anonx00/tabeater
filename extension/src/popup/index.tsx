@@ -263,13 +263,12 @@ const Popup = () => {
 
                 showStatus('Analyzing tabs...');
 
-                // Use SAME format as Gemini cloud AI (which works perfectly)
-                // Key: use simple indices (0,1,2...) not actual tab IDs
+                // Use EXACT same format as Gemini cloud AI (which works perfectly)
                 const tabList = tabs.map((t, idx) => {
                     try {
-                        return `${idx}: ${t.title.substring(0, 40)} (${new URL(t.url).hostname})`;
+                        return `${idx}: ${t.title} (${new URL(t.url).hostname})`;
                     } catch {
-                        return `${idx}: ${t.title.substring(0, 40)}`;
+                        return `${idx}: ${t.title}`;
                     }
                 }).join('\n');
 
@@ -277,27 +276,20 @@ const Popup = () => {
                 const minGroups = Math.max(2, Math.ceil(tabs.length / 8));
                 const maxGroups = Math.min(10, Math.ceil(tabs.length / 3));
 
-                // Very strict JSON-only prompt
-                const prompt = `Categorize these ${tabs.length} browser tabs into ${minGroups}-${maxGroups} groups.
+                // Use EXACT same prompt as Gemini (proven to work)
+                const prompt = `Group these tabs by activity. Return ONLY JSON array.
 
-TABS:
 ${tabList}
 
-RESPOND WITH ONLY THIS JSON FORMAT, NO OTHER TEXT:
-[{"name":"Work","ids":[0,1,2]},{"name":"Social","ids":[3,4]}]
-
-JSON:`;
+Create ${minGroups}-${maxGroups} groups. Keep names SHORT (1 word only, max 6 letters).
+Format: [{"name":"Name","ids":[0,1,2]}]`;
 
                 try {
                     // Generous token limit for output
-                    const dynamicMaxTokens = Math.min(2000, Math.max(1000, tabs.length * 20));
+                    const dynamicMaxTokens = Math.min(2000, Math.max(1000, tabs.length * 30));
 
                     const response = await webllmEngine!.chat.completions.create({
                         messages: [
-                            {
-                                role: 'system',
-                                content: 'You are a JSON API. You ONLY output valid JSON arrays. Never explain, never add text. Just JSON.'
-                            },
                             { role: 'user', content: prompt }
                         ],
                         max_tokens: dynamicMaxTokens,
@@ -345,13 +337,13 @@ JSON:`;
                     if (groups && Array.isArray(groups) && groups.length > 0) {
                         const usedIndices = new Set<number>();
 
-                        // Map indices to real tab IDs
+                        // Map indices to real tab IDs (same logic as Gemini)
                         const validGroups = groups
                             .filter(g =>
                                 g &&
                                 typeof g.name === 'string' &&
                                 g.name.length > 0 &&
-                                getGroupIds(g).length > 0
+                                getGroupIds(g).length >= 2  // Require at least 2 tabs like Gemini
                             )
                             .map(g => {
                                 // Convert indices to real tab IDs
@@ -359,7 +351,7 @@ JSON:`;
                                 const realTabIds = groupIds
                                     .map((idx: any) => {
                                         const index = typeof idx === 'string' ? parseInt(idx, 10) : idx;
-                                        if (typeof index === 'number' && index >= 0 && index < tabs.length && !usedIndices.has(index)) {
+                                        if (typeof index === 'number' && !isNaN(index) && index >= 0 && index < tabs.length && !usedIndices.has(index)) {
                                             usedIndices.add(index);
                                             return tabs[index].id;
                                         }
@@ -368,11 +360,11 @@ JSON:`;
                                     .filter((id: number | null): id is number => id !== null);
 
                                 return {
-                                    name: g.name.substring(0, 12), // Keep names short
+                                    name: g.name.substring(0, 6),  // Max 6 chars like Gemini
                                     tabIds: realTabIds
                                 };
                             })
-                            .filter(g => g.tabIds.length > 0);
+                            .filter(g => g.tabIds.length >= 2);  // Require at least 2 tabs like Gemini
 
                         if (validGroups.length > 0) {
                             console.log('[Local AI] Valid groups:', validGroups);
