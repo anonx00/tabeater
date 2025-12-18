@@ -277,13 +277,16 @@ const Popup = () => {
                 const minGroups = Math.max(2, Math.ceil(tabs.length / 8));
                 const maxGroups = Math.min(10, Math.ceil(tabs.length / 3));
 
-                // EXACT same prompt format as Gemini cloud AI
-                const prompt = `Group these tabs by activity. Return ONLY JSON array.
+                // Very strict JSON-only prompt
+                const prompt = `Categorize these ${tabs.length} browser tabs into ${minGroups}-${maxGroups} groups.
 
+TABS:
 ${tabList}
 
-Create ${minGroups}-${maxGroups} groups. Keep names SHORT (1 word only, max 6 letters).
-Format: [{"name":"Name","ids":[0,1,2]}]`;
+RESPOND WITH ONLY THIS JSON FORMAT, NO OTHER TEXT:
+[{"name":"Work","ids":[0,1,2]},{"name":"Social","ids":[3,4]}]
+
+JSON:`;
 
                 try {
                     // Generous token limit for output
@@ -293,12 +296,12 @@ Format: [{"name":"Name","ids":[0,1,2]}]`;
                         messages: [
                             {
                                 role: 'system',
-                                content: 'You organize browser tabs into groups. Output ONLY valid JSON array. No explanations.'
+                                content: 'You are a JSON API. You ONLY output valid JSON arrays. Never explain, never add text. Just JSON.'
                             },
                             { role: 'user', content: prompt }
                         ],
                         max_tokens: dynamicMaxTokens,
-                        temperature: 0.1,
+                        temperature: 0.0,  // Zero temperature for deterministic output
                     });
 
                     const aiText = response.choices[0]?.message?.content?.trim() || '';
@@ -307,64 +310,38 @@ Format: [{"name":"Name","ids":[0,1,2]}]`;
                     // Extract JSON from response using multiple methods
                     let groups = null;
 
-                    // Method 1: Direct parse if it looks like JSON
-                    const trimmed = aiText.replace(/^[^[]*/, '').replace(/[^\]]*$/, '');
-                    if (trimmed.startsWith('[')) {
+                    // Method 1: Find JSON array in response (most reliable)
+                    const jsonStart = aiText.indexOf('[');
+                    const jsonEnd = aiText.lastIndexOf(']');
+                    if (jsonStart >= 0 && jsonEnd > jsonStart) {
                         try {
-                            groups = JSON.parse(trimmed);
+                            let jsonStr = aiText.substring(jsonStart, jsonEnd + 1);
+                            // Fix common issues
+                            jsonStr = jsonStr.replace(/,\s*}/g, '}').replace(/,\s*\]/g, ']');
+                            groups = JSON.parse(jsonStr);
+                            console.log('[Local AI] JSON extracted successfully');
+                        } catch (e) {
+                            console.log('[Local AI] JSON parse failed:', e);
+                        }
+                    }
+
+                    // Method 2: Try full response as JSON
+                    if (!groups) {
+                        try {
+                            groups = JSON.parse(aiText);
                             console.log('[Local AI] Direct parse succeeded');
                         } catch (e) {
-                            console.log('[Local AI] Direct parse failed, trying regex');
+                            console.log('[Local AI] Direct parse failed');
                         }
                     }
 
-                    // Method 2: Find JSON array pattern in response
-                    if (!groups) {
-                        // More flexible regex to find JSON array with "ids"
-                        const patterns = [
-                            /\[[\s\S]*\{[\s\S]*"name"[\s\S]*"ids"[\s\S]*\][\s\S]*\]/,
-                            /\[\s*\{[^}]*"name"[^}]*"ids"[^}]*\}[\s\S]*\]/,
-                        ];
-                        for (const pattern of patterns) {
-                            const match = aiText.match(pattern);
-                            if (match) {
-                                try {
-                                    // Clean up the match
-                                    let jsonStr = match[0];
-                                    // Find the last ] and cut there
-                                    const lastBracket = jsonStr.lastIndexOf(']');
-                                    if (lastBracket > 0) {
-                                        jsonStr = jsonStr.substring(0, lastBracket + 1);
-                                    }
-                                    groups = JSON.parse(jsonStr);
-                                    console.log('[Local AI] Regex parse succeeded');
-                                    break;
-                                } catch (e) {
-                                    console.log('[Local AI] Regex pattern failed:', e);
-                                }
-                            }
-                        }
-                    }
+                    // Helper: get array of indices from group (handles ids, tabIds, tabs, etc.)
+                    const getGroupIds = (g: any): number[] => {
+                        const arr = g.ids || g.tabIds || g.tabs || g.indices || [];
+                        return Array.isArray(arr) ? arr : [];
+                    };
 
-                    // Method 3: Try to fix common JSON issues
-                    if (!groups && aiText.includes('"name"') && aiText.includes('"ids"')) {
-                        try {
-                            // Extract just the JSON-looking part
-                            const start = aiText.indexOf('[');
-                            let end = aiText.lastIndexOf(']');
-                            if (start >= 0 && end > start) {
-                                let jsonStr = aiText.substring(start, end + 1);
-                                // Fix common issues: trailing commas, missing brackets
-                                jsonStr = jsonStr.replace(/,\s*}/g, '}').replace(/,\s*\]/g, ']');
-                                groups = JSON.parse(jsonStr);
-                                console.log('[Local AI] Fixed JSON parse succeeded');
-                            }
-                        } catch (e) {
-                            console.log('[Local AI] Fixed parse failed:', e);
-                        }
-                    }
-
-                    // Validate and map indices to real tab IDs (same as Gemini)
+                    // Validate and map indices to real tab IDs
                     if (groups && Array.isArray(groups) && groups.length > 0) {
                         const usedIndices = new Set<number>();
 
@@ -374,12 +351,12 @@ Format: [{"name":"Name","ids":[0,1,2]}]`;
                                 g &&
                                 typeof g.name === 'string' &&
                                 g.name.length > 0 &&
-                                Array.isArray(g.ids) &&
-                                g.ids.length > 0
+                                getGroupIds(g).length > 0
                             )
                             .map(g => {
                                 // Convert indices to real tab IDs
-                                const realTabIds = g.ids
+                                const groupIds = getGroupIds(g);
+                                const realTabIds = groupIds
                                     .map((idx: any) => {
                                         const index = typeof idx === 'string' ? parseInt(idx, 10) : idx;
                                         if (typeof index === 'number' && index >= 0 && index < tabs.length && !usedIndices.has(index)) {
