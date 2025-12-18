@@ -225,7 +225,18 @@ chrome.commands.onCommand.addListener(async (command) => {
     }
 });
 
-chrome.runtime.onMessage.addListener((message: Message, _sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message: Message & { target?: string; data?: any }, _sender, sendResponse) => {
+    // Handle messages from offscreen document
+    if (message.target === 'service-worker') {
+        if (message.action === 'webllm-status') {
+            // Store status so other pages can read it
+            chrome.storage.local.set({
+                offscreenAIStatus: message.data
+            }).catch(() => {});
+        }
+        return;
+    }
+
     ensureServicesInitialized()
         .then(() => handleMessage(message))
         .then(sendResponse)
