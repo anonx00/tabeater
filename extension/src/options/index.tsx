@@ -842,15 +842,48 @@ const OptionsPage: React.FC = () => {
                             </div>
                         )}
 
-                        {/* Local AI Model Selection */}
+                        {/* Local AI Settings - Only show if WebGPU supported */}
                         {webgpuCapabilities?.webgpuSupported && (
-                            <div style={{
-                                marginTop: spacing.lg,
-                                padding: spacing.md,
-                                background: 'rgba(0, 255, 136, 0.03)',
-                                border: `1px solid ${webllmState.status === 'ready' ? colors.phosphorGreen : colors.borderIdle}`,
-                                borderRadius: borderRadius.sm,
-                            }}>
+                            <div style={{ marginTop: spacing.lg }}>
+                                {/* Section Header */}
+                                <div style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    marginBottom: spacing.sm,
+                                }}>
+                                    <div style={{
+                                        fontFamily: typography.fontMono,
+                                        fontSize: typography.sizeSm,
+                                        color: colors.phosphorGreen,
+                                        letterSpacing: '0.1em',
+                                    }}>LOCAL_AI_SETTINGS</div>
+                                    <div style={{
+                                        fontSize: 10,
+                                        color: webllmState.status === 'ready' ? colors.phosphorGreen : colors.textDim,
+                                        fontFamily: typography.fontMono,
+                                    }}>
+                                        {webllmState.status === 'ready' ? '● ACTIVE' : '○ INACTIVE'}
+                                    </div>
+                                </div>
+
+                                {/* Info Note */}
+                                <div style={{
+                                    padding: spacing.sm,
+                                    marginBottom: spacing.md,
+                                    background: 'rgba(0, 255, 136, 0.05)',
+                                    border: `1px solid ${colors.borderIdle}`,
+                                    borderRadius: borderRadius.xs,
+                                    fontSize: 11,
+                                    color: colors.textMuted,
+                                    lineHeight: 1.5,
+                                }}>
+                                    <strong style={{ color: colors.phosphorGreen }}>SmolLM2 360M</strong> is the default model (200MB, fast).
+                                    Advanced users can select larger models for better quality.
+                                    Models are downloaded once and cached locally.
+                                </div>
+
+                                {/* Model Selector */}
                                 <div style={{ marginBottom: spacing.md }}>
                                     <label style={{
                                         display: 'block',
@@ -859,28 +892,32 @@ const OptionsPage: React.FC = () => {
                                         color: colors.textMuted,
                                         marginBottom: spacing.xs,
                                         letterSpacing: '0.1em',
-                                    }}>LOCAL_AI_MODEL</label>
+                                    }}>SELECT_MODEL</label>
                                     <select
                                         value={selectedLocalModel}
                                         onChange={(e) => handleLocalModelChange(e.target.value)}
-                                        style={s.select}
+                                        style={{
+                                            ...s.select,
+                                            background: colors.voidBlack,
+                                            borderColor: webllmState.status === 'ready' ? colors.phosphorGreen : colors.borderIdle,
+                                        }}
                                         disabled={webllmState.status === 'downloading' || webllmState.status === 'loading'}
                                     >
-                                        <optgroup label="Fast & Light">
+                                        <optgroup label="⚡ Fast & Light (Recommended)">
                                             {LOCAL_AI_MODELS.filter(m => m.category === 'light').map(m => (
                                                 <option key={m.id} value={m.id}>
-                                                    {m.name} • {m.size} {m.recommended ? '★' : ''}
+                                                    {m.name} • {m.size} {m.recommended ? '★ Default' : ''}
                                                 </option>
                                             ))}
                                         </optgroup>
-                                        <optgroup label="Balanced">
+                                        <optgroup label="⚖️ Balanced">
                                             {LOCAL_AI_MODELS.filter(m => m.category === 'balanced').map(m => (
                                                 <option key={m.id} value={m.id}>
                                                     {m.name} • {m.size}
                                                 </option>
                                             ))}
                                         </optgroup>
-                                        <optgroup label="High Quality">
+                                        <optgroup label="🎯 High Quality (More VRAM)">
                                             {LOCAL_AI_MODELS.filter(m => m.category === 'quality').map(m => (
                                                 <option key={m.id} value={m.id}>
                                                     {m.name} • {m.size}
@@ -890,7 +927,7 @@ const OptionsPage: React.FC = () => {
                                     </select>
                                 </div>
 
-                                {/* Model Info Grid */}
+                                {/* Model Specs */}
                                 {(() => {
                                     const currentModel = LOCAL_AI_MODELS.find(m => m.id === selectedLocalModel);
                                     if (!currentModel) return null;
@@ -900,31 +937,38 @@ const OptionsPage: React.FC = () => {
                                             gridTemplateColumns: 'repeat(4, 1fr)',
                                             gap: spacing.sm,
                                             padding: spacing.sm,
-                                            background: 'rgba(0, 0, 0, 0.3)',
+                                            background: 'rgba(0, 0, 0, 0.2)',
                                             borderRadius: borderRadius.xs,
+                                            marginBottom: spacing.sm,
                                         }}>
-                                            <div>
-                                                <div style={{ fontSize: 9, color: colors.textDim, marginBottom: 2 }}>SIZE</div>
-                                                <div style={{ fontFamily: typography.fontMono, fontSize: typography.sizeXs, color: colors.textPrimary }}>{currentModel.size}</div>
+                                            <div style={{ textAlign: 'center' }}>
+                                                <div style={{ fontSize: 9, color: colors.textDim, marginBottom: 2 }}>DOWNLOAD</div>
+                                                <div style={{ fontFamily: typography.fontMono, fontSize: 12, color: colors.textPrimary }}>{currentModel.size}</div>
                                             </div>
-                                            <div>
+                                            <div style={{ textAlign: 'center' }}>
                                                 <div style={{ fontSize: 9, color: colors.textDim, marginBottom: 2 }}>VRAM</div>
-                                                <div style={{ fontFamily: typography.fontMono, fontSize: typography.sizeXs, color: colors.textPrimary }}>{currentModel.vram}</div>
+                                                <div style={{ fontFamily: typography.fontMono, fontSize: 12, color: colors.textPrimary }}>{currentModel.vram}</div>
                                             </div>
-                                            <div>
+                                            <div style={{ textAlign: 'center' }}>
                                                 <div style={{ fontSize: 9, color: colors.textDim, marginBottom: 2 }}>SPEED</div>
-                                                <div style={{ fontFamily: typography.fontMono, fontSize: typography.sizeXs, color: currentModel.speed === 'Fast' ? colors.phosphorGreen : currentModel.speed === 'Medium' ? colors.signalAmber : colors.textMuted }}>{currentModel.speed}</div>
+                                                <div style={{ fontFamily: typography.fontMono, fontSize: 12, color: currentModel.speed === 'Fast' ? colors.phosphorGreen : currentModel.speed === 'Medium' ? colors.signalAmber : colors.textMuted }}>{currentModel.speed}</div>
                                             </div>
-                                            <div>
+                                            <div style={{ textAlign: 'center' }}>
                                                 <div style={{ fontSize: 9, color: colors.textDim, marginBottom: 2 }}>QUALITY</div>
-                                                <div style={{ fontFamily: typography.fontMono, fontSize: typography.sizeXs, color: currentModel.quality === 'Best' ? colors.phosphorGreen : colors.textPrimary }}>{currentModel.quality}</div>
+                                                <div style={{ fontFamily: typography.fontMono, fontSize: 12, color: currentModel.quality === 'Best' ? colors.phosphorGreen : colors.textPrimary }}>{currentModel.quality}</div>
                                             </div>
                                         </div>
                                     );
                                 })()}
 
-                                <div style={{ marginTop: spacing.sm, fontSize: 10, color: colors.textDim, textAlign: 'center' }}>
-                                    100% private • Runs entirely on your device
+                                {/* Privacy Badge */}
+                                <div style={{
+                                    textAlign: 'center',
+                                    fontSize: 10,
+                                    color: colors.textDim,
+                                    padding: `${spacing.xs}px 0`,
+                                }}>
+                                    🔒 100% private • No data sent anywhere • Runs on your GPU
                                 </div>
                             </div>
                         )}
