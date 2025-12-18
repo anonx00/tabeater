@@ -3,17 +3,14 @@ import { createRoot } from 'react-dom/client';
 import { colors, spacing, typography, borderRadius, shadows, transitions, scanlineOverlay } from '../shared/theme';
 import * as webllm from '@mlc-ai/web-llm';
 
-// WebLLM Model ID (default) - Balanced model for good speed/quality
-const WEBLLM_MODEL_ID = 'Llama-3.2-1B-Instruct-q4f16_1-MLC';
+// WebLLM Model ID (default) - Using 3B model for reliability
+const WEBLLM_MODEL_ID = 'Llama-3.2-3B-Instruct-q4f16_1-MLC';
 
-// Available Local AI Models - only balanced and quality tiers
+// Available Local AI Models - only quality models that work reliably
 const LOCAL_AI_MODELS = [
-    // Balanced (recommended - good speed and quality)
-    { id: 'Llama-3.2-1B-Instruct-q4f16_1-MLC', name: 'Llama 3.2 1B', size: '700MB', vram: '1.2GB', speed: 'Fast', quality: 'Good', category: 'balanced', recommended: true },
-    { id: 'SmolLM2-1.7B-Instruct-q4f16_1-MLC', name: 'SmolLM2 1.7B', size: '1GB', vram: '1.5GB', speed: 'Medium', quality: 'Good', category: 'balanced', recommended: false },
-    // High Quality (for better accuracy, needs more VRAM)
-    { id: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC', name: 'Qwen2.5 1.5B', size: '1GB', vram: '1.8GB', speed: 'Medium', quality: 'Better', category: 'quality', recommended: false },
-    { id: 'Llama-3.2-3B-Instruct-q4f16_1-MLC', name: 'Llama 3.2 3B', size: '2GB', vram: '3GB', speed: 'Slower', quality: 'Best', category: 'quality', recommended: false },
+    // Quality models (recommended - reliable JSON output)
+    { id: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC', name: 'Qwen2.5 1.5B', size: '1GB', vram: '1.8GB', speed: 'Medium', quality: 'Good', category: 'quality', recommended: false },
+    { id: 'Llama-3.2-3B-Instruct-q4f16_1-MLC', name: 'Llama 3.2 3B', size: '2GB', vram: '3GB', speed: 'Medium', quality: 'Best', category: 'quality', recommended: true },
 ];
 
 // Global engine reference (persists across re-renders)

@@ -8,8 +8,8 @@ import { MicroLabel } from '../ui/components/MicroLabel';
 import { ScrambleText } from '../ui/components/ScrambleText';
 import * as webllm from '@mlc-ai/web-llm';
 
-// WebLLM Model ID - Default to balanced model (Llama 3.2 1B)
-const WEBLLM_MODEL_ID = 'Llama-3.2-1B-Instruct-q4f16_1-MLC';
+// WebLLM Model ID - Default to reliable 3B model for better responses
+const WEBLLM_MODEL_ID = 'Llama-3.2-3B-Instruct-q4f16_1-MLC';
 
 // Global WebLLM engine for this page context
 let webllmEngine: webllm.MLCEngineInterface | null = null;
@@ -221,7 +221,7 @@ Rules:
                 },
                 { role: 'user', content: prompt }
             ],
-            max_tokens: 200,
+            max_tokens: 500,
             temperature: 0.7,
             frequency_penalty: 1.5,  // Strongly penalize repetition
             presence_penalty: 1.0,   // Encourage new topics
