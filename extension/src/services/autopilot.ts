@@ -436,13 +436,13 @@ Give 2-3 actionable recommendations for better tab hygiene. Be concise.`;
 
             const hostname = this.getHostname(tab.url);
             const response = await aiService.prompt(
-                `"${tab.title}" (${hostname})
+                `"${tab.title}" [${hostname}]
 
-What is this tab for? One or two words only.`
+What category is this? Reply with ONE word only (e.g. Video, Code, Mail, Social, Shop, News, Music, Work, Chat).`
             );
 
-            const category = response.trim().split('\n')[0].replace(/[^a-zA-Z0-9\s]/g, '').trim();
-            return category.length > 0 && category.length <= 20 ? category : this.fallbackCategorize(tab);
+            const category = response.trim().split('\n')[0].replace(/[^a-zA-Z]/g, '').trim();
+            return category.length > 0 && category.length <= 10 ? category : this.fallbackCategorize(tab);
         } catch {
             return this.fallbackCategorize(tab);
         }
@@ -718,13 +718,11 @@ What is this tab for? One or two words only.`
 
             // Ask AI which group fits best
             const response = await aiService.prompt(
-                `Which group should this tab belong to? Return ONLY the group name or "none".
+                `Tab: "${tab.title}" [${hostname}]
 
-Tab: "${tab.title}" (${hostname})
+Groups: ${groupNames}
 
-Available groups: ${groupNames}
-
-Based on what this tab is about and what the groups represent, which group fits best? Return the exact group name or "none" if it doesn't fit any.`
+Which group does this tab belong to based on its content/purpose? Reply with ONLY the exact group name, or "none" if it doesn't fit any group.`
             );
 
             const suggestedGroup = response.trim().toLowerCase();
