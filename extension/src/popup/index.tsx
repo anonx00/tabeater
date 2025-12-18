@@ -5,8 +5,8 @@ import { UndoToast } from '../ui/components/UndoToast';
 import { EmptyState } from '../ui/components/EmptyState';
 import * as webllm from '@mlc-ai/web-llm';
 
-// WebLLM Model ID - Default to balanced model (Llama 3.2 1B)
-const WEBLLM_MODEL_ID = 'Llama-3.2-1B-Instruct-q4f16_1-MLC';
+// WebLLM Model ID - Default to 3B model for reliability
+const WEBLLM_MODEL_ID = 'Llama-3.2-3B-Instruct-q4f16_1-MLC';
 
 // Global WebLLM engine for popup context
 let webllmEngine: webllm.MLCEngineInterface | null = null;
