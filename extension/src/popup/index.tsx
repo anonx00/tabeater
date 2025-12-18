@@ -280,12 +280,17 @@ ${tabsForAI}
 JSON:`;
 
                 try {
+                    // Scale max_tokens based on tab count
+                    // ~40 chars per group, 1 token ≈ 4 chars
+                    // Min 400 tokens, max 1000 tokens, scales with tab count
+                    const dynamicMaxTokens = Math.min(1000, Math.max(400, 200 + tabs.length * 8));
+
                     const response = await webllmEngine!.chat.completions.create({
                         messages: [
                             { role: 'system', content: 'You are a JSON generator. Output ONLY valid JSON arrays. Never output explanations or text.' },
                             { role: 'user', content: prompt }
                         ],
-                        max_tokens: 300,
+                        max_tokens: dynamicMaxTokens,
                         temperature: 0.1,
                     });
 
