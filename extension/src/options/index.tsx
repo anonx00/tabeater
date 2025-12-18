@@ -1,6 +1,33 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
 import { colors, spacing, typography, borderRadius, shadows, transitions, scanlineOverlay } from '../shared/theme';
+import * as webllm from '@mlc-ai/web-llm';
+
+// WebGPU type declarations (not in standard TypeScript lib)
+declare global {
+    interface Navigator {
+        gpu?: {
+            requestAdapter(): Promise<GPUAdapter | null>;
+        };
+    }
+    interface GPUAdapter {
+        requestAdapterInfo(): Promise<GPUAdapterInfo>;
+        limits: GPUAdapterLimits;
+    }
+    interface GPUAdapterInfo {
+        vendor?: string;
+        architecture?: string;
+        device?: string;
+        description?: string;
+    }
+    interface GPUAdapterLimits {
+        maxBufferSize?: number;
+    }
+}
+
+// Global WebLLM engine for options page context
+let webllmEngine: webllm.MLCEngineInterface | null = null;
+let webllmInitializing = false;
 
 // Types
 type CloudProvider = 'gemini' | 'openai' | 'anthropic';
@@ -60,20 +87,24 @@ const PROVIDERS = {
     anthropic: { name: 'CLAUDE', desc: 'Anthropic', color: '#d4a574', badge: 'PAID', models: ['claude-3-5-haiku-latest', 'claude-3-5-sonnet-latest'], default: 'claude-3-5-haiku-latest', url: 'https://console.anthropic.com/settings/keys' },
 };
 
-// Local AI info and available models
+// Local AI info and available models - organized by capability
 const LOCAL_AI_MODELS = [
-    { id: 'SmolLM2-360M-Instruct-q4f16_1-MLC', name: 'SmolLM2-360M', size: '~200MB', desc: 'Fast, lightweight' },
-    { id: 'SmolLM2-1.7B-Instruct-q4f16_1-MLC', name: 'SmolLM2-1.7B', size: '~1GB', desc: 'Better quality' },
-    { id: 'Llama-3.2-1B-Instruct-q4f16_1-MLC', name: 'Llama-3.2-1B', size: '~700MB', desc: 'Good balance' },
-    { id: 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC', name: 'Qwen2.5-0.5B', size: '~350MB', desc: 'Efficient' },
+    // Fast & Light (recommended for most users)
+    { id: 'SmolLM2-360M-Instruct-q4f16_1-MLC', name: 'SmolLM2 360M', size: '200MB', vram: '0.5GB', speed: 'Fast', quality: 'Good', category: 'light', recommended: true },
+    { id: 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC', name: 'Qwen2.5 0.5B', size: '350MB', vram: '0.7GB', speed: 'Fast', quality: 'Good', category: 'light', recommended: false },
+    // Balanced (good quality, reasonable speed)
+    { id: 'Llama-3.2-1B-Instruct-q4f16_1-MLC', name: 'Llama 3.2 1B', size: '700MB', vram: '1.2GB', speed: 'Medium', quality: 'Better', category: 'balanced', recommended: false },
+    { id: 'SmolLM2-1.7B-Instruct-q4f16_1-MLC', name: 'SmolLM2 1.7B', size: '1GB', vram: '1.5GB', speed: 'Medium', quality: 'Better', category: 'balanced', recommended: false },
+    // High Quality (slower but more capable)
+    { id: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC', name: 'Qwen2.5 1.5B', size: '1GB', vram: '1.8GB', speed: 'Slower', quality: 'Best', category: 'quality', recommended: false },
+    { id: 'Llama-3.2-3B-Instruct-q4f16_1-MLC', name: 'Llama 3.2 3B', size: '2GB', vram: '3GB', speed: 'Slow', quality: 'Best', category: 'quality', recommended: false },
 ];
 
 const LOCAL_AI_INFO = {
     name: 'LOCAL AI',
-    desc: 'SmolLM2',
+    desc: 'On-Device',
     color: '#00ff88',
     badge: 'PRIVATE',
-    size: '~200MB',
     models: LOCAL_AI_MODELS,
     default: 'SmolLM2-360M-Instruct-q4f16_1-MLC',
 };
@@ -299,48 +330,126 @@ const OptionsPage: React.FC = () => {
 
     const loadWebLLMState = async () => {
         try {
-            // Check WebGPU support first
-            const capResponse = await chrome.runtime.sendMessage({ action: 'checkWebGPUSupport' });
-            if (capResponse.success) {
-                setWebgpuCapabilities(capResponse.data);
+            // Check WebGPU support directly in page context
+            let webgpuSupported = false;
+            let webgpuAdapter = null;
+            try {
+                if (navigator.gpu) {
+                    const adapter = await navigator.gpu.requestAdapter();
+                    if (adapter) {
+                        webgpuSupported = true;
+                        const info = await adapter.requestAdapterInfo();
+                        webgpuAdapter = info.description || info.vendor || 'WebGPU Device';
+                    }
+                }
+            } catch (e) {
+                console.warn('WebGPU check failed:', e);
             }
 
-            // Get WebLLM state
-            const stateResponse = await chrome.runtime.sendMessage({ action: 'getWebLLMState' });
-            if (stateResponse.success && stateResponse.data) {
-                setWebllmState(stateResponse.data);
-            }
+            setWebgpuCapabilities({
+                webgpuSupported,
+                webgpuAdapter,
+                estimatedVRAM: null,
+                recommendedModel: LOCAL_AI_INFO.default,
+            });
 
-            // Load selected model from storage
-            const storage = await chrome.storage.local.get(['webllmModel']);
+            // Load state from storage
+            const storage = await chrome.storage.local.get(['webllmModel', 'webllmModelReady', 'webllmStatus', 'preferWebLLM']);
+
             if (storage.webllmModel) {
                 setSelectedLocalModel(storage.webllmModel);
+            }
+
+            // Check if model is ready (was previously initialized)
+            if (storage.webllmStatus === 'ready' && storage.webllmModelReady) {
+                setWebllmState({
+                    status: 'ready',
+                    progress: 100,
+                    message: 'Model cached',
+                    modelId: storage.webllmModelReady,
+                });
+                if (storage.preferWebLLM) {
+                    setActiveProvider('webllm');
+                }
+            } else {
+                setWebllmState({
+                    status: 'not_initialized',
+                    progress: 0,
+                    message: webgpuSupported ? 'Click to enable' : 'WebGPU not available',
+                    modelId: storage.webllmModel || LOCAL_AI_INFO.default,
+                });
             }
         } catch (err) {
             console.warn('Failed to load WebLLM state:', err);
         }
     };
 
+    // Initialize WebLLM directly in options page context (WebGPU only works in page contexts)
     const enableWebLLM = async () => {
-        if (webllmLoading) return;
+        if (webllmLoading || webllmInitializing) return;
         setWebllmLoading(true);
+        webllmInitializing = true;
 
         try {
             // Save selected model to storage for popup/sidepanel to use
-            await chrome.storage.local.set({ webllmModel: selectedLocalModel, preferWebLLM: true });
+            await chrome.storage.local.set({
+                webllmModel: selectedLocalModel,
+                preferWebLLM: true,
+                activeProvider: 'webllm'
+            });
 
-            const response = await chrome.runtime.sendMessage({ action: 'initializeWebLLM', modelId: selectedLocalModel });
-            if (response.success) {
-                setWebllmState(response.data.state);
-                if (response.data.initialized) {
-                    setActiveProvider('webllm');
-                    setToast({ message: 'Local AI enabled', undo: () => {} });
-                }
-            }
-        } catch (err) {
-            console.warn('Failed to enable WebLLM:', err);
+            setWebllmState(prev => ({
+                ...prev,
+                status: 'downloading',
+                progress: 0,
+                message: 'Starting download...',
+                modelId: selectedLocalModel
+            }));
+
+            // Initialize WebLLM directly in this page context
+            webllmEngine = await webllm.CreateMLCEngine(selectedLocalModel, {
+                initProgressCallback: (progress) => {
+                    const pct = Math.round(progress.progress * 100);
+                    const isDownloading = progress.text?.includes('Fetching') || progress.text?.includes('Loading model');
+                    setWebllmState(prev => ({
+                        ...prev,
+                        status: isDownloading ? 'downloading' : 'loading',
+                        progress: pct,
+                        message: progress.text || 'Loading...',
+                    }));
+                },
+            });
+
+            // Mark as ready
+            setWebllmState(prev => ({
+                ...prev,
+                status: 'ready',
+                progress: 100,
+                message: 'Model loaded',
+            }));
+
+            // Save state for other contexts
+            await chrome.storage.local.set({
+                webllmModelReady: selectedLocalModel,
+                webllmStatus: 'ready'
+            });
+
+            setActiveProvider('webllm');
+            setToast({ message: 'Local AI enabled', undo: () => {} });
+
+        } catch (err: any) {
+            console.error('[Options] WebLLM init failed:', err);
+            setWebllmState(prev => ({
+                ...prev,
+                status: 'error',
+                progress: 0,
+                message: err.message || 'Failed to initialize',
+                error: err.message,
+            }));
+            setToast({ message: 'Failed to load Local AI', undo: () => {} });
         }
 
+        webllmInitializing = false;
         setWebllmLoading(false);
     };
 
@@ -348,22 +457,65 @@ const OptionsPage: React.FC = () => {
     const handleLocalModelChange = async (modelId: string) => {
         setSelectedLocalModel(modelId);
         await chrome.storage.local.set({ webllmModel: modelId });
-        // Clear cached model flag so next init downloads new model
-        await chrome.storage.local.remove(['webllmModelReady']);
-        if (webllmState.status === 'ready') {
-            // If already active, need to reinitialize with new model
-            setToast({ message: 'Restart Local AI to use new model', undo: () => {} });
+
+        // If model is different from current, mark as needing reload
+        if (webllmState.status === 'ready' && webllmState.modelId !== modelId) {
+            // Unload current engine
+            if (webllmEngine) {
+                try {
+                    await webllmEngine.unload();
+                } catch (e) {
+                    console.warn('Failed to unload engine:', e);
+                }
+                webllmEngine = null;
+            }
+            setWebllmState(prev => ({
+                ...prev,
+                status: 'not_initialized',
+                progress: 0,
+                message: 'Model changed - click to load',
+                modelId: modelId,
+            }));
+            await chrome.storage.local.remove(['webllmModelReady', 'webllmStatus']);
+            setToast({ message: 'Model changed. Click Local AI to load.', undo: () => {} });
         }
     };
 
     const disableWebLLM = async () => {
         try {
-            const response = await chrome.runtime.sendMessage({ action: 'unloadWebLLM' });
-            if (response.success) {
-                setWebllmState({ status: 'not_initialized', progress: 0, message: 'Not initialized', modelId: webllmState.modelId });
-                setActiveProvider(response.data.provider);
-                setToast({ message: 'Local AI disabled', undo: () => {} });
+            // Unload local engine if exists
+            if (webllmEngine) {
+                try {
+                    await webllmEngine.unload();
+                } catch (e) {
+                    console.warn('Failed to unload engine:', e);
+                }
+                webllmEngine = null;
             }
+
+            // Clear storage
+            await chrome.storage.local.set({
+                preferWebLLM: false,
+                webllmStatus: 'not_initialized'
+            });
+            await chrome.storage.local.remove(['webllmModelReady']);
+
+            setWebllmState({
+                status: 'not_initialized',
+                progress: 0,
+                message: 'Disabled',
+                modelId: selectedLocalModel
+            });
+
+            // Switch to cloud provider if configured
+            const config = await chrome.storage.local.get(['aiConfig']);
+            if (config.aiConfig?.apiKey && config.aiConfig?.cloudProvider) {
+                setActiveProvider(config.aiConfig.cloudProvider);
+            } else {
+                setActiveProvider('none');
+            }
+
+            setToast({ message: 'Local AI disabled', undo: () => {} });
         } catch (err) {
             console.warn('Failed to disable WebLLM:', err);
         }
@@ -691,26 +843,182 @@ const OptionsPage: React.FC = () => {
                             </div>
                         )}
 
-                        {/* Local AI Model Selection */}
+                        {/* Local AI Settings Panel */}
                         {webgpuCapabilities?.webgpuSupported && (
-                            <div style={s.inputSection}>
-                                <label style={s.inputLabel}>LOCAL_AI_MODEL</label>
-                                <select
-                                    value={selectedLocalModel}
-                                    onChange={(e) => handleLocalModelChange(e.target.value)}
-                                    style={s.select}
+                            <div style={{
+                                marginTop: spacing.lg,
+                                padding: spacing.md,
+                                background: 'rgba(0, 255, 136, 0.03)',
+                                border: `1px solid ${webllmState.status === 'ready' ? colors.phosphorGreen : colors.borderIdle}`,
+                                borderRadius: borderRadius.sm,
+                            }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md }}>
+                                    <div>
+                                        <div style={{
+                                            fontFamily: typography.fontMono,
+                                            fontSize: typography.sizeSm,
+                                            color: colors.phosphorGreen,
+                                            letterSpacing: '0.1em',
+                                            marginBottom: 4,
+                                        }}>LOCAL_AI_CONFIG</div>
+                                        <div style={{ fontSize: typography.sizeXs, color: colors.textDim }}>
+                                            {webgpuCapabilities.webgpuAdapter || 'WebGPU Device'}
+                                        </div>
+                                    </div>
+                                    <div style={{
+                                        padding: `${spacing.xs}px ${spacing.sm}px`,
+                                        background: webllmState.status === 'ready' ? 'rgba(0, 255, 136, 0.2)' : 'rgba(255, 255, 255, 0.05)',
+                                        border: `1px solid ${webllmState.status === 'ready' ? colors.phosphorGreen : colors.borderIdle}`,
+                                        borderRadius: borderRadius.xs,
+                                        fontFamily: typography.fontMono,
+                                        fontSize: 10,
+                                        color: webllmState.status === 'ready' ? colors.phosphorGreen : colors.textDim,
+                                    }}>
+                                        {webllmState.status === 'ready' ? 'ACTIVE' : webllmState.status === 'downloading' || webllmState.status === 'loading' ? 'LOADING' : 'INACTIVE'}
+                                    </div>
+                                </div>
+
+                                {/* Model Selection */}
+                                <div style={{ marginBottom: spacing.md }}>
+                                    <label style={{
+                                        display: 'block',
+                                        fontFamily: typography.fontMono,
+                                        fontSize: 10,
+                                        color: colors.textMuted,
+                                        marginBottom: spacing.xs,
+                                        letterSpacing: '0.1em',
+                                    }}>SELECT_MODEL</label>
+                                    <select
+                                        value={selectedLocalModel}
+                                        onChange={(e) => handleLocalModelChange(e.target.value)}
+                                        style={{
+                                            ...s.select,
+                                            background: colors.voidBlack,
+                                            borderColor: colors.borderIdle,
+                                        }}
+                                        disabled={webllmState.status === 'downloading' || webllmState.status === 'loading'}
+                                    >
+                                        <optgroup label="Fast & Light">
+                                            {LOCAL_AI_MODELS.filter(m => m.category === 'light').map(m => (
+                                                <option key={m.id} value={m.id}>
+                                                    {m.name} • {m.size} {m.recommended ? '★ Recommended' : ''}
+                                                </option>
+                                            ))}
+                                        </optgroup>
+                                        <optgroup label="Balanced">
+                                            {LOCAL_AI_MODELS.filter(m => m.category === 'balanced').map(m => (
+                                                <option key={m.id} value={m.id}>
+                                                    {m.name} • {m.size}
+                                                </option>
+                                            ))}
+                                        </optgroup>
+                                        <optgroup label="High Quality">
+                                            {LOCAL_AI_MODELS.filter(m => m.category === 'quality').map(m => (
+                                                <option key={m.id} value={m.id}>
+                                                    {m.name} • {m.size}
+                                                </option>
+                                            ))}
+                                        </optgroup>
+                                    </select>
+                                </div>
+
+                                {/* Model Info */}
+                                {(() => {
+                                    const currentModel = LOCAL_AI_MODELS.find(m => m.id === selectedLocalModel);
+                                    if (!currentModel) return null;
+                                    return (
+                                        <div style={{
+                                            display: 'grid',
+                                            gridTemplateColumns: 'repeat(4, 1fr)',
+                                            gap: spacing.sm,
+                                            padding: spacing.sm,
+                                            background: 'rgba(0, 0, 0, 0.3)',
+                                            borderRadius: borderRadius.xs,
+                                            marginBottom: spacing.md,
+                                        }}>
+                                            <div>
+                                                <div style={{ fontSize: 9, color: colors.textDim, marginBottom: 2 }}>SIZE</div>
+                                                <div style={{ fontFamily: typography.fontMono, fontSize: typography.sizeXs, color: colors.textPrimary }}>{currentModel.size}</div>
+                                            </div>
+                                            <div>
+                                                <div style={{ fontSize: 9, color: colors.textDim, marginBottom: 2 }}>VRAM</div>
+                                                <div style={{ fontFamily: typography.fontMono, fontSize: typography.sizeXs, color: colors.textPrimary }}>{currentModel.vram}</div>
+                                            </div>
+                                            <div>
+                                                <div style={{ fontSize: 9, color: colors.textDim, marginBottom: 2 }}>SPEED</div>
+                                                <div style={{ fontFamily: typography.fontMono, fontSize: typography.sizeXs, color: currentModel.speed === 'Fast' ? colors.phosphorGreen : currentModel.speed === 'Medium' ? colors.signalAmber : colors.textDim }}>{currentModel.speed}</div>
+                                            </div>
+                                            <div>
+                                                <div style={{ fontSize: 9, color: colors.textDim, marginBottom: 2 }}>QUALITY</div>
+                                                <div style={{ fontFamily: typography.fontMono, fontSize: typography.sizeXs, color: currentModel.quality === 'Best' ? colors.phosphorGreen : colors.textPrimary }}>{currentModel.quality}</div>
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
+
+                                {/* Status/Progress */}
+                                {(webllmState.status === 'downloading' || webllmState.status === 'loading') ? (
+                                    <div style={{ marginBottom: spacing.md }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: spacing.xs }}>
+                                            <span style={{ fontSize: typography.sizeXs, color: colors.accentCyan }}>
+                                                {webllmState.status === 'downloading' ? 'DOWNLOADING' : 'INITIALIZING'}
+                                            </span>
+                                            <span style={{ fontFamily: typography.fontMono, fontSize: typography.sizeXs, color: colors.accentCyan }}>{webllmState.progress}%</span>
+                                        </div>
+                                        <div style={{ height: 4, background: colors.borderIdle, borderRadius: 2, overflow: 'hidden' }}>
+                                            <div style={{ height: '100%', width: `${webllmState.progress}%`, background: colors.accentCyan, transition: 'width 0.3s' }} />
+                                        </div>
+                                        <div style={{ fontSize: 10, color: colors.textDim, marginTop: spacing.xs }}>{webllmState.message}</div>
+                                    </div>
+                                ) : webllmState.status === 'error' ? (
+                                    <div style={{
+                                        padding: spacing.sm,
+                                        background: 'rgba(255, 68, 68, 0.1)',
+                                        border: `1px solid ${colors.criticalRed}`,
+                                        borderRadius: borderRadius.xs,
+                                        marginBottom: spacing.md,
+                                    }}>
+                                        <div style={{ fontSize: typography.sizeXs, color: colors.criticalRed }}>{webllmState.error || 'Failed to initialize'}</div>
+                                    </div>
+                                ) : null}
+
+                                {/* Action Button */}
+                                <button
+                                    onClick={() => {
+                                        if (webllmState.status === 'ready') {
+                                            disableWebLLM();
+                                        } else {
+                                            enableWebLLM();
+                                        }
+                                    }}
                                     disabled={webllmState.status === 'downloading' || webllmState.status === 'loading'}
+                                    style={{
+                                        width: '100%',
+                                        padding: `${spacing.sm}px ${spacing.md}px`,
+                                        background: webllmState.status === 'ready' ? 'transparent' : colors.phosphorGreen,
+                                        border: `1px solid ${colors.phosphorGreen}`,
+                                        color: webllmState.status === 'ready' ? colors.phosphorGreen : colors.voidBlack,
+                                        fontFamily: typography.fontMono,
+                                        fontSize: typography.sizeXs,
+                                        letterSpacing: '0.1em',
+                                        cursor: (webllmState.status === 'downloading' || webllmState.status === 'loading') ? 'wait' : 'pointer',
+                                        opacity: (webllmState.status === 'downloading' || webllmState.status === 'loading') ? 0.5 : 1,
+                                        transition: 'all 0.2s',
+                                    }}
                                 >
-                                    {LOCAL_AI_MODELS.map(m => (
-                                        <option key={m.id} value={m.id}>
-                                            {m.name} ({m.size}) - {m.desc}
-                                        </option>
-                                    ))}
-                                </select>
-                                <div style={s.inputMeta}>
-                                    <span style={{ ...s.inputStatus, color: colors.textDim }}>
-                                        {LOCAL_AI_MODELS.find(m => m.id === selectedLocalModel)?.desc || 'Select model'}
-                                    </span>
+                                    {webllmState.status === 'ready' ? 'DISABLE LOCAL AI' :
+                                     webllmState.status === 'downloading' || webllmState.status === 'loading' ? 'LOADING...' :
+                                     'ENABLE LOCAL AI'}
+                                </button>
+
+                                {/* Privacy Note */}
+                                <div style={{
+                                    marginTop: spacing.sm,
+                                    fontSize: 10,
+                                    color: colors.textDim,
+                                    textAlign: 'center',
+                                }}>
+                                    100% private • Runs entirely on your device • No data sent anywhere
                                 </div>
                             </div>
                         )}

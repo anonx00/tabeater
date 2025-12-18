@@ -127,9 +127,15 @@ const Popup = () => {
 
     const checkProvider = useCallback(async () => {
         // Check if WebLLM is preferred (stored in local storage)
-        const stored = await chrome.storage.local.get(['aiConfig', 'webllmReady']);
-        if (stored.aiConfig?.preferWebLLM || stored.webllmReady) {
+        const stored = await chrome.storage.local.get(['aiConfig', 'preferWebLLM', 'webllmStatus', 'activeProvider']);
+
+        // Check if Local AI is active
+        if (stored.preferWebLLM && stored.webllmStatus === 'ready') {
             setProvider('webllm');
+        } else if (stored.activeProvider === 'webllm') {
+            setProvider('webllm');
+        } else if (stored.aiConfig?.cloudProvider && stored.aiConfig?.apiKey) {
+            setProvider(stored.aiConfig.cloudProvider);
         } else {
             const response = await sendMessage('getAIProvider');
             if (response.success) setProvider(response.data.provider);

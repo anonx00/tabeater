@@ -132,9 +132,15 @@ const Sidepanel = () => {
         if (statsRes.success) setApiStats(statsRes.data);
 
         // Check if WebLLM is preferred (stored in local storage)
-        const stored = await chrome.storage.local.get(['aiConfig', 'webllmReady']);
-        if (stored.aiConfig?.preferWebLLM || stored.webllmReady) {
+        const stored = await chrome.storage.local.get(['aiConfig', 'preferWebLLM', 'webllmStatus', 'activeProvider']);
+
+        // Check if Local AI is active
+        if (stored.preferWebLLM && stored.webllmStatus === 'ready') {
             setProvider('webllm');
+        } else if (stored.activeProvider === 'webllm') {
+            setProvider('webllm');
+        } else if (stored.aiConfig?.cloudProvider && stored.aiConfig?.apiKey) {
+            setProvider(stored.aiConfig.cloudProvider);
         } else if (providerRes.success) {
             setProvider(providerRes.data.provider);
         }
