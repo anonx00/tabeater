@@ -15,6 +15,19 @@ const LOCAL_AI_MODELS = [
 // Global engine reference (persists across re-renders)
 let webllmEngine: webllm.MLCEngineInterface | null = null;
 
+// Cleanup function to free GPU memory
+const cleanupWebLLM = async () => {
+    if (webllmEngine) {
+        try {
+            console.log('[WebLLM Options] Cleaning up engine...');
+            await webllmEngine.unload();
+        } catch (e) {
+            console.warn('[WebLLM Options] Cleanup error:', e);
+        }
+        webllmEngine = null;
+    }
+};
+
 // Types
 type AutoPilotMode = 'manual' | 'auto-cleanup' | 'fly-mode';
 type InputState = 'empty' | 'typing' | 'validating' | 'success' | 'error';
@@ -180,6 +193,19 @@ const OptionsPage: React.FC = () => {
         loadWebLLMState();
         // Load API usage after a short delay to ensure service worker is ready
         setTimeout(loadApiUsage, 100);
+
+        // Cleanup WebLLM when options page closes to free GPU memory
+        const handleUnload = () => {
+            cleanupWebLLM();
+        };
+        window.addEventListener('beforeunload', handleUnload);
+        window.addEventListener('unload', handleUnload);
+
+        return () => {
+            window.removeEventListener('beforeunload', handleUnload);
+            window.removeEventListener('unload', handleUnload);
+            cleanupWebLLM();
+        };
     }, []);
 
     // Poll WebLLM state during download/loading

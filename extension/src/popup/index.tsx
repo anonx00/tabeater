@@ -5,12 +5,26 @@ import { UndoToast } from '../ui/components/UndoToast';
 import { EmptyState } from '../ui/components/EmptyState';
 import * as webllm from '@mlc-ai/web-llm';
 
-// WebLLM Model ID - Default to 3B model for reliability
-const WEBLLM_MODEL_ID = 'Llama-3.2-3B-Instruct-q4f16_1-MLC';
+// WebLLM Model ID - Default to smaller model for better compatibility
+const WEBLLM_MODEL_ID = 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC';
 
 // Global WebLLM engine for popup context
 let webllmEngine: webllm.MLCEngineInterface | null = null;
 let webllmInitializing = false;
+
+// Cleanup function to free GPU memory
+const cleanupWebLLM = async () => {
+    if (webllmEngine) {
+        try {
+            console.log('[WebLLM] Cleaning up engine...');
+            await webllmEngine.unload();
+        } catch (e) {
+            console.warn('[WebLLM] Cleanup error:', e);
+        }
+        webllmEngine = null;
+    }
+    webllmInitializing = false;
+};
 
 interface TabInfo {
     id: number;
@@ -114,6 +128,19 @@ const Popup = () => {
         checkProvider();
         checkLicense();
         loadQuickReport();
+
+        // Cleanup WebLLM when popup closes to free GPU memory
+        const handleUnload = () => {
+            cleanupWebLLM();
+        };
+        window.addEventListener('beforeunload', handleUnload);
+        window.addEventListener('unload', handleUnload);
+
+        return () => {
+            window.removeEventListener('beforeunload', handleUnload);
+            window.removeEventListener('unload', handleUnload);
+            cleanupWebLLM();
+        };
     }, []);
 
     const sendMessage = useCallback(async (action: string, payload?: any) => {

@@ -15,6 +15,20 @@ const WEBLLM_MODEL_ID = 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC';
 let webllmEngine: webllm.MLCEngineInterface | null = null;
 let webllmInitializing = false;
 
+// Cleanup function to free GPU memory
+const cleanupWebLLM = async () => {
+    if (webllmEngine) {
+        try {
+            console.log('[WebLLM Sidepanel] Cleaning up engine...');
+            await webllmEngine.unload();
+        } catch (e) {
+            console.warn('[WebLLM Sidepanel] Cleanup error:', e);
+        }
+        webllmEngine = null;
+    }
+    webllmInitializing = false;
+};
+
 interface TabInfo {
     id: number;
     title: string;
@@ -88,12 +102,22 @@ const Sidepanel = () => {
         chrome.tabs.onRemoved.addListener(handleTabRemoved);
         chrome.tabs.onActivated.addListener(handleTabActivated);
 
+        // Cleanup WebLLM when sidepanel closes
+        const handleUnload = () => {
+            cleanupWebLLM();
+        };
+        window.addEventListener('beforeunload', handleUnload);
+        window.addEventListener('unload', handleUnload);
+
         // Cleanup listeners on unmount
         return () => {
             chrome.tabs.onUpdated.removeListener(handleTabUpdated);
             chrome.tabs.onCreated.removeListener(handleTabCreated);
             chrome.tabs.onRemoved.removeListener(handleTabRemoved);
             chrome.tabs.onActivated.removeListener(handleTabActivated);
+            window.removeEventListener('beforeunload', handleUnload);
+            window.removeEventListener('unload', handleUnload);
+            cleanupWebLLM();
         };
     }, []);
 
