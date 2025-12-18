@@ -10,6 +10,7 @@ module.exports = {
         popup: './extension/src/popup/index.tsx',
         sidepanel: './extension/src/sidepanel/index.tsx',
         options: './extension/src/options/index.tsx',
+        offscreen: './extension/src/offscreen/index.ts',
     },
     output: {
         path: path.resolve(__dirname, 'dist'),

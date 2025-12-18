@@ -5,6 +5,42 @@ import { autoPilotService } from '../services/autopilot';
 import { memoryService } from '../services/memory.service';
 import { TabManager } from './tab-manager';
 
+// Offscreen document management for WebLLM
+let offscreenCreating: Promise<void> | null = null;
+
+async function ensureOffscreenDocument(): Promise<void> {
+    const existingContexts = await chrome.runtime.getContexts({
+        contextTypes: [chrome.runtime.ContextType.OFFSCREEN_DOCUMENT],
+    });
+
+    if (existingContexts.length > 0) {
+        return; // Already exists
+    }
+
+    if (offscreenCreating) {
+        await offscreenCreating;
+        return;
+    }
+
+    offscreenCreating = chrome.offscreen.createDocument({
+        url: 'offscreen.html',
+        reasons: [chrome.offscreen.Reason.WORKERS],
+        justification: 'WebLLM AI processing with WebGPU',
+    });
+
+    await offscreenCreating;
+    offscreenCreating = null;
+}
+
+async function sendToOffscreen(action: string, data: any = {}): Promise<any> {
+    await ensureOffscreenDocument();
+    return chrome.runtime.sendMessage({
+        target: 'offscreen',
+        action,
+        ...data,
+    });
+}
+
 // Parse JSON from AI response - handles markdown code blocks
 function parseJSONResponse<T>(response: string, context: string): T | null {
     let clean = response.trim();
@@ -268,6 +304,62 @@ async function handleMessage(message: Message): Promise<MessageResponse> {
 
         case 'smartOrganizePreview':
             return await smartOrganizePreview();
+
+        // AI tab grouping via offscreen document (persists even if popup closes)
+        case 'groupTabsWithAI':
+            try {
+                const windowTabs = await tabService.getWindowTabs();
+                if (windowTabs.length < 2) {
+                    return { success: false, error: 'Need at least 2 tabs to group' };
+                }
+
+                // Send to offscreen document for AI processing
+                const result = await sendToOffscreen('group-tabs', {
+                    tabs: windowTabs.map(t => ({ id: t.id, title: t.title, url: t.url })),
+                    modelId: message.payload?.modelId,
+                });
+
+                if (!result.success) {
+                    return { success: false, error: result.error || 'AI grouping failed' };
+                }
+
+                // Apply the groups
+                const groupColors: chrome.tabGroups.ColorEnum[] = ['blue', 'red', 'yellow', 'green', 'pink', 'purple', 'cyan', 'orange'];
+                let created = 0;
+                for (const group of result.groups) {
+                    if (group.tabIds && group.tabIds.length > 0) {
+                        const groupId = await chrome.tabs.group({ tabIds: group.tabIds });
+                        await chrome.tabGroups.update(groupId, {
+                            title: group.name,
+                            color: groupColors[created % groupColors.length]
+                        });
+                        created++;
+                    }
+                }
+
+                return { success: true, data: { message: `Created ${created} groups`, groups: result.groups } };
+            } catch (err: any) {
+                console.error('[groupTabsWithAI] Error:', err);
+                return { success: false, error: err.message };
+            }
+
+        // Initialize offscreen AI engine
+        case 'initOffscreenAI':
+            try {
+                const initResult = await sendToOffscreen('init', { modelId: message.payload?.modelId });
+                return { success: initResult.success };
+            } catch (err: any) {
+                return { success: false, error: err.message };
+            }
+
+        // Get offscreen AI status
+        case 'getOffscreenAIStatus':
+            try {
+                const status = await sendToOffscreen('get-status');
+                return { success: true, data: status };
+            } catch (err: any) {
+                return { success: false, error: err.message };
+            }
 
         case 'applyTabGroups':
             // Apply tab groups from local AI results (used by popup/sidepanel with WebLLM)

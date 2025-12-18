@@ -3,28 +3,9 @@ import { createRoot } from 'react-dom/client';
 import { colors, spacing, typography, borderRadius, transitions, shadows } from '../shared/theme';
 import { UndoToast } from '../ui/components/UndoToast';
 import { EmptyState } from '../ui/components/EmptyState';
-import * as webllm from '@mlc-ai/web-llm';
 
-// WebLLM Model ID - Default to smaller model for better compatibility
-const WEBLLM_MODEL_ID = 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC';
-
-// Global WebLLM engine for popup context
-let webllmEngine: webllm.MLCEngineInterface | null = null;
-let webllmInitializing = false;
-
-// Cleanup function to free GPU memory
-const cleanupWebLLM = async () => {
-    if (webllmEngine) {
-        try {
-            console.log('[WebLLM] Cleaning up engine...');
-            await webllmEngine.unload();
-        } catch (e) {
-            console.warn('[WebLLM] Cleanup error:', e);
-        }
-        webllmEngine = null;
-    }
-    webllmInitializing = false;
-};
+// Note: WebLLM now runs in offscreen document, not in popup
+// This allows AI operations to continue even if popup closes
 
 interface TabInfo {
     id: number;
@@ -128,19 +109,6 @@ const Popup = () => {
         checkProvider();
         checkLicense();
         loadQuickReport();
-
-        // Cleanup WebLLM when popup closes to free GPU memory
-        const handleUnload = () => {
-            cleanupWebLLM();
-        };
-        window.addEventListener('beforeunload', handleUnload);
-        window.addEventListener('unload', handleUnload);
-
-        return () => {
-            window.removeEventListener('beforeunload', handleUnload);
-            window.removeEventListener('unload', handleUnload);
-            cleanupWebLLM();
-        };
     }, []);
 
     const sendMessage = useCallback(async (action: string, payload?: any) => {
@@ -200,70 +168,6 @@ const Popup = () => {
         setTimeout(() => { loadTabs(); findDuplicates(); }, 100);
     }, [duplicates, sendMessage, loadTabs, findDuplicates]);
 
-    // Initialize WebLLM in popup context (engine persists while popup is open)
-    const initWebLLM = useCallback(async (): Promise<boolean> => {
-        // Engine already loaded - reuse it
-        if (webllmEngine) {
-            console.log('[WebLLM] Reusing existing engine');
-            return true;
-        }
-
-        // Wait if another init is in progress
-        if (webllmInitializing) {
-            while (webllmInitializing) {
-                await new Promise(r => setTimeout(r, 100));
-            }
-            return webllmEngine !== null;
-        }
-
-        webllmInitializing = true;
-        try {
-            // Get selected model from storage
-            const stored = await chrome.storage.local.get(['webllmModel']);
-            const modelId = stored.webllmModel || WEBLLM_MODEL_ID;
-
-            // Show initial status
-            setStatusMessage('Starting AI...');
-
-            let isDownloading = false;
-            let lastProgress = 0;
-            webllmEngine = await webllm.CreateMLCEngine(modelId, {
-                initProgressCallback: (progress) => {
-                    const text = progress.text || '';
-                    // Only mark as downloading if actually fetching (not from cache)
-                    if (text.includes('Fetching') && !text.includes('cache')) {
-                        isDownloading = true;
-                    }
-
-                    // Show progress only for actual downloads
-                    if (isDownloading) {
-                        const pct = Math.round(progress.progress * 100);
-                        if (pct >= lastProgress + 5 || pct === 100) {
-                            lastProgress = pct;
-                            setStatusMessage(`Downloading: ${pct}%`);
-                        }
-                    } else if (text.includes('Loading')) {
-                        // Show brief loading message for cached model
-                        setStatusMessage('Loading AI...');
-                    }
-                },
-            });
-
-            // Mark as ready in storage so options page knows
-            await chrome.storage.local.set({ webllmReady: true });
-
-            webllmInitializing = false;
-            setStatusMessage(''); // Clear status when done
-            console.log('[WebLLM] Engine ready');
-            return true;
-        } catch (err) {
-            console.error('[WebLLM Popup] Init failed:', err);
-            webllmInitializing = false;
-            setStatusMessage('');
-            return false;
-        }
-    }, []);
-
     const smartOrganize = useCallback(async () => {
         if (provider === 'none') {
             showStatus('Configure AI in settings first');
@@ -271,195 +175,32 @@ const Popup = () => {
         }
         setGrouping(true);
         setLoading(true);
-        showStatus('Organizing tabs...');
+        showStatus('Grouping tabs...');
 
         try {
-            // If WebLLM, do AI locally then send grouping to service worker
-            if (provider === 'webllm') {
-                // Only show "Loading AI" if engine isn't ready yet
-                if (!webllmEngine) {
-                    showStatus('Loading AI...');
-                }
-                const ok = await initWebLLM();
-                if (!ok) {
-                    showStatus('Failed to load Local AI');
-                    setLoading(false);
-                    setGrouping(false);
-                    return;
-                }
+            // Use background service for AI grouping
+            // This persists even if popup closes - operation runs in offscreen document
+            const response = await sendMessage('groupTabsWithAI');
 
-                showStatus('Grouping tabs...');
-
-                // Build tab list with full context for better grouping
-                const tabList = tabs.map((t, idx) => {
-                    try {
-                        const hostname = new URL(t.url).hostname.replace('www.', '');
-                        return `${idx}. "${t.title}" [${hostname}]`;
-                    } catch {
-                        return `${idx}. "${t.title}"`;
-                    }
-                }).join('\n');
-
-                // Calculate target groups based on tab count
-                const minGroups = Math.max(2, Math.ceil(tabs.length / 8));
-                const maxGroups = Math.min(8, Math.ceil(tabs.length / 3));
-
-                // Improved prompt - helps AI understand tab content before grouping
-                const prompt = `You are organizing browser tabs into groups. Look at each tab's title and domain to understand what it's for.
-
-TABS:
-${tabList}
-
-TASK: Group these tabs by their PURPOSE (what they're used for).
-
-Examples of good groupings:
-- Video streaming sites (netflix, youtube, hulu) → "Video"
-- Code/dev sites (github, stackoverflow, docs) → "Code"
-- Email/messaging (gmail, outlook, slack) → "Mail"
-- Social media (twitter/x, reddit, facebook) → "Social"
-- Shopping sites (amazon, ebay, store pages) → "Shop"
-- News/articles (news sites, blogs, articles) → "News"
-
-Output ONLY valid JSON (no other text):
-[{"name":"Video","ids":[0,2,5]},{"name":"Code","ids":[1,3,4]}]
-
-Rules:
-- name: Short word describing the group's purpose (max 5 letters)
-- ids: Array of tab numbers that belong together (minimum 2 tabs per group)
-- Every tab number must appear exactly once
-- Output must be a flat JSON array
-
-JSON:`;
-
-                try {
-                    // Large token limit to prevent truncation
-                    const dynamicMaxTokens = Math.min(4000, Math.max(1500, tabs.length * 50));
-
-                    const response = await webllmEngine!.chat.completions.create({
-                        messages: [
-                            { role: 'user', content: prompt }
-                        ],
-                        max_tokens: dynamicMaxTokens,
-                        temperature: 0.0,  // Zero temperature for deterministic output
-                    });
-
-                    let aiText = response.choices[0]?.message?.content?.trim() || '';
-
-                    // Strip markdown code blocks if present
-                    aiText = aiText.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
-
-                    console.log('[Local AI] Raw response:', aiText);
-
-                    // Extract JSON from response using multiple methods
-                    let groups = null;
-
-                    // Method 1: Find JSON array in response (most reliable)
-                    const jsonStart = aiText.indexOf('[');
-                    const jsonEnd = aiText.lastIndexOf(']');
-                    if (jsonStart >= 0 && jsonEnd > jsonStart) {
-                        try {
-                            let jsonStr = aiText.substring(jsonStart, jsonEnd + 1);
-                            // Fix common issues
-                            jsonStr = jsonStr.replace(/,\s*}/g, '}').replace(/,\s*\]/g, ']');
-                            groups = JSON.parse(jsonStr);
-                            console.log('[Local AI] JSON extracted successfully');
-                        } catch (e) {
-                            console.log('[Local AI] JSON parse failed:', e);
-                        }
-                    }
-
-                    // Method 2: Try full response as JSON
-                    if (!groups) {
-                        try {
-                            groups = JSON.parse(aiText);
-                            console.log('[Local AI] Direct parse succeeded');
-                        } catch (e) {
-                            console.log('[Local AI] Direct parse failed');
-                        }
-                    }
-
-                    // Helper: get array of indices from group (handles ids, tabIds, tabs, etc.)
-                    const getGroupIds = (g: any): number[] => {
-                        const arr = g.ids || g.tabIds || g.tabs || g.indices || [];
-                        return Array.isArray(arr) ? arr : [];
-                    };
-
-                    // Validate and map indices to real tab IDs
-                    if (groups && Array.isArray(groups) && groups.length > 0) {
-                        // Fix nested arrays: [[{...}], [{...}]] -> [{...}, {...}]
-                        if (Array.isArray(groups[0]) && groups[0].length > 0) {
-                            console.log('[Local AI] Flattening nested array structure');
-                            groups = groups.flat().filter((g: any) => g && typeof g === 'object');
-                        }
-
-                        const usedIndices = new Set<number>();
-
-                        // Map indices to real tab IDs (same logic as Gemini)
-                        const validGroups = groups
-                            .filter((g: any) =>
-                                g &&
-                                typeof g.name === 'string' &&
-                                g.name.length > 0 &&
-                                getGroupIds(g).length >= 2  // Require at least 2 tabs like Gemini
-                            )
-                            .map((g: any) => {
-                                // Convert indices to real tab IDs
-                                const groupIds = getGroupIds(g);
-                                const realTabIds = groupIds
-                                    .map((idx: any) => {
-                                        const index = typeof idx === 'string' ? parseInt(idx, 10) : idx;
-                                        if (typeof index === 'number' && !isNaN(index) && index >= 0 && index < tabs.length && !usedIndices.has(index)) {
-                                            usedIndices.add(index);
-                                            return tabs[index].id;
-                                        }
-                                        return null;
-                                    })
-                                    .filter((id: number | null): id is number => id !== null);
-
-                                return {
-                                    name: g.name.substring(0, 5),  // Max 5 chars
-                                    tabIds: realTabIds
-                                };
-                            })
-                            .filter(g => g.tabIds.length >= 2);  // Require at least 2 tabs like Gemini
-
-                        if (validGroups.length > 0) {
-                            console.log('[Local AI] Valid groups:', validGroups);
-                            const groupRes = await sendMessage('applyTabGroups', { groups: validGroups });
-                            if (groupRes.success) {
-                                showStatus(`Created ${validGroups.length} groups`);
-                            } else {
-                                showStatus(groupRes.error || 'Grouping failed');
-                            }
-                        } else {
-                            console.log('[Local AI] No valid groups after filtering');
-                            showStatus('AI could not match tabs - try again');
-                        }
-                    } else {
-                        console.log('[Local AI] Failed to extract JSON from:', aiText.substring(0, 200));
-                        showStatus('AI failed - try again');
-                    }
-                } catch (aiErr: any) {
-                    console.error('[Local AI] Error:', aiErr);
-                    showStatus('AI error - try again');
-                }
+            if (response.success) {
+                showStatus(response.data.message || 'Tabs grouped!');
             } else {
-                // Use service worker for cloud providers
-                const response = await sendMessage('smartOrganize');
-                if (response.success) {
-                    showStatus(response.data.message);
+                // Check if it's a download/init issue
+                if (response.error?.includes('initialize') || response.error?.includes('download')) {
+                    showStatus('Open Settings to download AI model first');
                 } else {
-                    showStatus(response.error || 'Organization failed');
+                    showStatus(response.error || 'Grouping failed - try again');
                 }
             }
             loadTabs();
         } catch (err: any) {
+            console.error('[Popup] Grouping error:', err);
             showStatus(err.message || 'Organization failed');
         }
 
         setLoading(false);
         setGrouping(false);
-    }, [provider, tabs, sendMessage, loadTabs, showStatus, initWebLLM]);
+    }, [provider, sendMessage, loadTabs, showStatus]);
 
     const handleUpgrade = useCallback(async () => {
         setLoading(true);
