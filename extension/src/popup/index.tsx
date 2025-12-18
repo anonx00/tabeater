@@ -5,8 +5,8 @@ import { UndoToast } from '../ui/components/UndoToast';
 import { EmptyState } from '../ui/components/EmptyState';
 import * as webllm from '@mlc-ai/web-llm';
 
-// WebLLM Model ID
-const WEBLLM_MODEL_ID = 'SmolLM2-360M-Instruct-q4f16_1-MLC';
+// WebLLM Model ID - Default to Llama 3.2 3B for best quality
+const WEBLLM_MODEL_ID = 'Llama-3.2-3B-Instruct-q4f16_1-MLC';
 
 // Global WebLLM engine for popup context
 let webllmEngine: webllm.MLCEngineInterface | null = null;
@@ -281,17 +281,18 @@ JSON:`;
 
                 try {
                     // Scale max_tokens based on tab count
-                    // ~40 chars per group, 1 token ≈ 4 chars
-                    // Min 400 tokens, max 1000 tokens, scales with tab count
-                    const dynamicMaxTokens = Math.min(1000, Math.max(400, 200 + tabs.length * 8));
+                    // Llama 3B can handle more tokens - min 600, max 1500
+                    const dynamicMaxTokens = Math.min(1500, Math.max(600, 300 + tabs.length * 10));
 
                     const response = await webllmEngine!.chat.completions.create({
                         messages: [
-                            { role: 'system', content: 'You are a JSON generator. Output ONLY valid JSON arrays. Never output explanations or text.' },
+                            { role: 'system', content: 'You are a JSON generator. Output ONLY valid JSON arrays. Never output text or explanations. Just JSON.' },
                             { role: 'user', content: prompt }
                         ],
                         max_tokens: dynamicMaxTokens,
-                        temperature: 0.1,
+                        temperature: 0.3,
+                        frequency_penalty: 1.2,
+                        presence_penalty: 0.8,
                     });
 
                     const aiText = response.choices[0]?.message?.content?.trim() || '';

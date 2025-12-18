@@ -3,20 +3,20 @@ import { createRoot } from 'react-dom/client';
 import { colors, spacing, typography, borderRadius, shadows, transitions, scanlineOverlay } from '../shared/theme';
 import * as webllm from '@mlc-ai/web-llm';
 
-// WebLLM Model ID (default)
-const WEBLLM_MODEL_ID = 'SmolLM2-360M-Instruct-q4f16_1-MLC';
+// WebLLM Model ID (default) - Using Llama 3.2 3B for best quality
+const WEBLLM_MODEL_ID = 'Llama-3.2-3B-Instruct-q4f16_1-MLC';
 
 // Available Local AI Models - organized by capability
 const LOCAL_AI_MODELS = [
-    // Fast & Light (recommended for most users)
-    { id: 'SmolLM2-360M-Instruct-q4f16_1-MLC', name: 'SmolLM2 360M', size: '200MB', vram: '0.5GB', speed: 'Fast', quality: 'Good', category: 'light', recommended: true },
-    { id: 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC', name: 'Qwen2.5 0.5B', size: '350MB', vram: '0.7GB', speed: 'Fast', quality: 'Good', category: 'light', recommended: false },
-    // Balanced (good quality, reasonable speed)
-    { id: 'Llama-3.2-1B-Instruct-q4f16_1-MLC', name: 'Llama 3.2 1B', size: '700MB', vram: '1.2GB', speed: 'Medium', quality: 'Better', category: 'balanced', recommended: false },
-    { id: 'SmolLM2-1.7B-Instruct-q4f16_1-MLC', name: 'SmolLM2 1.7B', size: '1GB', vram: '1.5GB', speed: 'Medium', quality: 'Better', category: 'balanced', recommended: false },
-    // High Quality (slower but more capable)
-    { id: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC', name: 'Qwen2.5 1.5B', size: '1GB', vram: '1.8GB', speed: 'Slower', quality: 'Best', category: 'quality', recommended: false },
-    { id: 'Llama-3.2-3B-Instruct-q4f16_1-MLC', name: 'Llama 3.2 3B', size: '2GB', vram: '3GB', speed: 'Slow', quality: 'Best', category: 'quality', recommended: false },
+    // Fast & Light (for low-end devices)
+    { id: 'SmolLM2-360M-Instruct-q4f16_1-MLC', name: 'SmolLM2 360M', size: '200MB', vram: '0.5GB', speed: 'Fast', quality: 'Basic', category: 'light', recommended: false },
+    { id: 'Qwen2.5-0.5B-Instruct-q4f16_1-MLC', name: 'Qwen2.5 0.5B', size: '350MB', vram: '0.7GB', speed: 'Fast', quality: 'Basic', category: 'light', recommended: false },
+    // Balanced
+    { id: 'Llama-3.2-1B-Instruct-q4f16_1-MLC', name: 'Llama 3.2 1B', size: '700MB', vram: '1.2GB', speed: 'Medium', quality: 'Good', category: 'balanced', recommended: false },
+    { id: 'SmolLM2-1.7B-Instruct-q4f16_1-MLC', name: 'SmolLM2 1.7B', size: '1GB', vram: '1.5GB', speed: 'Medium', quality: 'Good', category: 'balanced', recommended: false },
+    // High Quality (recommended)
+    { id: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC', name: 'Qwen2.5 1.5B', size: '1GB', vram: '1.8GB', speed: 'Slower', quality: 'Better', category: 'quality', recommended: false },
+    { id: 'Llama-3.2-3B-Instruct-q4f16_1-MLC', name: 'Llama 3.2 3B', size: '2GB', vram: '3GB', speed: 'Slower', quality: 'Best', category: 'quality', recommended: true },
 ];
 
 // Global engine reference (persists across re-renders)
@@ -878,9 +878,9 @@ const OptionsPage: React.FC = () => {
                                     color: colors.textMuted,
                                     lineHeight: 1.5,
                                 }}>
-                                    <strong style={{ color: colors.phosphorGreen }}>SmolLM2 360M</strong> is the default model (200MB, fast).
-                                    Advanced users can select larger models for better quality.
-                                    Models are downloaded once and cached locally.
+                                    <strong style={{ color: colors.phosphorGreen }}>Llama 3.2 3B</strong> is the default model (2GB download, best quality).
+                                    Requires 3GB VRAM. Select a smaller model if you have limited GPU memory.
+                                    Models download once and are cached locally.
                                 </div>
 
                                 {/* Model Selector */}
@@ -973,43 +973,48 @@ const OptionsPage: React.FC = () => {
                             </div>
                         )}
 
-                        {/* API Input - Secure Code-Block Style */}
-                        <div style={s.inputSection}>
-                            <label style={s.inputLabel}>API_KEY</label>
-                            <div style={s.secureInput} className="secure-input">
-                                <span style={s.inputPrefix}>$</span>
-                                <input
-                                    type="password"
-                                    value={apiKey}
-                                    onChange={(e) => setApiKey(e.target.value)}
-                                    placeholder="sk-..."
-                                    style={s.input}
-                                />
-                                <div style={s.inputIndicator}>
-                                    <div style={getIndicatorStyle()} />
+                        {/* Cloud Provider Settings - Hidden when Local AI is active */}
+                        {webllmState.status !== 'ready' && webllmState.status !== 'downloading' && webllmState.status !== 'loading' && (
+                            <>
+                                {/* API Input - Secure Code-Block Style */}
+                                <div style={s.inputSection}>
+                                    <label style={s.inputLabel}>API_KEY</label>
+                                    <div style={s.secureInput} className="secure-input">
+                                        <span style={s.inputPrefix}>$</span>
+                                        <input
+                                            type="password"
+                                            value={apiKey}
+                                            onChange={(e) => setApiKey(e.target.value)}
+                                            placeholder="sk-..."
+                                            style={s.input}
+                                        />
+                                        <div style={s.inputIndicator}>
+                                            <div style={getIndicatorStyle()} />
+                                        </div>
+                                    </div>
+                                    <div style={s.inputMeta}>
+                                        <span style={s.inputStatus}>
+                                            {apiKey ? <MaskedApiKey apiKey={apiKey} /> : 'AWAITING_INPUT'}
+                                        </span>
+                                        <a href={PROVIDERS[cloudProvider].url} target="_blank" rel="noopener noreferrer" style={s.link}>
+                                            GET KEY &#8599;
+                                        </a>
+                                    </div>
                                 </div>
-                            </div>
-                            <div style={s.inputMeta}>
-                                <span style={s.inputStatus}>
-                                    {apiKey ? <MaskedApiKey apiKey={apiKey} /> : 'AWAITING_INPUT'}
-                                </span>
-                                <a href={PROVIDERS[cloudProvider].url} target="_blank" rel="noopener noreferrer" style={s.link}>
-                                    GET KEY &#8599;
-                                </a>
-                            </div>
-                        </div>
 
-                        {/* Model Select */}
-                        <div style={s.inputSection}>
-                            <label style={s.inputLabel}>MODEL</label>
-                            <select
-                                value={model || PROVIDERS[cloudProvider].default}
-                                onChange={(e) => setModel(e.target.value)}
-                                style={s.select}
-                            >
-                                {PROVIDERS[cloudProvider].models.map(m => <option key={m} value={m}>{m}</option>)}
-                            </select>
-                        </div>
+                                {/* Model Select */}
+                                <div style={s.inputSection}>
+                                    <label style={s.inputLabel}>MODEL</label>
+                                    <select
+                                        value={model || PROVIDERS[cloudProvider].default}
+                                        onChange={(e) => setModel(e.target.value)}
+                                        style={s.select}
+                                    >
+                                        {PROVIDERS[cloudProvider].models.map(m => <option key={m} value={m}>{m}</option>)}
+                                    </select>
+                                </div>
+                            </>
+                        )}
                     </div>
                 )}
 
