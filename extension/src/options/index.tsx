@@ -479,14 +479,30 @@ const OptionsPage: React.FC = () => {
         setWebllmLoading(false);
     };
 
-    // Handle model selection change
+    // Handle model selection change - auto-download new model
     const handleLocalModelChange = async (modelId: string) => {
         setSelectedLocalModel(modelId);
         await chrome.storage.local.set({ webllmModel: modelId });
 
-        // If model is different from current loaded model, need to reload
+        // If a model is already loaded and user selects different one, auto-reload
         if (webllmState.status === 'ready' && webllmState.modelId !== modelId) {
-            setToast({ message: 'Click Local AI to load new model', undo: () => {} });
+            // Unload current model
+            if (webllmEngine) {
+                try {
+                    await webllmEngine.unload();
+                    webllmEngine = null;
+                } catch (e) {
+                    console.log('[WebLLM] Unload error:', e);
+                }
+            }
+            // Auto-download new model
+            setWebllmState({
+                status: 'not_initialized',
+                progress: 0,
+                message: 'Switching model...',
+                modelId: modelId,
+            });
+            setTimeout(() => enableWebLLM(), 100);
         }
     };
 
