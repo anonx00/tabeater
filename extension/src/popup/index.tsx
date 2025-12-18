@@ -263,42 +263,42 @@ const Popup = () => {
 
                 showStatus('Analyzing tabs...');
 
-                // Create a map of tab IDs for the AI to use
-                const tabIds = tabs.map(t => t.id);
-
-                // Compact format to save input tokens: just ID and domain
-                const tabsForAI = tabs.map(t => {
+                // Use SAME format as Gemini cloud AI (which works perfectly)
+                // Key: use simple indices (0,1,2...) not actual tab IDs
+                const tabList = tabs.map((t, idx) => {
                     try {
-                        const host = new URL(t.url).hostname.replace('www.', '').split('.')[0];
-                        return `${t.id}:${host}`;
+                        return `${idx}: ${t.title.substring(0, 40)} (${new URL(t.url).hostname})`;
                     } catch {
-                        return `${t.id}:other`;
+                        return `${idx}: ${t.title.substring(0, 40)}`;
                     }
-                }).join(',');
+                }).join('\n');
 
-                // Minimal prompt - must explicitly say ALL tabs
-                const prompt = `Group ALL these ${tabs.length} tabs by category. Every tab ID must appear in exactly one group.
+                // Calculate target groups based on tab count (same as Gemini)
+                const minGroups = Math.max(2, Math.ceil(tabs.length / 8));
+                const maxGroups = Math.min(10, Math.ceil(tabs.length / 3));
 
-Tabs: ${tabsForAI}
+                // EXACT same prompt format as Gemini cloud AI
+                const prompt = `Group these tabs by activity. Return ONLY JSON array.
 
-Return JSON array only: [{"name":"Category","tabIds":[id1,id2,...]},...]`;
+${tabList}
+
+Create ${minGroups}-${maxGroups} groups. Keep names SHORT (1 word only, max 6 letters).
+Format: [{"name":"Name","ids":[0,1,2]}]`;
 
                 try {
-                    // Need enough tokens to output all tab IDs
-                    // Each group entry ~30 tokens, each tab ID ~3 tokens
-                    // For 30 tabs: need ~30*3 + 5*30 = 240 tokens minimum
-                    const dynamicMaxTokens = Math.min(2000, Math.max(800, tabs.length * 15));
+                    // Generous token limit for output
+                    const dynamicMaxTokens = Math.min(2000, Math.max(1000, tabs.length * 20));
 
                     const response = await webllmEngine!.chat.completions.create({
                         messages: [
                             {
                                 role: 'system',
-                                content: 'You group browser tabs. Include EVERY tab ID in your response. Output only JSON: [{"name":"Name","tabIds":[...]}]'
+                                content: 'You organize browser tabs into groups. Output ONLY valid JSON array. No explanations.'
                             },
                             { role: 'user', content: prompt }
                         ],
                         max_tokens: dynamicMaxTokens,
-                        temperature: 0.2,
+                        temperature: 0.1,
                     });
 
                     const aiText = response.choices[0]?.message?.content?.trim() || '';
@@ -320,10 +320,10 @@ Return JSON array only: [{"name":"Category","tabIds":[id1,id2,...]},...]`;
 
                     // Method 2: Find JSON array pattern in response
                     if (!groups) {
-                        // More flexible regex to find JSON array
+                        // More flexible regex to find JSON array with "ids"
                         const patterns = [
-                            /\[[\s\S]*\{[\s\S]*"name"[\s\S]*"tabIds"[\s\S]*\][\s\S]*\]/,
-                            /\[\s*\{[^}]*"name"[^}]*"tabIds"[^}]*\}[\s\S]*\]/,
+                            /\[[\s\S]*\{[\s\S]*"name"[\s\S]*"ids"[\s\S]*\][\s\S]*\]/,
+                            /\[\s*\{[^}]*"name"[^}]*"ids"[^}]*\}[\s\S]*\]/,
                         ];
                         for (const pattern of patterns) {
                             const match = aiText.match(pattern);
@@ -347,7 +347,7 @@ Return JSON array only: [{"name":"Category","tabIds":[id1,id2,...]},...]`;
                     }
 
                     // Method 3: Try to fix common JSON issues
-                    if (!groups && aiText.includes('"name"') && aiText.includes('"tabIds"')) {
+                    if (!groups && aiText.includes('"name"') && aiText.includes('"ids"')) {
                         try {
                             // Extract just the JSON-looking part
                             const start = aiText.indexOf('[');
@@ -364,38 +364,38 @@ Return JSON array only: [{"name":"Category","tabIds":[id1,id2,...]},...]`;
                         }
                     }
 
-                    // Validate and filter groups
+                    // Validate and map indices to real tab IDs (same as Gemini)
                     if (groups && Array.isArray(groups) && groups.length > 0) {
-                        // Get valid tab IDs from actual tabs
-                        const validTabIds = new Set(tabIds);
-                        const groupedTabIds = new Set<number>();
+                        const usedIndices = new Set<number>();
 
+                        // Map indices to real tab IDs
                         const validGroups = groups
                             .filter(g =>
                                 g &&
                                 typeof g.name === 'string' &&
                                 g.name.length > 0 &&
-                                Array.isArray(g.tabIds) &&
-                                g.tabIds.length > 0
+                                Array.isArray(g.ids) &&
+                                g.ids.length > 0
                             )
-                            .map(g => ({
-                                name: g.name.substring(0, 20), // Limit name length
-                                tabIds: g.tabIds.filter((id: any) => {
-                                    if (typeof id === 'number' && validTabIds.has(id) && !groupedTabIds.has(id)) {
-                                        groupedTabIds.add(id);
-                                        return true;
-                                    }
-                                    return false;
-                                })
-                            }))
-                            .filter(g => g.tabIds.length > 0); // Only groups with valid tabs
+                            .map(g => {
+                                // Convert indices to real tab IDs
+                                const realTabIds = g.ids
+                                    .map((idx: any) => {
+                                        const index = typeof idx === 'string' ? parseInt(idx, 10) : idx;
+                                        if (typeof index === 'number' && index >= 0 && index < tabs.length && !usedIndices.has(index)) {
+                                            usedIndices.add(index);
+                                            return tabs[index].id;
+                                        }
+                                        return null;
+                                    })
+                                    .filter((id: number | null): id is number => id !== null);
 
-                        // Add any ungrouped tabs to "Other" group
-                        const ungroupedTabs = tabIds.filter(id => !groupedTabIds.has(id));
-                        if (ungroupedTabs.length > 0 && validGroups.length > 0) {
-                            validGroups.push({ name: 'Other', tabIds: ungroupedTabs });
-                            console.log('[Local AI] Added', ungroupedTabs.length, 'ungrouped tabs to Other');
-                        }
+                                return {
+                                    name: g.name.substring(0, 12), // Keep names short
+                                    tabIds: realTabIds
+                                };
+                            })
+                            .filter(g => g.tabIds.length > 0);
 
                         if (validGroups.length > 0) {
                             console.log('[Local AI] Valid groups:', validGroups);
