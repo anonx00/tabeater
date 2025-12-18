@@ -276,21 +276,13 @@ const Popup = () => {
                 const minGroups = Math.max(2, Math.ceil(tabs.length / 8));
                 const maxGroups = Math.min(8, Math.ceil(tabs.length / 3));
 
-                // Clear, explicit prompt that prevents nested arrays
-                const prompt = `Group these ${tabs.length} browser tabs into ${minGroups}-${maxGroups} groups.
+                // Simple prompt like Gemini (proven to work)
+                const prompt = `Group these tabs by activity. Return ONLY JSON array.
 
-TABS:
 ${tabList}
 
-RULES:
-- Group similar sites together (streaming, dev tools, social media, shopping, etc.)
-- IMPORTANT: Use ONLY these short names (max 5 chars): Work, Code, Dev, Video, Music, Mail, Chat, Shop, News, Docs, Social, AI, Web, Apps, Media, Misc
-- Each group must have at least 2 tabs
-- Output ONLY JSON array, nothing else
-
-FORMAT: [{"name":"Video","ids":[0,2,5]},{"name":"Code","ids":[1,3,4]}]
-
-JSON:`;
+Create ${minGroups}-${maxGroups} groups. Names must be 1 word, max 5 letters.
+Format: [{"name":"Dev","ids":[0,1,2]}]`;
 
                 try {
                     // Large token limit to prevent truncation
@@ -377,26 +369,8 @@ JSON:`;
                                     })
                                     .filter((id: number | null): id is number => id !== null);
 
-                                // Normalize long names to short versions
-                                let name = g.name.trim();
-                                const nameMap: Record<string, string> = {
-                                    'netflix': 'Video', 'youtube': 'Video', 'streaming': 'Video', 'movies': 'Video',
-                                    'settings': 'Apps', 'config': 'Apps', 'options': 'Apps',
-                                    'github': 'Code', 'coding': 'Code', 'development': 'Dev', 'programming': 'Code',
-                                    'google': 'Web', 'search': 'Web', 'browse': 'Web', 'browser': 'Web',
-                                    'email': 'Mail', 'gmail': 'Mail', 'outlook': 'Mail',
-                                    'shopping': 'Shop', 'amazon': 'Shop', 'store': 'Shop',
-                                    'social': 'Social', 'twitter': 'Social', 'facebook': 'Social',
-                                };
-                                const lowerName = name.toLowerCase();
-                                if (nameMap[lowerName]) {
-                                    name = nameMap[lowerName];
-                                } else if (name.length > 5) {
-                                    name = name.substring(0, 5);
-                                }
-
                                 return {
-                                    name: name,
+                                    name: g.name.substring(0, 5),  // Max 5 chars
                                     tabIds: realTabIds
                                 };
                             })
