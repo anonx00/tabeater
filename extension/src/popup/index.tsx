@@ -276,13 +276,21 @@ const Popup = () => {
                 const minGroups = Math.max(2, Math.ceil(tabs.length / 8));
                 const maxGroups = Math.min(8, Math.ceil(tabs.length / 3));
 
-                // Simple prompt like Gemini (proven to work)
-                const prompt = `Group these tabs by activity. Return ONLY JSON array.
+                // Direct prompt - Llama works better without system message
+                const prompt = `Categorize these browser tabs into ${minGroups}-${maxGroups} groups.
 
 ${tabList}
 
-Create ${minGroups}-${maxGroups} groups. Names must be 1 word, max 5 letters.
-Format: [{"name":"Dev","ids":[0,1,2]}]`;
+Reply with ONLY a JSON array like this (no other text):
+[{"name":"Work","ids":[0,1,2]},{"name":"Fun","ids":[3,4,5]}]
+
+Rules:
+- Group names: 1 word, max 5 letters (e.g. Work, Code, Video, Mail, News, Shop, Chat)
+- Minimum 2 tabs per group
+- Each tab id used only once
+- FLAT array, not nested
+
+JSON:`;
 
                 try {
                     // Large token limit to prevent truncation
@@ -290,17 +298,17 @@ Format: [{"name":"Dev","ids":[0,1,2]}]`;
 
                     const response = await webllmEngine!.chat.completions.create({
                         messages: [
-                            {
-                                role: 'system',
-                                content: 'You output ONLY valid JSON arrays. No markdown, no explanation, no code blocks. Just raw JSON starting with [ and ending with ].'
-                            },
                             { role: 'user', content: prompt }
                         ],
                         max_tokens: dynamicMaxTokens,
-                        temperature: 0.1,  // Low temperature for consistent output
+                        temperature: 0.0,  // Zero temperature for deterministic output
                     });
 
-                    const aiText = response.choices[0]?.message?.content?.trim() || '';
+                    let aiText = response.choices[0]?.message?.content?.trim() || '';
+
+                    // Strip markdown code blocks if present
+                    aiText = aiText.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+
                     console.log('[Local AI] Raw response:', aiText);
 
                     // Extract JSON from response using multiple methods
