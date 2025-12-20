@@ -193,7 +193,7 @@ async function autoPreload() {
     }
 }
 
-// Process tab grouping request
+// Process tab grouping request using Local AI
 async function groupTabs(tabs: { id: number; title: string; url: string }[]): Promise<{
     success: boolean;
     groups?: { name: string; tabIds: number[] }[];
@@ -207,64 +207,60 @@ async function groupTabs(tabs: { id: number; title: string; url: string }[]): Pr
         }
     }
 
+    console.log(`[Offscreen] AI Grouping ${tabs.length} tabs`);
+
     try {
-        // Build compact tab list - shorter format for more tabs
+        // Build tab list with FULL hostname for better AI understanding
         const tabList = tabs.map((t, idx) => {
             try {
-                const hostname = new URL(t.url).hostname.replace('www.', '').split('.')[0];
-                const shortTitle = t.title.substring(0, 40);
-                return `${idx}:${hostname}|${shortTitle}`;
+                const hostname = new URL(t.url).hostname.replace('www.', '');
+                return `${idx}. [${hostname}] ${t.title.substring(0, 50)}`;
             } catch {
-                return `${idx}:${t.title.substring(0, 40)}`;
+                return `${idx}. ${t.title.substring(0, 50)}`;
             }
         }).join('\n');
 
-        console.log(`[Offscreen] Grouping ${tabs.length} tabs`);
+        console.log('[Offscreen] Tab list for AI:\n' + tabList);
 
-        // Improved prompt with clear domain-to-category mappings
-        const prompt = `Categorize ${tabs.length} browser tabs by their website type.
+        // Clearer, more structured prompt for local LLM
+        const prompt = `You are a tab organizer. Look at each tab's domain and categorize it.
 
 TABS:
 ${tabList}
 
-CATEGORY RULES (use domain to decide):
-- Video: netflix, youtube, twitch, hulu, disney, prime video, vimeo, hbomax
-- Code: github, gitlab, stackoverflow, codepen, replit, vscode, npm, docs
-- Mail: gmail, outlook, yahoo mail, proton
-- Social: twitter, x.com, reddit, facebook, instagram, linkedin, discord, tiktok
-- Shop: amazon, ebay, etsy, walmart, target, aliexpress, shopify stores
-- News: cnn, bbc, nytimes, news sites, medium, substack
-- Work: notion, slack, trello, asana, jira, confluence, google docs/sheets
-- Music: spotify, soundcloud, apple music, pandora, deezer
-- AI: openai, anthropic, claude, chatgpt, gemini, perplexity, huggingface
-- Game: steam, epic games, twitch gaming, itch.io
-- Read: wikipedia, articles, blogs, documentation
-- Other: anything that doesn't fit above
+MATCH DOMAINS TO CATEGORIES:
+- mail.google.com, outlook.com → Mail
+- claude.ai, chat.openai.com, gemini.google.com → AI
+- youtube.com, netflix.com, primevideo.com, stan.com.au → Video
+- github.com, stackoverflow.com → Code
+- twitter.com, x.com, reddit.com → Social
+- amazon.com, ebay.com → Shop
+- docs.google.com, notion.so → Work
 
-Output JSON: [{"name":"Video","ids":[0,3]},{"name":"Code","ids":[1,2,4]}]
-Include ALL indices 0-${tabs.length - 1}. Min 2 tabs per group.
+Respond with ONLY a JSON array. Each object needs "name" (category) and "ids" (tab numbers).
+Example: [{"name":"Mail","ids":[0,5]},{"name":"AI","ids":[1,2,3]},{"name":"Video","ids":[4,6]}]
+
+Group ALL tabs. Each group needs at least 2 tabs. Use short category names (max 8 chars).
 
 JSON:`;
 
-        // Increase max_tokens significantly for many tabs
-        const maxTokens = Math.max(2000, tabs.length * 100);
+        // More tokens for many tabs
+        const maxTokens = Math.max(1500, tabs.length * 50);
 
+        console.log('[Offscreen] Sending to AI...');
         const response = await webllmEngine!.chat.completions.create({
             messages: [{ role: 'user', content: prompt }],
             max_tokens: maxTokens,
-            temperature: 0.0,
+            temperature: 0.1,  // Low temperature for consistent output
         });
 
-        console.log(`[Offscreen] Used ~${prompt.length} chars in prompt, max_tokens: ${maxTokens}`);
-
         let aiText = response.choices[0]?.message?.content?.trim() || '';
+        console.log('[Offscreen] AI raw response:', aiText);
 
         // Strip markdown code blocks
         aiText = aiText.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
 
-        console.log('[Offscreen] AI response:', aiText);
-
-        // Extract JSON
+        // Extract JSON array
         let groups = null;
         const jsonStart = aiText.indexOf('[');
         const jsonEnd = aiText.lastIndexOf(']');
@@ -272,37 +268,28 @@ JSON:`;
         if (jsonStart >= 0 && jsonEnd > jsonStart) {
             try {
                 let jsonStr = aiText.substring(jsonStart, jsonEnd + 1);
+                // Fix common JSON issues
                 jsonStr = jsonStr.replace(/,\s*}/g, '}').replace(/,\s*\]/g, ']');
+                jsonStr = jsonStr.replace(/'/g, '"'); // Single to double quotes
                 groups = JSON.parse(jsonStr);
+                console.log('[Offscreen] Parsed groups:', JSON.stringify(groups));
             } catch (e) {
                 console.log('[Offscreen] JSON parse failed:', e);
             }
         }
 
-        if (!groups) {
-            try {
-                groups = JSON.parse(aiText);
-            } catch (e) {
-                console.log('[Offscreen] Direct parse failed');
-            }
-        }
-
         if (!groups || !Array.isArray(groups)) {
-            return { success: false, error: 'AI did not return valid groups' };
+            console.log('[Offscreen] No valid JSON array found');
+            return { success: false, error: 'AI did not return valid JSON groups' };
         }
 
-        // Flatten nested arrays
-        if (Array.isArray(groups[0]) && groups[0].length > 0) {
-            groups = groups.flat().filter((g: any) => g && typeof g === 'object');
-        }
-
-        // Helper to get ids from various formats
+        // Helper to get ids from various formats AI might use
         const getGroupIds = (g: any): number[] => {
             const arr = g.ids || g.tabIds || g.tabs || g.indices || [];
             return Array.isArray(arr) ? arr : [];
         };
 
-        // Map indices to real tab IDs
+        // Map indices to real tab IDs, ensuring no duplicates
         const usedIndices = new Set<number>();
         const validGroups = groups
             .filter((g: any) => g && typeof g.name === 'string' && g.name.length > 0 && getGroupIds(g).length >= 2)
@@ -320,20 +307,22 @@ JSON:`;
                     .filter((id: number | null): id is number => id !== null);
 
                 return {
-                    name: g.name.substring(0, 8),
+                    name: g.name.substring(0, 8),  // Max 8 chars for group name
                     tabIds: realTabIds
                 };
             })
             .filter(g => g.tabIds.length >= 2);
 
+        console.log('[Offscreen] Valid groups:', validGroups.map(g => `${g.name}(${g.tabIds.length})`).join(', '));
+
         if (validGroups.length === 0) {
-            return { success: false, error: 'No valid groups created' };
+            return { success: false, error: 'AI did not create any valid groups (need 2+ tabs each)' };
         }
 
         return { success: true, groups: validGroups };
 
     } catch (err: any) {
-        console.error('[Offscreen] Grouping error:', err);
+        console.error('[Offscreen] AI Grouping error:', err);
         return { success: false, error: err.message || 'AI processing failed' };
     }
 }
