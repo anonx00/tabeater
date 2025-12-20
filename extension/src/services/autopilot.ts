@@ -741,29 +741,56 @@ What category is this? Reply with ONE word only (e.g. Video, Code, Mail, Social,
             return null; // Skip grouping when AI not ready
         }
 
+        const hostname = this.getHostname(tab.url);
+
         try {
-            // Get group names
-            const groupNames = groups.map(g => g.title || 'Unnamed').join(', ');
-            const hostname = this.getHostname(tab.url);
+            // Build detailed group context so AI understands what each group is for
+            const groupList = groups.map(g => g.title || 'Unnamed').join(', ');
 
-            // Ask AI which group fits best
+            // Smart AI prompt that understands tab context
             const response = await aiPrompt(
-                `Tab: "${tab.title}" [${hostname}]
+                `I have a new browser tab and existing tab groups. Should this tab join one of these groups?
 
-Groups: ${groupNames}
+NEW TAB:
+- Title: "${tab.title}"
+- Website: ${hostname}
 
-Which group does this tab belong to based on its content/purpose? Reply with ONLY the exact group name, or "none" if it doesn't fit any group.`
+EXISTING GROUPS: ${groupList}
+
+RULES:
+1. Only match if the tab's PURPOSE matches the group's PURPOSE
+2. "Watch"/"Video" = streaming/video sites (YouTube, Netflix, Hulu, Disney+, HBO)
+3. "Code"/"Dev"/"Github" = programming sites (GitHub, GitLab, StackOverflow, docs)
+4. "Mail"/"Email" = email (Gmail, Outlook, Yahoo Mail)
+5. "Social" = social media (Twitter/X, Reddit, Facebook, Instagram)
+6. "AI" = AI tools (ChatGPT, Claude, Gemini, Perplexity)
+7. "Shop" = shopping (Amazon, eBay, stores)
+8. Random websites should NOT be forced into groups
+
+If this tab clearly belongs to a group, respond with ONLY the exact group name.
+If it doesn't fit any group well, respond with: none
+
+Answer:`
             );
 
-            const suggestedGroup = response.trim().toLowerCase();
-            if (suggestedGroup === 'none') return null;
+            const answer = response.trim().split('\n')[0].toLowerCase().replace(/[^a-z0-9\s-]/g, '').trim();
+            console.log(`[AutoPilot] AI decision for ${hostname}: "${answer}"`);
 
-            // Find matching group (case-insensitive)
-            return groups.find(g =>
-                g.title?.toLowerCase() === suggestedGroup ||
-                g.title?.toLowerCase().includes(suggestedGroup) ||
-                suggestedGroup.includes(g.title?.toLowerCase() || '')
-            ) || null;
+            if (!answer || answer === 'none' || answer.includes('none') || answer.includes('not') || answer.includes("doesn't")) {
+                return null;
+            }
+
+            // Find matching group
+            const match = groups.find(g => {
+                const title = (g.title || '').toLowerCase();
+                return title === answer || answer.includes(title) || title.includes(answer);
+            });
+
+            if (match) {
+                console.log(`[AutoPilot] AI matched ${hostname} -> ${match.title}`);
+            }
+
+            return match || null;
         } catch (err) {
             console.warn('[AutoPilot] AI grouping failed:', err);
             return null;
