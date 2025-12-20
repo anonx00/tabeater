@@ -208,50 +208,41 @@ async function groupTabs(tabs: { id: number; title: string; url: string }[]): Pr
     }
 
     try {
-        // Build tab list
+        // Build compact tab list - shorter format for more tabs
         const tabList = tabs.map((t, idx) => {
             try {
-                const hostname = new URL(t.url).hostname.replace('www.', '');
-                return `${idx}. "${t.title}" [${hostname}]`;
+                const hostname = new URL(t.url).hostname.replace('www.', '').split('.')[0];
+                const shortTitle = t.title.substring(0, 40);
+                return `${idx}:${hostname}|${shortTitle}`;
             } catch {
-                return `${idx}. "${t.title}"`;
+                return `${idx}:${t.title.substring(0, 40)}`;
             }
         }).join('\n');
 
-        const minGroups = Math.max(2, Math.ceil(tabs.length / 8));
-        const maxGroups = Math.min(8, Math.ceil(tabs.length / 3));
+        console.log(`[Offscreen] Grouping ${tabs.length} tabs`);
 
-        const prompt = `You are organizing browser tabs into groups. Look at each tab's title and domain to understand what it's for.
+        // More concise prompt optimized for local LLMs
+        const prompt = `Group these ${tabs.length} browser tabs by purpose.
 
-TABS:
+TABS (format: index:domain|title):
 ${tabList}
 
-TASK: Group these tabs by their PURPOSE (what they're used for).
-
-Examples of good groupings:
-- Video streaming sites (netflix, youtube, hulu) → "Video"
-- Code/dev sites (github, stackoverflow, docs) → "Code"
-- Email/messaging (gmail, outlook, slack) → "Mail"
-- Social media (twitter/x, reddit, facebook) → "Social"
-- Shopping sites (amazon, ebay, store pages) → "Shop"
-- News/articles (news sites, blogs, articles) → "News"
-
-Output ONLY valid JSON (no other text):
-[{"name":"Video","ids":[0,2,5]},{"name":"Code","ids":[1,3,4]}]
-
-Rules:
-- name: Short word describing the group's purpose (max 5 letters)
-- ids: Array of tab numbers that belong together (minimum 2 tabs per group)
-- Every tab number must appear exactly once
-- Output must be a flat JSON array
+Output JSON array of groups. Each group: {"name":"GroupName","ids":[indices]}
+Group names: Video, Code, Mail, Social, Shop, News, Work, Read, Music, Game, AI, Other
+Every tab index (0-${tabs.length - 1}) must be in exactly one group.
 
 JSON:`;
 
+        // Increase max_tokens significantly for many tabs
+        const maxTokens = Math.max(2000, tabs.length * 100);
+
         const response = await webllmEngine!.chat.completions.create({
             messages: [{ role: 'user', content: prompt }],
-            max_tokens: Math.min(4000, Math.max(1500, tabs.length * 50)),
+            max_tokens: maxTokens,
             temperature: 0.0,
         });
+
+        console.log(`[Offscreen] Used ~${prompt.length} chars in prompt, max_tokens: ${maxTokens}`);
 
         let aiText = response.choices[0]?.message?.content?.trim() || '';
 
