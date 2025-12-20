@@ -381,6 +381,10 @@ async function handleMessage(message: Message): Promise<MessageResponse> {
                 const windowTabs = await tabService.getWindowTabs();
                 console.log(`[groupTabsWithAI] Got ${windowTabs.length} window tabs`);
 
+                // Get the window ID from the first tab
+                const targetWindowId = windowTabs.length > 0 ? windowTabs[0].windowId : undefined;
+                console.log(`[groupTabsWithAI] Target window: ${targetWindowId}`);
+
                 // Filter out tabs that are already in groups (groupId !== -1 means grouped)
                 const ungroupedTabs = windowTabs.filter(t => t.groupId === -1 || t.groupId === undefined);
                 console.log(`[groupTabsWithAI] ${ungroupedTabs.length} ungrouped tabs`);
@@ -422,8 +426,12 @@ async function handleMessage(message: Message): Promise<MessageResponse> {
                 for (const group of result.groups) {
                     if (group.tabIds && group.tabIds.length >= 2) {
                         try {
-                            console.log(`[groupTabsWithAI] Creating group "${group.name}" with ${group.tabIds.length} tabs`);
-                            const groupId = await chrome.tabs.group({ tabIds: group.tabIds });
+                            console.log(`[groupTabsWithAI] Creating group "${group.name}" with ${group.tabIds.length} tabs in window ${targetWindowId}`);
+                            // Create group with explicit windowId
+                            const groupId = await chrome.tabs.group({
+                                tabIds: group.tabIds,
+                                createProperties: targetWindowId ? { windowId: targetWindowId } : undefined
+                            });
                             await chrome.tabGroups.update(groupId, {
                                 title: group.name,
                                 color: groupColors[created % groupColors.length]
