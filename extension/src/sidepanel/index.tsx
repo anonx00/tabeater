@@ -113,6 +113,8 @@ const Sidepanel = () => {
     const initializeAndLoad = async () => {
         await sendMessage('reinitializeAI');
         await loadData();
+        // Warmup AI in background for faster chat responses
+        sendMessage('warmupOffscreenAI').catch(() => {});
     };
 
     const loadData = async () => {
