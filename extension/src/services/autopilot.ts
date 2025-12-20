@@ -704,68 +704,61 @@ What is this tab for? One or two words only.`
         const groups = await chrome.tabGroups.query({ windowId: tab.windowId });
         if (groups.length === 0) return null;
 
-        const hostname = this.getHostname(tab.url);
-
-        // First, try domain-based matching (faster, no AI call needed)
-        // This prevents video sites going to "Watch" group when they should be in "Netflix" etc.
-        for (const group of groups) {
-            const groupTitle = (group.title || '').toLowerCase();
-            const hostLower = hostname.toLowerCase();
-
-            // Direct domain match (e.g., "github" group matches github.com)
-            if (groupTitle && hostLower.includes(groupTitle)) {
-                console.log(`[AutoPilot] Domain match: ${hostname} -> ${group.title}`);
-                return group;
-            }
-
-            // Reverse match (e.g., "netflix.com" matches "Netflix" group)
-            const domainBase = hostLower.replace(/\.(com|org|net|io|ai|co|tv|dev)$/, '').split('.').pop() || '';
-            if (groupTitle && domainBase === groupTitle) {
-                console.log(`[AutoPilot] Domain base match: ${domainBase} -> ${group.title}`);
-                return group;
-            }
-        }
-
         // Check if we can make an AI call (rate limiting)
         const canUseAI = await aiService.canMakeCall();
         if (!canUseAI.allowed) {
             console.log(`[AutoPilot] AI limit reached: ${canUseAI.reason}`);
-            return null; // Skip grouping when limit reached
+            return null;
         }
 
+        const hostname = this.getHostname(tab.url);
+
         try {
-            // Build group context with stricter matching instructions
-            const groupContext = groups.map(g => {
-                const title = g.title || 'Unnamed';
-                return title;
-            }).join(', ');
+            // Build detailed group context so AI understands what each group is for
+            const groupList = groups.map(g => g.title || 'Unnamed').join(', ');
 
-            // Stricter AI prompt - only match if CLEARLY related
+            // Smart AI prompt that understands tab context
             const response = await aiService.prompt(
-                `Tab: "${tab.title}" from ${hostname}
+                `I have a new browser tab and existing tab groups. Should this tab join one of these groups?
 
-Groups: ${groupContext}
+NEW TAB:
+- Title: "${tab.title}"
+- Website: ${hostname}
 
-Does this tab CLEARLY belong to one of these groups? Only say yes if the tab is directly related to what the group name suggests.
-- A "Watch" or "Video" group is for streaming sites like Netflix, YouTube, Hulu
-- A "Code" or "Dev" group is for GitHub, Stack Overflow, coding sites
-- A "Mail" group is for email sites like Gmail, Outlook
+EXISTING GROUPS: ${groupList}
 
-Reply with the EXACT group name if it fits, or "none" if unsure.`
+RULES:
+1. Only match if the tab's PURPOSE matches the group's PURPOSE
+2. "Watch"/"Video" = streaming/video sites (YouTube, Netflix, Hulu, Disney+, HBO)
+3. "Code"/"Dev"/"Github" = programming sites (GitHub, GitLab, StackOverflow, docs)
+4. "Mail"/"Email" = email (Gmail, Outlook, Yahoo Mail)
+5. "Social" = social media (Twitter/X, Reddit, Facebook, Instagram)
+6. "AI" = AI tools (ChatGPT, Claude, Gemini, Perplexity)
+7. "Shop" = shopping (Amazon, eBay, stores)
+8. Random websites should NOT be forced into groups
+
+If this tab clearly belongs to a group, respond with ONLY the exact group name.
+If it doesn't fit any group well, respond with: none
+
+Answer:`
             );
 
-            const suggestedGroup = response.trim().toLowerCase().replace(/[^a-z0-9\s]/g, '');
-            console.log(`[AutoPilot] AI suggested: "${suggestedGroup}" for ${hostname}`);
+            const answer = response.trim().split('\n')[0].toLowerCase().replace(/[^a-z0-9\s-]/g, '').trim();
+            console.log(`[AutoPilot] AI decision for ${hostname}: "${answer}"`);
 
-            if (suggestedGroup === 'none' || suggestedGroup.includes('none') || suggestedGroup.length === 0) {
+            if (!answer || answer === 'none' || answer.includes('none') || answer.includes('not') || answer.includes("doesn't")) {
                 return null;
             }
 
-            // Strict match - must be exact or very close
+            // Find matching group
             const match = groups.find(g => {
-                const groupTitle = (g.title || '').toLowerCase();
-                return groupTitle === suggestedGroup || suggestedGroup === groupTitle;
+                const title = (g.title || '').toLowerCase();
+                return title === answer || answer.includes(title) || title.includes(answer);
             });
+
+            if (match) {
+                console.log(`[AutoPilot] AI matched ${hostname} -> ${match.title}`);
+            }
 
             return match || null;
         } catch (err) {
