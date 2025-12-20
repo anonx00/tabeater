@@ -704,6 +704,28 @@ What is this tab for? One or two words only.`
         const groups = await chrome.tabGroups.query({ windowId: tab.windowId });
         if (groups.length === 0) return null;
 
+        const hostname = this.getHostname(tab.url);
+
+        // First, try domain-based matching (faster, no AI call needed)
+        // This prevents video sites going to "Watch" group when they should be in "Netflix" etc.
+        for (const group of groups) {
+            const groupTitle = (group.title || '').toLowerCase();
+            const hostLower = hostname.toLowerCase();
+
+            // Direct domain match (e.g., "github" group matches github.com)
+            if (groupTitle && hostLower.includes(groupTitle)) {
+                console.log(`[AutoPilot] Domain match: ${hostname} -> ${group.title}`);
+                return group;
+            }
+
+            // Reverse match (e.g., "netflix.com" matches "Netflix" group)
+            const domainBase = hostLower.replace(/\.(com|org|net|io|ai|co|tv|dev)$/, '').split('.').pop() || '';
+            if (groupTitle && domainBase === groupTitle) {
+                console.log(`[AutoPilot] Domain base match: ${domainBase} -> ${group.title}`);
+                return group;
+            }
+        }
+
         // Check if we can make an AI call (rate limiting)
         const canUseAI = await aiService.canMakeCall();
         if (!canUseAI.allowed) {
@@ -712,30 +734,40 @@ What is this tab for? One or two words only.`
         }
 
         try {
-            // Get group names
-            const groupNames = groups.map(g => g.title || 'Unnamed').join(', ');
-            const hostname = this.getHostname(tab.url);
+            // Build group context with stricter matching instructions
+            const groupContext = groups.map(g => {
+                const title = g.title || 'Unnamed';
+                return title;
+            }).join(', ');
 
-            // Ask AI which group fits best
+            // Stricter AI prompt - only match if CLEARLY related
             const response = await aiService.prompt(
-                `Which group should this tab belong to? Return ONLY the group name or "none".
+                `Tab: "${tab.title}" from ${hostname}
 
-Tab: "${tab.title}" (${hostname})
+Groups: ${groupContext}
 
-Available groups: ${groupNames}
+Does this tab CLEARLY belong to one of these groups? Only say yes if the tab is directly related to what the group name suggests.
+- A "Watch" or "Video" group is for streaming sites like Netflix, YouTube, Hulu
+- A "Code" or "Dev" group is for GitHub, Stack Overflow, coding sites
+- A "Mail" group is for email sites like Gmail, Outlook
 
-Based on what this tab is about and what the groups represent, which group fits best? Return the exact group name or "none" if it doesn't fit any.`
+Reply with the EXACT group name if it fits, or "none" if unsure.`
             );
 
-            const suggestedGroup = response.trim().toLowerCase();
-            if (suggestedGroup === 'none') return null;
+            const suggestedGroup = response.trim().toLowerCase().replace(/[^a-z0-9\s]/g, '');
+            console.log(`[AutoPilot] AI suggested: "${suggestedGroup}" for ${hostname}`);
 
-            // Find matching group (case-insensitive)
-            return groups.find(g =>
-                g.title?.toLowerCase() === suggestedGroup ||
-                g.title?.toLowerCase().includes(suggestedGroup) ||
-                suggestedGroup.includes(g.title?.toLowerCase() || '')
-            ) || null;
+            if (suggestedGroup === 'none' || suggestedGroup.includes('none') || suggestedGroup.length === 0) {
+                return null;
+            }
+
+            // Strict match - must be exact or very close
+            const match = groups.find(g => {
+                const groupTitle = (g.title || '').toLowerCase();
+                return groupTitle === suggestedGroup || suggestedGroup === groupTitle;
+            });
+
+            return match || null;
         } catch (err) {
             console.warn('[AutoPilot] AI grouping failed:', err);
             return null;
