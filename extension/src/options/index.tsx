@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
 import { colors, spacing, typography, borderRadius, shadows, transitions, scanlineOverlay } from '../shared/theme';
-import * as webllm from '@mlc-ai/web-llm';
 
 // WebLLM Model ID (default) - Using smaller model for better compatibility
 const WEBLLM_MODEL_ID = 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC';
@@ -11,22 +10,6 @@ const LOCAL_AI_MODELS = [
     { id: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC', name: 'Qwen 1.5B', size: '1GB', vram: '1.8GB', speed: 'Fast', quality: 'Good', recommended: true },
     { id: 'Llama-3.2-3B-Instruct-q4f16_1-MLC', name: 'Llama 3B', size: '2GB', vram: '3GB', speed: 'Medium', quality: 'Best', recommended: false },
 ];
-
-// Global engine reference (persists across re-renders)
-let webllmEngine: webllm.MLCEngineInterface | null = null;
-
-// Cleanup function to free GPU memory
-const cleanupWebLLM = async () => {
-    if (webllmEngine) {
-        try {
-            console.log('[WebLLM Options] Cleaning up engine...');
-            await webllmEngine.unload();
-        } catch (e) {
-            console.warn('[WebLLM Options] Cleanup error:', e);
-        }
-        webllmEngine = null;
-    }
-};
 
 // Types
 type AutoPilotMode = 'manual' | 'auto-cleanup' | 'fly-mode';
@@ -193,19 +176,6 @@ const OptionsPage: React.FC = () => {
         loadWebLLMState();
         // Load API usage after a short delay to ensure service worker is ready
         setTimeout(loadApiUsage, 100);
-
-        // Cleanup WebLLM when options page closes to free GPU memory
-        const handleUnload = () => {
-            cleanupWebLLM();
-        };
-        window.addEventListener('beforeunload', handleUnload);
-        window.addEventListener('unload', handleUnload);
-
-        return () => {
-            window.removeEventListener('beforeunload', handleUnload);
-            window.removeEventListener('unload', handleUnload);
-            cleanupWebLLM();
-        };
     }, []);
 
     // Poll WebLLM state during download/loading
@@ -270,7 +240,7 @@ const OptionsPage: React.FC = () => {
             }
 
             // Check if WebLLM was previously enabled and load selected model
-            const stored = await chrome.storage.local.get(['webllmReady', 'aiConfig', 'webllmModel']);
+            const stored = await chrome.storage.local.get(['webllmReady', 'aiConfig', 'webllmModel', 'offscreenAIStatus']);
 
             // Load selected model from storage
             if (stored.webllmModel) {
@@ -279,21 +249,28 @@ const OptionsPage: React.FC = () => {
 
             const currentModel = stored.webllmModel || WEBLLM_MODEL_ID;
 
-            if (stored.webllmReady && webllmEngine) {
-                // Engine already loaded in this session
+            // Check offscreen document status
+            if (stored.offscreenAIStatus?.status === 'ready') {
                 setWebllmState({
                     status: 'ready',
                     progress: 100,
                     message: 'Local AI ready',
-                    modelId: currentModel,
+                    modelId: stored.offscreenAIStatus.modelId || currentModel,
                 });
                 setActiveProvider('webllm');
-            } else if (capabilities?.webgpuSupported && !webllmEngine) {
-                // Show ready state - don't auto-download, let user click
+            } else if (stored.offscreenAIStatus?.status === 'downloading') {
+                setWebllmState({
+                    status: 'downloading',
+                    progress: stored.offscreenAIStatus.progress || 0,
+                    message: stored.offscreenAIStatus.message || 'Downloading...',
+                    modelId: currentModel,
+                });
+            } else if (capabilities?.webgpuSupported) {
+                // Show ready state - let user click to download
                 setWebllmState({
                     status: 'not_initialized',
                     progress: 0,
-                    message: 'Click to download AI model',
+                    message: 'Click Download to get started',
                     modelId: currentModel,
                 });
             }
@@ -358,7 +335,7 @@ const OptionsPage: React.FC = () => {
         setWebllmLoading(true);
 
         try {
-            // Save selected model to storage for popup/sidepanel to use
+            // Save selected model to storage
             await chrome.storage.local.set({ webllmModel: selectedLocalModel });
 
             setWebllmState({
@@ -368,62 +345,39 @@ const OptionsPage: React.FC = () => {
                 modelId: selectedLocalModel,
             });
 
-            // Initialize WebLLM directly in page context (WebGPU only works here)
-            webllmEngine = await webllm.CreateMLCEngine(selectedLocalModel, {
-                initProgressCallback: (progress) => {
-                    const percent = Math.round(progress.progress * 100);
-                    let message = progress.text || 'Loading model...';
-
-                    // Parse download info
-                    let downloadedMB: number | undefined;
-                    let totalMB: number | undefined;
-                    if (message.includes('MB')) {
-                        const match = message.match(/(\d+(?:\.\d+)?)\s*MB.*?(\d+(?:\.\d+)?)\s*MB/);
-                        if (match) {
-                            downloadedMB = parseFloat(match[1]);
-                            totalMB = parseFloat(match[2]);
-                        }
-                    }
-
-                    const status: WebLLMStatus = percent > 95 ? 'loading' : 'downloading';
-                    setWebllmState({
-                        status,
-                        progress: percent,
-                        message: status === 'loading' ? 'Initializing model...' : message,
-                        modelId: selectedLocalModel,
-                        downloadedMB,
-                        totalMB,
-                    });
-                },
+            // Use offscreen document for WebLLM (persists and shared with popup)
+            const response = await chrome.runtime.sendMessage({
+                action: 'initOffscreenAI',
+                payload: { modelId: selectedLocalModel }
             });
 
-            // Save preference to storage
-            await chrome.storage.local.set({
-                aiConfig: { preferWebLLM: true },
-                webllmReady: true,
-                webllmModel: selectedLocalModel,
-            });
+            if (response.success) {
+                await chrome.storage.local.set({
+                    aiConfig: { preferWebLLM: true },
+                    webllmReady: true,
+                    webllmModel: selectedLocalModel,
+                });
 
-            setWebllmState({
-                status: 'ready',
-                progress: 100,
-                message: 'Local AI ready',
-                modelId: selectedLocalModel,
-            });
-            setActiveProvider('webllm');
-            setToast({ message: 'Local AI enabled', undo: () => {} });
+                setWebllmState({
+                    status: 'ready',
+                    progress: 100,
+                    message: 'Local AI ready',
+                    modelId: selectedLocalModel,
+                });
+                setActiveProvider('webllm');
+                setToast({ message: 'Local AI enabled', undo: () => {} });
+            } else {
+                throw new Error(response.error || 'Failed to initialize AI');
+            }
 
         } catch (err: any) {
             console.error('WebLLM initialization failed:', err);
             let errorMsg = err.message || 'Unknown error';
 
-            // Check for GPU memory errors
-            if (errorMsg.includes('OUTOFMEMORY') || errorMsg.includes('E_OUTOFMEMORY') ||
-                errorMsg.includes('memory') || errorMsg.includes('OOM') ||
-                errorMsg.includes('D3D12')) {
-                errorMsg = 'Not enough GPU memory. Try the smaller Qwen 1.5B model.';
+            if (errorMsg.includes('OUTOFMEMORY') || errorMsg.includes('memory') || errorMsg.includes('D3D12')) {
+                errorMsg = 'Not enough GPU memory. Try the smaller model.';
             } else if (errorMsg.includes('WebGPU') || errorMsg.includes('requestDevice')) {
-                errorMsg = 'GPU error. Try closing other apps or use a smaller model.';
+                errorMsg = 'GPU error. Try closing other apps.';
             }
 
             setWebllmState({
@@ -438,30 +392,19 @@ const OptionsPage: React.FC = () => {
         setWebllmLoading(false);
     };
 
-    // Handle model selection change - auto-download new model
+    // Handle model selection change
     const handleLocalModelChange = async (modelId: string) => {
         setSelectedLocalModel(modelId);
         await chrome.storage.local.set({ webllmModel: modelId });
 
-        // If a model is already loaded and user selects different one, auto-reload
+        // If already ready with a different model, show that user needs to re-download
         if (webllmState.status === 'ready' && webllmState.modelId !== modelId) {
-            // Unload current model
-            if (webllmEngine) {
-                try {
-                    await webllmEngine.unload();
-                    webllmEngine = null;
-                } catch (e) {
-                    console.log('[WebLLM] Unload error:', e);
-                }
-            }
-            // Auto-download new model
             setWebllmState({
                 status: 'not_initialized',
                 progress: 0,
-                message: 'Switching model...',
+                message: 'Click Download to switch models',
                 modelId: modelId,
             });
-            setTimeout(() => enableWebLLM(), 100);
         }
     };
 
@@ -490,17 +433,11 @@ const OptionsPage: React.FC = () => {
 
     const disableWebLLM = async (clearCache = false) => {
         try {
-            // Unload engine directly
-            if (webllmEngine) {
-                await webllmEngine.unload();
-                webllmEngine = null;
-            }
-
-            // Clear storage preference and model selection
+            // Clear storage preference
             await chrome.storage.local.set({
                 aiConfig: { preferWebLLM: false },
                 webllmReady: false,
-                webllmModel: null, // Clear model selection
+                offscreenAIStatus: null,
             });
 
             // Optionally clear the cached model data from IndexedDB
@@ -511,12 +448,11 @@ const OptionsPage: React.FC = () => {
             setWebllmState({
                 status: 'not_initialized',
                 progress: 0,
-                message: 'Not initialized',
-                modelId: WEBLLM_MODEL_ID,
+                message: 'Click Download to get started',
+                modelId: selectedLocalModel,
             });
-            setSelectedLocalModel(WEBLLM_MODEL_ID); // Reset to default
             setActiveProvider('none');
-            setToast({ message: 'Local AI disabled', undo: () => {} });
+            setToast({ message: clearCache ? 'Model data deleted' : 'Local AI disabled', undo: () => {} });
         } catch (err) {
             console.warn('Failed to disable WebLLM:', err);
         }
