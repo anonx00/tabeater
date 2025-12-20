@@ -193,159 +193,137 @@ async function autoPreload() {
     }
 }
 
-// Domain to category mapping for rule-based categorization
-const DOMAIN_CATEGORIES: Record<string, string> = {
-    // Video/Streaming
-    'youtube': 'Video', 'netflix': 'Video', 'twitch': 'Video', 'hulu': 'Video',
-    'disneyplus': 'Video', 'disney': 'Video', 'primevideo': 'Video', 'vimeo': 'Video',
-    'hbomax': 'Video', 'max': 'Video', 'stan': 'Video', 'peacock': 'Video',
-    'crunchyroll': 'Video', 'funimation': 'Video', 'dailymotion': 'Video',
-
-    // Code/Development
-    'github': 'Code', 'gitlab': 'Code', 'stackoverflow': 'Code', 'codepen': 'Code',
-    'replit': 'Code', 'codesandbox': 'Code', 'npmjs': 'Code', 'npm': 'Code',
-    'jsfiddle': 'Code', 'bitbucket': 'Code', 'vercel': 'Code', 'netlify': 'Code',
-    'heroku': 'Code', 'aws': 'Code', 'azure': 'Code', 'gcloud': 'Code',
-
-    // Mail
-    'mail': 'Mail', 'gmail': 'Mail', 'outlook': 'Mail', 'yahoo': 'Mail',
-    'proton': 'Mail', 'protonmail': 'Mail', 'icloud': 'Mail', 'zoho': 'Mail',
-
-    // Social
-    'twitter': 'Social', 'x': 'Social', 'reddit': 'Social', 'facebook': 'Social',
-    'instagram': 'Social', 'linkedin': 'Social', 'discord': 'Social', 'tiktok': 'Social',
-    'snapchat': 'Social', 'pinterest': 'Social', 'tumblr': 'Social', 'threads': 'Social',
-    'mastodon': 'Social', 'bluesky': 'Social',
-
-    // Shopping
-    'amazon': 'Shop', 'ebay': 'Shop', 'etsy': 'Shop', 'walmart': 'Shop',
-    'target': 'Shop', 'aliexpress': 'Shop', 'alibaba': 'Shop', 'shopify': 'Shop',
-    'bestbuy': 'Shop', 'newegg': 'Shop', 'wish': 'Shop',
-
-    // News
-    'cnn': 'News', 'bbc': 'News', 'nytimes': 'News', 'theguardian': 'News',
-    'washingtonpost': 'News', 'reuters': 'News', 'apnews': 'News', 'foxnews': 'News',
-    'nbcnews': 'News', 'medium': 'News', 'substack': 'News', 'news': 'News',
-
-    // Work/Productivity
-    'notion': 'Work', 'slack': 'Work', 'trello': 'Work', 'asana': 'Work',
-    'jira': 'Work', 'confluence': 'Work', 'monday': 'Work', 'clickup': 'Work',
-    'airtable': 'Work', 'basecamp': 'Work', 'figma': 'Work', 'miro': 'Work',
-    'docs': 'Work', 'sheets': 'Work', 'drive': 'Work', 'dropbox': 'Work',
-    'onedrive': 'Work', 'box': 'Work', 'zoom': 'Work', 'meet': 'Work', 'teams': 'Work',
-
-    // Music
-    'spotify': 'Music', 'soundcloud': 'Music', 'pandora': 'Music', 'deezer': 'Music',
-    'tidal': 'Music', 'bandcamp': 'Music', 'music': 'Music',
-
-    // AI
-    'openai': 'AI', 'anthropic': 'AI', 'claude': 'AI', 'chatgpt': 'AI',
-    'gemini': 'AI', 'perplexity': 'AI', 'huggingface': 'AI', 'bard': 'AI',
-    'poe': 'AI', 'character': 'AI', 'midjourney': 'AI', 'stability': 'AI',
-    'replicate': 'AI', 'cohere': 'AI',
-
-    // Gaming (twitch is in Video for streaming, but gaming content goes there too)
-    'steam': 'Games', 'epicgames': 'Games', 'itch': 'Games', 'gog': 'Games',
-    'roblox': 'Games', 'ea': 'Games', 'ubisoft': 'Games', 'playstation': 'Games',
-    'xbox': 'Games', 'nintendo': 'Games',
-
-    // Reference/Reading
-    'wikipedia': 'Read', 'wikimedia': 'Read', 'britannica': 'Read', 'quora': 'Read',
-    'stackexchange': 'Read', 'goodreads': 'Read',
-
-    // Search
-    'google': 'Search', 'bing': 'Search', 'duckduckgo': 'Search', 'brave': 'Search',
-};
-
-// Categorize a single tab based on domain
-function categorizeTab(url: string, title: string): string {
-    try {
-        const hostname = new URL(url).hostname.toLowerCase().replace('www.', '');
-
-        // Check each part of the hostname
-        const parts = hostname.split('.');
-        for (const part of parts) {
-            if (DOMAIN_CATEGORIES[part]) {
-                return DOMAIN_CATEGORIES[part];
-            }
-        }
-
-        // Check if hostname contains any known domain
-        for (const [domain, category] of Object.entries(DOMAIN_CATEGORIES)) {
-            if (hostname.includes(domain)) {
-                return category;
-            }
-        }
-
-        // Fallback: check title for hints
-        const titleLower = title.toLowerCase();
-        if (titleLower.includes('mail') || titleLower.includes('inbox')) return 'Mail';
-        if (titleLower.includes('video') || titleLower.includes('watch')) return 'Video';
-        if (titleLower.includes('chat') || titleLower.includes('message')) return 'Social';
-
-        return 'Other';
-    } catch {
-        return 'Other';
-    }
-}
-
-// Process tab grouping request - uses rule-based categorization with AI fallback
+// Process tab grouping request using Local AI
 async function groupTabs(tabs: { id: number; title: string; url: string }[]): Promise<{
     success: boolean;
     groups?: { name: string; tabIds: number[] }[];
     error?: string;
 }> {
-    console.log(`[Offscreen] Grouping ${tabs.length} tabs`);
+    // Ensure engine is ready
+    if (!webllmEngine) {
+        const ok = await initializeEngine();
+        if (!ok) {
+            return { success: false, error: 'Failed to initialize AI' };
+        }
+    }
+
+    console.log(`[Offscreen] AI Grouping ${tabs.length} tabs`);
 
     try {
-        // First, try rule-based categorization (faster and more reliable)
-        const categoryMap = new Map<string, number[]>();
-
-        for (let i = 0; i < tabs.length; i++) {
-            const tab = tabs[i];
-            const category = categorizeTab(tab.url, tab.title);
-
-            console.log(`[Offscreen] Tab ${i}: ${new URL(tab.url).hostname} -> ${category}`);
-
-            if (!categoryMap.has(category)) {
-                categoryMap.set(category, []);
+        // Build tab list with FULL hostname for better AI understanding
+        const tabList = tabs.map((t, idx) => {
+            try {
+                const hostname = new URL(t.url).hostname.replace('www.', '');
+                return `${idx}. [${hostname}] ${t.title.substring(0, 50)}`;
+            } catch {
+                return `${idx}. ${t.title.substring(0, 50)}`;
             }
-            categoryMap.get(category)!.push(tab.id);
-        }
+        }).join('\n');
 
-        // Convert to groups array, filter groups with less than 2 tabs
-        const groups: { name: string; tabIds: number[] }[] = [];
-        const ungroupedTabs: number[] = [];
+        console.log('[Offscreen] Tab list for AI:\n' + tabList);
 
-        categoryMap.forEach((tabIds, name) => {
-            if (tabIds.length >= 2) {
-                groups.push({ name, tabIds });
-            } else {
-                ungroupedTabs.push(...tabIds);
-            }
+        // Clearer, more structured prompt for local LLM
+        const prompt = `You are a tab organizer. Look at each tab's domain and categorize it.
+
+TABS:
+${tabList}
+
+MATCH DOMAINS TO CATEGORIES:
+- mail.google.com, outlook.com → Mail
+- claude.ai, chat.openai.com, gemini.google.com → AI
+- youtube.com, netflix.com, primevideo.com, stan.com.au → Video
+- github.com, stackoverflow.com → Code
+- twitter.com, x.com, reddit.com → Social
+- amazon.com, ebay.com → Shop
+- docs.google.com, notion.so → Work
+
+Respond with ONLY a JSON array. Each object needs "name" (category) and "ids" (tab numbers).
+Example: [{"name":"Mail","ids":[0,5]},{"name":"AI","ids":[1,2,3]},{"name":"Video","ids":[4,6]}]
+
+Group ALL tabs. Each group needs at least 2 tabs. Use short category names (max 8 chars).
+
+JSON:`;
+
+        // More tokens for many tabs
+        const maxTokens = Math.max(1500, tabs.length * 50);
+
+        console.log('[Offscreen] Sending to AI...');
+        const response = await webllmEngine!.chat.completions.create({
+            messages: [{ role: 'user', content: prompt }],
+            max_tokens: maxTokens,
+            temperature: 0.1,  // Low temperature for consistent output
         });
 
-        // Add ungrouped tabs to "Other" if there are enough
-        if (ungroupedTabs.length >= 2) {
-            const existingOther = groups.find(g => g.name === 'Other');
-            if (existingOther) {
-                existingOther.tabIds.push(...ungroupedTabs);
-            } else {
-                groups.push({ name: 'Other', tabIds: ungroupedTabs });
+        let aiText = response.choices[0]?.message?.content?.trim() || '';
+        console.log('[Offscreen] AI raw response:', aiText);
+
+        // Strip markdown code blocks
+        aiText = aiText.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+
+        // Extract JSON array
+        let groups = null;
+        const jsonStart = aiText.indexOf('[');
+        const jsonEnd = aiText.lastIndexOf(']');
+
+        if (jsonStart >= 0 && jsonEnd > jsonStart) {
+            try {
+                let jsonStr = aiText.substring(jsonStart, jsonEnd + 1);
+                // Fix common JSON issues
+                jsonStr = jsonStr.replace(/,\s*}/g, '}').replace(/,\s*\]/g, ']');
+                jsonStr = jsonStr.replace(/'/g, '"'); // Single to double quotes
+                groups = JSON.parse(jsonStr);
+                console.log('[Offscreen] Parsed groups:', JSON.stringify(groups));
+            } catch (e) {
+                console.log('[Offscreen] JSON parse failed:', e);
             }
         }
 
-        console.log(`[Offscreen] Rule-based grouping result:`, groups.map(g => `${g.name}(${g.tabIds.length})`).join(', '));
-
-        if (groups.length === 0) {
-            return { success: false, error: 'Not enough tabs in any category to form groups (min 2)' };
+        if (!groups || !Array.isArray(groups)) {
+            console.log('[Offscreen] No valid JSON array found');
+            return { success: false, error: 'AI did not return valid JSON groups' };
         }
 
-        return { success: true, groups };
+        // Helper to get ids from various formats AI might use
+        const getGroupIds = (g: any): number[] => {
+            const arr = g.ids || g.tabIds || g.tabs || g.indices || [];
+            return Array.isArray(arr) ? arr : [];
+        };
+
+        // Map indices to real tab IDs, ensuring no duplicates
+        const usedIndices = new Set<number>();
+        const validGroups = groups
+            .filter((g: any) => g && typeof g.name === 'string' && g.name.length > 0 && getGroupIds(g).length >= 2)
+            .map((g: any) => {
+                const groupIds = getGroupIds(g);
+                const realTabIds = groupIds
+                    .map((idx: any) => {
+                        const index = typeof idx === 'string' ? parseInt(idx, 10) : idx;
+                        if (typeof index === 'number' && !isNaN(index) && index >= 0 && index < tabs.length && !usedIndices.has(index)) {
+                            usedIndices.add(index);
+                            return tabs[index].id;
+                        }
+                        return null;
+                    })
+                    .filter((id: number | null): id is number => id !== null);
+
+                return {
+                    name: g.name.substring(0, 8),  // Max 8 chars for group name
+                    tabIds: realTabIds
+                };
+            })
+            .filter(g => g.tabIds.length >= 2);
+
+        console.log('[Offscreen] Valid groups:', validGroups.map(g => `${g.name}(${g.tabIds.length})`).join(', '));
+
+        if (validGroups.length === 0) {
+            return { success: false, error: 'AI did not create any valid groups (need 2+ tabs each)' };
+        }
+
+        return { success: true, groups: validGroups };
 
     } catch (err: any) {
-        console.error('[Offscreen] Grouping error:', err);
-        return { success: false, error: err.message || 'Grouping failed' };
+        console.error('[Offscreen] AI Grouping error:', err);
+        return { success: false, error: err.message || 'AI processing failed' };
     }
 }
 
