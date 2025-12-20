@@ -222,36 +222,48 @@ async function groupTabs(tabs: { id: number; title: string; url: string }[]): Pr
 
         console.log('[Offscreen] Tab list for AI:\n' + tabList);
 
-        // Clearer, more structured prompt for local LLM
-        const prompt = `You are a tab organizer. Look at each tab's domain and categorize it.
+        // Few-shot prompt with explicit examples matching input format
+        const prompt = `Categorize browser tabs by their domain into groups.
 
-TABS:
+INPUT:
+0. [mail.google.com] Inbox - Gmail
+1. [youtube.com] Funny Video
+2. [github.com] My Repo
+3. [netflix.com] Movie
+4. [outlook.com] Mail
+5. [claude.ai] Chat
+
+OUTPUT:
+[{"name":"Mail","ids":[0,4]},{"name":"Video","ids":[1,3]},{"name":"Code","ids":[2]},{"name":"AI","ids":[5]}]
+
+RULES:
+- Video: youtube, netflix, primevideo, stan, hulu, twitch, hianime, cineby
+- Mail: gmail, mail.google, outlook, yahoo
+- AI: claude, chatgpt, openai, gemini, huggingface, aistudio
+- Code: github, gitlab, stackoverflow
+- Social: x.com, twitter, reddit, facebook
+- Cloud: console.cloud, console.twilio, analytics.google
+- News: medium, producthunt, news
+
+INPUT:
 ${tabList}
 
-MATCH DOMAINS TO CATEGORIES:
-- mail.google.com, outlook.com → Mail
-- claude.ai, chat.openai.com, gemini.google.com → AI
-- youtube.com, netflix.com, primevideo.com, stan.com.au → Video
-- github.com, stackoverflow.com → Code
-- twitter.com, x.com, reddit.com → Social
-- amazon.com, ebay.com → Shop
-- docs.google.com, notion.so → Work
-
-Respond with ONLY a JSON array. Each object needs "name" (category) and "ids" (tab numbers).
-Example: [{"name":"Mail","ids":[0,5]},{"name":"AI","ids":[1,2,3]},{"name":"Video","ids":[4,6]}]
-
-Group ALL tabs. Each group needs at least 2 tabs. Use short category names (max 8 chars).
-
-JSON:`;
+OUTPUT:`;
 
         // More tokens for many tabs
         const maxTokens = Math.max(1500, tabs.length * 50);
 
         console.log('[Offscreen] Sending to AI...');
         const response = await webllmEngine!.chat.completions.create({
-            messages: [{ role: 'user', content: prompt }],
+            messages: [
+                {
+                    role: 'system',
+                    content: 'You categorize browser tabs by looking at their domain. Output only valid JSON arrays. Match domains exactly: netflix/youtube/primevideo/stan/hianime=Video, gmail/outlook/mail=Mail, github/stackoverflow=Code, x.com/twitter/reddit=Social, claude/chatgpt/gemini/openai=AI, console.cloud/twilio/analytics=Cloud, medium/producthunt=News.'
+                },
+                { role: 'user', content: prompt }
+            ],
             max_tokens: maxTokens,
-            temperature: 0.1,  // Low temperature for consistent output
+            temperature: 0.0,  // Zero temperature for deterministic output
         });
 
         let aiText = response.choices[0]?.message?.content?.trim() || '';
