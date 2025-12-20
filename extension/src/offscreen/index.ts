@@ -221,15 +221,28 @@ async function groupTabs(tabs: { id: number; title: string; url: string }[]): Pr
 
         console.log(`[Offscreen] Grouping ${tabs.length} tabs`);
 
-        // More concise prompt optimized for local LLMs
-        const prompt = `Group these ${tabs.length} browser tabs by purpose.
+        // Improved prompt with clear domain-to-category mappings
+        const prompt = `Categorize ${tabs.length} browser tabs by their website type.
 
-TABS (format: index:domain|title):
+TABS:
 ${tabList}
 
-Output JSON array of groups. Each group: {"name":"GroupName","ids":[indices]}
-Group names: Video, Code, Mail, Social, Shop, News, Work, Read, Music, Game, AI, Other
-Every tab index (0-${tabs.length - 1}) must be in exactly one group.
+CATEGORY RULES (use domain to decide):
+- Video: netflix, youtube, twitch, hulu, disney, prime video, vimeo, hbomax
+- Code: github, gitlab, stackoverflow, codepen, replit, vscode, npm, docs
+- Mail: gmail, outlook, yahoo mail, proton
+- Social: twitter, x.com, reddit, facebook, instagram, linkedin, discord, tiktok
+- Shop: amazon, ebay, etsy, walmart, target, aliexpress, shopify stores
+- News: cnn, bbc, nytimes, news sites, medium, substack
+- Work: notion, slack, trello, asana, jira, confluence, google docs/sheets
+- Music: spotify, soundcloud, apple music, pandora, deezer
+- AI: openai, anthropic, claude, chatgpt, gemini, perplexity, huggingface
+- Game: steam, epic games, twitch gaming, itch.io
+- Read: wikipedia, articles, blogs, documentation
+- Other: anything that doesn't fit above
+
+Output JSON: [{"name":"Video","ids":[0,3]},{"name":"Code","ids":[1,2,4]}]
+Include ALL indices 0-${tabs.length - 1}. Min 2 tabs per group.
 
 JSON:`;
 
@@ -307,7 +320,7 @@ JSON:`;
                     .filter((id: number | null): id is number => id !== null);
 
                 return {
-                    name: g.name.substring(0, 5),
+                    name: g.name.substring(0, 8),
                     tabIds: realTabIds
                 };
             })

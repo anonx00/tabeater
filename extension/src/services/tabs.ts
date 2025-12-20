@@ -30,15 +30,28 @@ class TabService {
     }
 
     async getWindowTabs(windowId?: number): Promise<TabInfo[]> {
-        // Get the target window to check its type
-        const targetWindowId = windowId || chrome.windows.WINDOW_ID_CURRENT;
+        let targetWindowId = windowId || chrome.windows.WINDOW_ID_CURRENT;
 
         try {
-            // First check if the window is a normal window
-            const window = await chrome.windows.get(targetWindowId);
-            if (window.type !== 'normal') {
-                // Return empty for non-normal windows (popups, devtools, etc.)
-                return [];
+            // Check if the current window is a normal window
+            const currentWindow = await chrome.windows.get(targetWindowId);
+
+            if (currentWindow.type !== 'normal') {
+                // Current window is DevTools/popup - find the last focused normal window
+                const allWindows = await chrome.windows.getAll({ windowTypes: ['normal'] });
+                const normalWindows = allWindows.filter(w => w.type === 'normal');
+
+                if (normalWindows.length === 0) {
+                    return []; // No normal windows
+                }
+
+                // Find the most recently focused normal window
+                const focusedNormal = normalWindows.find(w => w.focused) ||
+                                     normalWindows.sort((a, b) => (b.id || 0) - (a.id || 0))[0];
+
+                if (focusedNormal?.id) {
+                    targetWindowId = focusedNormal.id;
+                }
             }
         } catch {
             // Window might not exist, continue anyway
