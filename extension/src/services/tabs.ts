@@ -30,10 +30,38 @@ class TabService {
     }
 
     async getWindowTabs(windowId?: number): Promise<TabInfo[]> {
+        // Get the target window to check its type
+        const targetWindowId = windowId || chrome.windows.WINDOW_ID_CURRENT;
+
+        try {
+            // First check if the window is a normal window
+            const window = await chrome.windows.get(targetWindowId);
+            if (window.type !== 'normal') {
+                // Return empty for non-normal windows (popups, devtools, etc.)
+                return [];
+            }
+        } catch {
+            // Window might not exist, continue anyway
+        }
+
         const tabs = await chrome.tabs.query({
-            windowId: windowId || chrome.windows.WINDOW_ID_CURRENT
+            windowId: targetWindowId
         });
-        return tabs.map(this.mapTab);
+
+        // Filter out tabs that can't be grouped (chrome:// URLs, etc.)
+        return tabs
+            .filter(tab => {
+                // Exclude chrome:// and edge:// URLs
+                if (tab.url?.startsWith('chrome://') || tab.url?.startsWith('edge://')) {
+                    return false;
+                }
+                // Exclude chrome-extension:// pages
+                if (tab.url?.startsWith('chrome-extension://')) {
+                    return false;
+                }
+                return true;
+            })
+            .map(this.mapTab);
     }
 
     async getActiveTab(): Promise<TabInfo | null> {

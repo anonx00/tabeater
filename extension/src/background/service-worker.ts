@@ -378,13 +378,22 @@ async function handleMessage(message: Message): Promise<MessageResponse> {
         case 'groupTabsWithAI':
             try {
                 const windowTabs = await tabService.getWindowTabs();
-                if (windowTabs.length < 2) {
-                    return { success: false, error: 'Need at least 2 tabs to group' };
+
+                // Filter out tabs that are already in groups (groupId !== -1 means grouped)
+                const ungroupedTabs = windowTabs.filter(t => t.groupId === -1 || t.groupId === undefined);
+
+                if (ungroupedTabs.length < 2) {
+                    if (windowTabs.length >= 2 && ungroupedTabs.length < 2) {
+                        return { success: true, data: { message: 'Tabs already grouped!', groupsCreated: 0 } };
+                    }
+                    return { success: false, error: 'Need at least 2 ungrouped tabs' };
                 }
+
+                console.log(`[ServiceWorker] Grouping ${ungroupedTabs.length} ungrouped tabs (${windowTabs.length} total)`);
 
                 // Send to offscreen document for AI processing
                 const result = await sendToOffscreen('group-tabs', {
-                    tabs: windowTabs.map(t => ({ id: t.id, title: t.title, url: t.url })),
+                    tabs: ungroupedTabs.map(t => ({ id: t.id, title: t.title, url: t.url })),
                     modelId: message.payload?.modelId,
                 });
 
@@ -392,21 +401,26 @@ async function handleMessage(message: Message): Promise<MessageResponse> {
                     return { success: false, error: result.error || 'AI grouping failed' };
                 }
 
-                // Apply the groups
+                // Apply the groups - use try/catch for each to handle errors gracefully
                 const groupColors: chrome.tabGroups.ColorEnum[] = ['blue', 'red', 'yellow', 'green', 'pink', 'purple', 'cyan', 'orange'];
                 let created = 0;
                 for (const group of result.groups) {
-                    if (group.tabIds && group.tabIds.length > 0) {
-                        const groupId = await chrome.tabs.group({ tabIds: group.tabIds });
-                        await chrome.tabGroups.update(groupId, {
-                            title: group.name,
-                            color: groupColors[created % groupColors.length]
-                        });
-                        created++;
+                    if (group.tabIds && group.tabIds.length >= 2) {
+                        try {
+                            const groupId = await chrome.tabs.group({ tabIds: group.tabIds });
+                            await chrome.tabGroups.update(groupId, {
+                                title: group.name,
+                                color: groupColors[created % groupColors.length]
+                            });
+                            created++;
+                        } catch (groupErr: any) {
+                            console.warn(`[groupTabsWithAI] Failed to create group "${group.name}":`, groupErr.message);
+                            // Continue with other groups
+                        }
                     }
                 }
 
-                return { success: true, data: { message: `Created ${created} groups`, groups: result.groups } };
+                return { success: true, data: { message: `Created ${created} groups`, groupsCreated: created, groups: result.groups } };
             } catch (err: any) {
                 console.error('[groupTabsWithAI] Error:', err);
                 return { success: false, error: err.message };
