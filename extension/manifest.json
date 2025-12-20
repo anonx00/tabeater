@@ -10,7 +10,8 @@
         "sidePanel",
         "scripting",
         "activeTab",
-        "system.memory"
+        "system.memory",
+        "offscreen"
     ],
     "optional_permissions": [
         "processes"

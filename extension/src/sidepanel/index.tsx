@@ -6,28 +6,9 @@ import { ScanlineOverlay } from '../ui/components/ScanlineOverlay';
 import { TypewriterText } from '../ui/components/TypewriterText';
 import { MicroLabel } from '../ui/components/MicroLabel';
 import { ScrambleText } from '../ui/components/ScrambleText';
-import * as webllm from '@mlc-ai/web-llm';
 
-// WebLLM Model ID - Default to smaller model for better compatibility
-const WEBLLM_MODEL_ID = 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC';
-
-// Global WebLLM engine for this page context
-let webllmEngine: webllm.MLCEngineInterface | null = null;
-let webllmInitializing = false;
-
-// Cleanup function to free GPU memory
-const cleanupWebLLM = async () => {
-    if (webllmEngine) {
-        try {
-            console.log('[WebLLM Sidepanel] Cleaning up engine...');
-            await webllmEngine.unload();
-        } catch (e) {
-            console.warn('[WebLLM Sidepanel] Cleanup error:', e);
-        }
-        webllmEngine = null;
-    }
-    webllmInitializing = false;
-};
+// Note: WebLLM now runs in offscreen document, not in sidepanel
+// This allows AI to be shared across popup/sidepanel and persist
 
 interface TabInfo {
     id: number;
@@ -102,22 +83,13 @@ const Sidepanel = () => {
         chrome.tabs.onRemoved.addListener(handleTabRemoved);
         chrome.tabs.onActivated.addListener(handleTabActivated);
 
-        // Cleanup WebLLM when sidepanel closes
-        const handleUnload = () => {
-            cleanupWebLLM();
-        };
-        window.addEventListener('beforeunload', handleUnload);
-        window.addEventListener('unload', handleUnload);
-
         // Cleanup listeners on unmount
+        // Note: WebLLM now runs in offscreen document, no cleanup needed here
         return () => {
             chrome.tabs.onUpdated.removeListener(handleTabUpdated);
             chrome.tabs.onCreated.removeListener(handleTabCreated);
             chrome.tabs.onRemoved.removeListener(handleTabRemoved);
             chrome.tabs.onActivated.removeListener(handleTabActivated);
-            window.removeEventListener('beforeunload', handleUnload);
-            window.removeEventListener('unload', handleUnload);
-            cleanupWebLLM();
         };
     }, []);
 
@@ -193,90 +165,30 @@ const Sidepanel = () => {
         });
     }, []);
 
-    // Initialize WebLLM in this page context
-    const initWebLLM = useCallback(async (): Promise<boolean> => {
-        if (webllmEngine) return true;
-        if (webllmInitializing) {
-            // Wait for existing initialization
-            while (webllmInitializing) {
-                await new Promise(r => setTimeout(r, 100));
-            }
-            return webllmEngine !== null;
-        }
-
-        webllmInitializing = true;
-        try {
-            // Get selected model from storage
-            const stored = await chrome.storage.local.get(['webllmModel']);
-            const modelId = stored.webllmModel || WEBLLM_MODEL_ID;
-
-            webllmEngine = await webllm.CreateMLCEngine(modelId, {
-                initProgressCallback: (progress) => {
-                    console.log('[WebLLM Sidepanel]', progress.text);
-                },
-            });
-            webllmInitializing = false;
-            return true;
-        } catch (err) {
-            console.error('[WebLLM Sidepanel] Init failed:', err);
-            webllmInitializing = false;
-            return false;
-        }
-    }, []);
-
-    // Use WebLLM directly for inference
+    // Use WebLLM via offscreen document (shared with popup, persists across sessions)
     const askWebLLM = useCallback(async (prompt: string): Promise<string> => {
-        if (!webllmEngine) {
-            const ok = await initWebLLM();
-            if (!ok) throw new Error('Failed to initialize Local AI');
-        }
-
-        const response = await webllmEngine!.chat.completions.create({
-            messages: [
-                {
-                    role: 'system',
-                    content: `You are TabEater, a helpful browser tab assistant.
+        const systemPrompt = `You are TabEater, a helpful browser tab assistant.
 Rules:
 - Give SHORT, direct answers (2-3 sentences max)
 - Never repeat yourself
 - Never use numbered lists with more than 5 items
 - If asked about tabs, briefly summarize what you see
-- Be conversational, not robotic`
-                },
+- Be conversational, not robotic`;
+
+        // Send to offscreen document via service worker
+        const response = await sendMessage('chatWithOffscreenAI', {
+            messages: [
+                { role: 'system', content: systemPrompt },
                 { role: 'user', content: prompt }
-            ],
-            max_tokens: 500,
-            temperature: 0.7,
-            frequency_penalty: 1.5,  // Strongly penalize repetition
-            presence_penalty: 1.0,   // Encourage new topics
+            ]
         });
 
-        let content = response.choices[0]?.message?.content || 'No response';
-
-        // Post-process: detect and cut off repetition
-        const lines = content.split('\n');
-        const seenLines = new Set<string>();
-        const uniqueLines: string[] = [];
-        let repetitionCount = 0;
-
-        for (const line of lines) {
-            const normalized = line.trim().toLowerCase();
-            if (normalized.length < 5) {
-                uniqueLines.push(line);
-                continue;
-            }
-            if (seenLines.has(normalized)) {
-                repetitionCount++;
-                if (repetitionCount > 2) break; // Stop after 2 repeated lines
-            } else {
-                seenLines.add(normalized);
-                uniqueLines.push(line);
-                repetitionCount = 0;
-            }
+        if (response.success) {
+            return response.data.response;
+        } else {
+            throw new Error(response.error || 'AI chat failed');
         }
-
-        return uniqueLines.join('\n').trim() || 'I can help you organize your tabs. What would you like to know?';
-    }, [initWebLLM]);
+    }, [sendMessage]);
 
     const askAI = useCallback(async () => {
         if (!chatInput.trim()) return;
