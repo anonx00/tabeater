@@ -7,6 +7,8 @@ import { TabManager } from './tab-manager';
 
 // Offscreen document management for WebLLM
 let offscreenCreating: Promise<void> | null = null;
+let offscreenLastHeartbeat = 0;
+let offscreenEngineReady = false;
 
 async function ensureOffscreenDocument(): Promise<void> {
     const existingContexts = await chrome.runtime.getContexts({
@@ -22,6 +24,7 @@ async function ensureOffscreenDocument(): Promise<void> {
         return;
     }
 
+    console.log('[ServiceWorker] Creating offscreen document...');
     offscreenCreating = chrome.offscreen.createDocument({
         url: 'offscreen.html',
         reasons: [chrome.offscreen.Reason.WORKERS],
@@ -30,15 +33,62 @@ async function ensureOffscreenDocument(): Promise<void> {
 
     await offscreenCreating;
     offscreenCreating = null;
+    console.log('[ServiceWorker] Offscreen document created');
+}
+
+// Health check - verify offscreen document is responsive
+async function pingOffscreen(): Promise<boolean> {
+    try {
+        const response = await chrome.runtime.sendMessage({
+            target: 'offscreen',
+            action: 'ping',
+        });
+        return response?.pong === true;
+    } catch {
+        return false;
+    }
+}
+
+// Ensure offscreen is healthy, recreate if needed
+async function ensureOffscreenHealthy(): Promise<boolean> {
+    await ensureOffscreenDocument();
+
+    // Quick ping to verify it's responsive
+    const healthy = await pingOffscreen();
+    if (!healthy) {
+        console.warn('[ServiceWorker] Offscreen not responsive, recreating...');
+        // Try to close existing and recreate
+        try {
+            await chrome.offscreen.closeDocument();
+        } catch {}
+        offscreenCreating = null;
+        await ensureOffscreenDocument();
+        return pingOffscreen();
+    }
+    return true;
 }
 
 async function sendToOffscreen(action: string, data: any = {}): Promise<any> {
-    await ensureOffscreenDocument();
+    await ensureOffscreenHealthy();
     return chrome.runtime.sendMessage({
         target: 'offscreen',
         action,
         ...data,
     });
+}
+
+// Warmup offscreen AI on extension startup
+async function warmupOffscreenAI() {
+    try {
+        const stored = await chrome.storage.local.get(['webllmReady', 'aiConfig']);
+        if (stored.webllmReady || stored.aiConfig?.preferWebLLM) {
+            console.log('[ServiceWorker] Warming up offscreen AI...');
+            await ensureOffscreenDocument();
+            // The offscreen document will auto-preload when created
+        }
+    } catch (err) {
+        console.warn('[ServiceWorker] Warmup failed:', err);
+    }
 }
 
 // Parse JSON from AI response - handles markdown code blocks
@@ -93,10 +143,14 @@ async function ensureServicesInitialized(): Promise<void> {
 chrome.runtime.onInstalled.addListener(async () => {
     await ensureServicesInitialized();
     await chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: false });
+    // Warmup AI if previously enabled
+    warmupOffscreenAI();
 });
 
 chrome.runtime.onStartup.addListener(async () => {
     await ensureServicesInitialized();
+    // Warmup AI if previously enabled - this makes subsequent AI calls faster
+    warmupOffscreenAI();
 });
 
 // Debounce map for fly mode processing
@@ -233,6 +287,10 @@ chrome.runtime.onMessage.addListener((message: Message & { target?: string; data
             chrome.storage.local.set({
                 offscreenAIStatus: message.data
             }).catch(() => {});
+        } else if (message.action === 'offscreen-heartbeat') {
+            // Track offscreen health
+            offscreenLastHeartbeat = Date.now();
+            offscreenEngineReady = message.data?.engineReady || false;
         }
         return;
     }
@@ -368,6 +426,17 @@ async function handleMessage(message: Message): Promise<MessageResponse> {
             try {
                 const status = await sendToOffscreen('get-status');
                 return { success: true, data: status };
+            } catch (err: any) {
+                return { success: false, error: err.message };
+            }
+
+        // Warmup/preload AI engine (faster subsequent calls)
+        case 'warmupOffscreenAI':
+            try {
+                const warmupResult = await sendToOffscreen('warmup', {
+                    modelId: message.payload?.modelId
+                });
+                return { success: warmupResult.success, data: { ready: warmupResult.ready } };
             } catch (err: any) {
                 return { success: false, error: err.message };
             }

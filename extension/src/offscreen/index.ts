@@ -4,6 +4,11 @@
  * This runs in a hidden document with WebGPU access.
  * It persists even when popup/sidepanel close, allowing
  * AI operations to complete in the background.
+ *
+ * Features:
+ * - Model cache detection for instant loading
+ * - Auto-preload on startup if previously enabled
+ * - Keepalive to prevent document from being closed
  */
 
 import * as webllm from '@mlc-ai/web-llm';
@@ -15,6 +20,18 @@ const DEFAULT_MODEL_ID = 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC';
 let webllmEngine: webllm.MLCEngineInterface | null = null;
 let isInitializing = false;
 let currentModelId: string = DEFAULT_MODEL_ID;
+let lastActivityTime = Date.now();
+
+// Keepalive - ping every 20 seconds to prevent Chrome from closing the offscreen document
+setInterval(() => {
+    lastActivityTime = Date.now();
+    // Send heartbeat to service worker
+    chrome.runtime.sendMessage({
+        target: 'service-worker',
+        action: 'offscreen-heartbeat',
+        data: { alive: true, engineReady: webllmEngine !== null, modelId: currentModelId }
+    }).catch(() => {});
+}, 20000);
 
 // Send status updates to service worker
 function sendStatus(status: string, progress: number = 0, message: string = '') {
@@ -25,13 +42,49 @@ function sendStatus(status: string, progress: number = 0, message: string = '') 
     }).catch(() => {});
 }
 
-// Initialize WebLLM engine
+// Check if model is already cached in IndexedDB
+async function isModelCached(modelId: string): Promise<boolean> {
+    try {
+        // WebLLM uses IndexedDB with 'webllm-model-cache' database
+        return new Promise((resolve) => {
+            const request = indexedDB.open('webllm-model-cache');
+            request.onerror = () => resolve(false);
+            request.onsuccess = () => {
+                const db = request.result;
+                try {
+                    // Check if the model's store exists
+                    const hasStore = db.objectStoreNames.contains(modelId) ||
+                                   db.objectStoreNames.contains('model-cache');
+                    db.close();
+
+                    // Also check tvmjs cache for wasm
+                    const tvmRequest = indexedDB.open('tvmjs');
+                    tvmRequest.onerror = () => resolve(hasStore);
+                    tvmRequest.onsuccess = () => {
+                        const tvmDb = tvmRequest.result;
+                        const hasTvm = tvmDb.objectStoreNames.length > 0;
+                        tvmDb.close();
+                        resolve(hasStore && hasTvm);
+                    };
+                } catch {
+                    db.close();
+                    resolve(false);
+                }
+            };
+        });
+    } catch {
+        return false;
+    }
+}
+
+// Initialize WebLLM engine with cache detection
 async function initializeEngine(modelId?: string): Promise<boolean> {
     const targetModel = modelId || currentModelId;
 
     // Already initialized with same model
     if (webllmEngine && currentModelId === targetModel) {
         console.log('[Offscreen] Engine already ready');
+        sendStatus('ready', 100, 'AI ready');
         return true;
     }
 
@@ -58,19 +111,42 @@ async function initializeEngine(modelId?: string): Promise<boolean> {
     currentModelId = targetModel;
 
     try {
-        sendStatus('downloading', 0, 'Starting download...');
+        // Check if model is cached for better UX
+        const cached = await isModelCached(targetModel);
+        const initMessage = cached ? 'Loading from cache...' : 'Downloading model...';
+        const initStatus = cached ? 'loading' : 'downloading';
+
+        console.log(`[Offscreen] Model cached: ${cached}, starting ${initStatus}`);
+        sendStatus(initStatus, cached ? 10 : 0, initMessage);
+
+        const startTime = Date.now();
 
         webllmEngine = await webllm.CreateMLCEngine(targetModel, {
             initProgressCallback: (progress) => {
                 const percent = Math.round(progress.progress * 100);
                 const text = progress.text || 'Loading...';
-                const status = percent > 95 ? 'loading' : 'downloading';
+
+                // Determine status based on progress text and cache status
+                let status = 'downloading';
+                if (cached || percent > 90 || text.includes('Loading') || text.includes('Compil')) {
+                    status = 'loading';
+                }
+
                 sendStatus(status, percent, text);
             }
         });
 
-        sendStatus('ready', 100, 'AI ready');
-        console.log('[Offscreen] Engine initialized successfully');
+        const loadTime = ((Date.now() - startTime) / 1000).toFixed(1);
+        sendStatus('ready', 100, `AI ready (${loadTime}s)`);
+        console.log(`[Offscreen] Engine initialized in ${loadTime}s`);
+
+        // Persist ready state
+        chrome.storage.local.set({
+            webllmReady: true,
+            webllmModel: targetModel,
+            offscreenAIStatus: { status: 'ready', progress: 100, message: 'AI ready', modelId: targetModel }
+        }).catch(() => {});
+
         isInitializing = false;
         return true;
 
@@ -81,11 +157,39 @@ async function initializeEngine(modelId?: string): Promise<boolean> {
         if (errorMsg.includes('OUTOFMEMORY') || errorMsg.includes('D3D12') ||
             errorMsg.includes('memory') || errorMsg.includes('OOM')) {
             errorMsg = 'Not enough GPU memory. Try closing other apps or use smaller model.';
+        } else if (errorMsg.includes('WebGPU') || errorMsg.includes('requestAdapter')) {
+            errorMsg = 'WebGPU not available. Check browser compatibility.';
         }
 
         sendStatus('error', 0, errorMsg);
         isInitializing = false;
         return false;
+    }
+}
+
+// Auto-preload engine on startup if previously enabled
+async function autoPreload() {
+    try {
+        const stored = await chrome.storage.local.get(['webllmReady', 'webllmModel', 'aiConfig']);
+
+        // Only preload if user previously had WebLLM enabled
+        if (stored.webllmReady || stored.aiConfig?.preferWebLLM) {
+            const modelId = stored.webllmModel || DEFAULT_MODEL_ID;
+            console.log('[Offscreen] Auto-preloading model:', modelId);
+
+            // Check if cached for faster startup indication
+            const cached = await isModelCached(modelId);
+            if (cached) {
+                sendStatus('loading', 5, 'Warming up AI...');
+            }
+
+            // Initialize in background
+            await initializeEngine(modelId);
+        } else {
+            console.log('[Offscreen] No previous WebLLM config, skipping preload');
+        }
+    } catch (err) {
+        console.warn('[Offscreen] Auto-preload failed:', err);
     }
 }
 
@@ -290,6 +394,9 @@ async function chatWithAI(messages: { role: 'system' | 'user' | 'assistant'; con
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.target !== 'offscreen') return;
 
+    // Update activity time
+    lastActivityTime = Date.now();
+
     console.log('[Offscreen] Received message:', message.action);
 
     switch (message.action) {
@@ -315,14 +422,35 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             sendResponse({
                 ready: webllmEngine !== null,
                 modelId: currentModelId,
-                initializing: isInitializing
+                initializing: isInitializing,
+                lastActivity: lastActivityTime
             });
+            return true;
+
+        case 'warmup':
+            // Quick warmup - just ensure engine is loaded
+            if (webllmEngine) {
+                sendResponse({ success: true, ready: true });
+            } else {
+                initializeEngine(message.modelId).then(success => {
+                    sendResponse({ success, ready: success });
+                });
+            }
+            return true;
+
+        case 'ping':
+            // Simple ping for health check
+            sendResponse({ pong: true, ready: webllmEngine !== null });
             return true;
 
         case 'unload':
             if (webllmEngine) {
                 webllmEngine.unload().then(() => {
                     webllmEngine = null;
+                    chrome.storage.local.set({
+                        webllmReady: false,
+                        offscreenAIStatus: { status: 'not_initialized', progress: 0, message: 'Unloaded' }
+                    }).catch(() => {});
                     sendResponse({ success: true });
                 }).catch(e => {
                     console.warn('[Offscreen] Unload error:', e);
@@ -336,4 +464,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
 });
 
+// Start auto-preload after a short delay to let the document fully initialize
 console.log('[Offscreen] Document loaded and ready');
+setTimeout(() => {
+    autoPreload();
+}, 500);

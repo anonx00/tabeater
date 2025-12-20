@@ -109,6 +109,8 @@ const Popup = () => {
         checkProvider();
         checkLicense();
         loadQuickReport();
+        // Warmup AI in background for faster first interaction
+        sendMessage('warmupOffscreenAI').catch(() => {});
     }, []);
 
     const sendMessage = useCallback(async (action: string, payload?: any) => {
