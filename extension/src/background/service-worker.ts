@@ -372,6 +372,21 @@ async function handleMessage(message: Message): Promise<MessageResponse> {
                 return { success: false, error: err.message };
             }
 
+        // Chat with AI via offscreen document
+        case 'chatWithOffscreenAI':
+            try {
+                const chatResult = await sendToOffscreen('chat', {
+                    messages: message.payload?.messages || []
+                });
+                if (chatResult.success) {
+                    return { success: true, data: { response: chatResult.response } };
+                } else {
+                    return { success: false, error: chatResult.error || 'Chat failed' };
+                }
+            } catch (err: any) {
+                return { success: false, error: err.message };
+            }
+
         case 'applyTabGroups':
             // Apply tab groups from local AI results (used by popup/sidepanel with WebLLM)
             try {

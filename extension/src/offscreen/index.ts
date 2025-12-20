@@ -230,6 +230,62 @@ JSON:`;
     }
 }
 
+// Chat with AI
+async function chatWithAI(messages: { role: 'system' | 'user' | 'assistant'; content: string }[]): Promise<{
+    success: boolean;
+    response?: string;
+    error?: string;
+}> {
+    // Ensure engine is ready
+    if (!webllmEngine) {
+        const ok = await initializeEngine();
+        if (!ok) {
+            return { success: false, error: 'Failed to initialize AI' };
+        }
+    }
+
+    try {
+        const response = await webllmEngine!.chat.completions.create({
+            messages: messages,
+            max_tokens: 500,
+            temperature: 0.7,
+            frequency_penalty: 1.5,  // Strongly penalize repetition
+            presence_penalty: 1.0,   // Encourage new topics
+        });
+
+        let content = response.choices[0]?.message?.content || 'No response';
+
+        // Post-process: detect and cut off repetition
+        const lines = content.split('\n');
+        const seenLines = new Set<string>();
+        const uniqueLines: string[] = [];
+        let repetitionCount = 0;
+
+        for (const line of lines) {
+            const normalized = line.trim().toLowerCase();
+            if (normalized.length < 5) {
+                uniqueLines.push(line);
+                continue;
+            }
+            if (seenLines.has(normalized)) {
+                repetitionCount++;
+                if (repetitionCount > 2) break; // Stop after 2 repeated lines
+            } else {
+                seenLines.add(normalized);
+                uniqueLines.push(line);
+                repetitionCount = 0;
+            }
+        }
+
+        const finalResponse = uniqueLines.join('\n').trim() || 'I can help you organize your tabs. What would you like to know?';
+        return { success: true, response: finalResponse };
+
+    } catch (err: any) {
+        console.error('[Offscreen] Chat error:', err);
+        return { success: false, error: err.message || 'AI chat failed' };
+    }
+}
+
 // Handle messages from service worker
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.target !== 'offscreen') return;
@@ -245,6 +301,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
         case 'group-tabs':
             groupTabs(message.tabs).then(result => {
+                sendResponse(result);
+            });
+            return true;
+
+        case 'chat':
+            chatWithAI(message.messages).then(result => {
                 sendResponse(result);
             });
             return true;
