@@ -30,51 +30,56 @@ class TabService {
     }
 
     async getWindowTabs(windowId?: number): Promise<TabInfo[]> {
-        let targetWindowId = windowId || chrome.windows.WINDOW_ID_CURRENT;
+        let targetWindowId = windowId;
 
-        try {
-            // Check if the current window is a normal window
-            const currentWindow = await chrome.windows.get(targetWindowId);
-
-            if (currentWindow.type !== 'normal') {
-                // Current window is DevTools/popup - find the last focused normal window
+        // If no windowId specified, find the best normal window
+        if (!targetWindowId) {
+            try {
+                // Get all normal windows
                 const allWindows = await chrome.windows.getAll({ windowTypes: ['normal'] });
                 const normalWindows = allWindows.filter(w => w.type === 'normal');
 
+                console.log(`[TabService] Found ${normalWindows.length} normal windows`);
+
                 if (normalWindows.length === 0) {
-                    return []; // No normal windows
+                    console.log('[TabService] No normal windows found');
+                    return [];
                 }
 
-                // Find the most recently focused normal window
-                const focusedNormal = normalWindows.find(w => w.focused) ||
-                                     normalWindows.sort((a, b) => (b.id || 0) - (a.id || 0))[0];
+                // Prefer the focused window, otherwise the most recent one
+                const focusedNormal = normalWindows.find(w => w.focused);
+                targetWindowId = focusedNormal?.id || normalWindows[0]?.id;
 
-                if (focusedNormal?.id) {
-                    targetWindowId = focusedNormal.id;
-                }
+                console.log(`[TabService] Using window ${targetWindowId} (focused: ${!!focusedNormal})`);
+            } catch (err) {
+                console.error('[TabService] Error finding windows:', err);
+                // Fallback to current window
+                targetWindowId = chrome.windows.WINDOW_ID_CURRENT;
             }
-        } catch {
-            // Window might not exist, continue anyway
         }
 
         const tabs = await chrome.tabs.query({
             windowId: targetWindowId
         });
 
+        console.log(`[TabService] Found ${tabs.length} tabs in window ${targetWindowId}`);
+
         // Filter out tabs that can't be grouped (chrome:// URLs, etc.)
-        return tabs
-            .filter(tab => {
-                // Exclude chrome:// and edge:// URLs
-                if (tab.url?.startsWith('chrome://') || tab.url?.startsWith('edge://')) {
-                    return false;
-                }
-                // Exclude chrome-extension:// pages
-                if (tab.url?.startsWith('chrome-extension://')) {
-                    return false;
-                }
-                return true;
-            })
-            .map(this.mapTab);
+        const filtered = tabs.filter(tab => {
+            // Exclude chrome:// and edge:// URLs
+            if (tab.url?.startsWith('chrome://') || tab.url?.startsWith('edge://')) {
+                return false;
+            }
+            // Exclude chrome-extension:// pages
+            if (tab.url?.startsWith('chrome-extension://')) {
+                return false;
+            }
+            return true;
+        });
+
+        console.log(`[TabService] After filtering: ${filtered.length} tabs`);
+
+        return filtered.map(this.mapTab);
     }
 
     async getActiveTab(): Promise<TabInfo | null> {

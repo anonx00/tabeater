@@ -377,10 +377,13 @@ async function handleMessage(message: Message): Promise<MessageResponse> {
         // AI tab grouping via offscreen document (persists even if popup closes)
         case 'groupTabsWithAI':
             try {
+                console.log('[groupTabsWithAI] Starting...');
                 const windowTabs = await tabService.getWindowTabs();
+                console.log(`[groupTabsWithAI] Got ${windowTabs.length} window tabs`);
 
                 // Filter out tabs that are already in groups (groupId !== -1 means grouped)
                 const ungroupedTabs = windowTabs.filter(t => t.groupId === -1 || t.groupId === undefined);
+                console.log(`[groupTabsWithAI] ${ungroupedTabs.length} ungrouped tabs`);
 
                 if (ungroupedTabs.length < 2) {
                     if (windowTabs.length >= 2 && ungroupedTabs.length < 2) {
@@ -389,7 +392,11 @@ async function handleMessage(message: Message): Promise<MessageResponse> {
                     return { success: false, error: 'Need at least 2 ungrouped tabs' };
                 }
 
-                console.log(`[ServiceWorker] Grouping ${ungroupedTabs.length} ungrouped tabs (${windowTabs.length} total)`);
+                // Log tabs being sent to AI
+                console.log('[groupTabsWithAI] Tabs to group:');
+                ungroupedTabs.forEach((t, i) => {
+                    console.log(`  ${i}: ${t.title.substring(0, 50)} [${t.url.substring(0, 50)}]`);
+                });
 
                 // Send to offscreen document for AI processing
                 const result = await sendToOffscreen('group-tabs', {
@@ -397,9 +404,17 @@ async function handleMessage(message: Message): Promise<MessageResponse> {
                     modelId: message.payload?.modelId,
                 });
 
+                console.log('[groupTabsWithAI] AI result:', JSON.stringify(result, null, 2));
+
                 if (!result.success) {
                     return { success: false, error: result.error || 'AI grouping failed' };
                 }
+
+                // Log the groups AI created
+                console.log('[groupTabsWithAI] Groups from AI:');
+                result.groups?.forEach((g: any) => {
+                    console.log(`  "${g.name}": tabs ${JSON.stringify(g.tabIds)}`);
+                });
 
                 // Apply the groups - use try/catch for each to handle errors gracefully
                 const groupColors: chrome.tabGroups.ColorEnum[] = ['blue', 'red', 'yellow', 'green', 'pink', 'purple', 'cyan', 'orange'];
@@ -407,6 +422,7 @@ async function handleMessage(message: Message): Promise<MessageResponse> {
                 for (const group of result.groups) {
                     if (group.tabIds && group.tabIds.length >= 2) {
                         try {
+                            console.log(`[groupTabsWithAI] Creating group "${group.name}" with ${group.tabIds.length} tabs`);
                             const groupId = await chrome.tabs.group({ tabIds: group.tabIds });
                             await chrome.tabGroups.update(groupId, {
                                 title: group.name,
@@ -420,6 +436,7 @@ async function handleMessage(message: Message): Promise<MessageResponse> {
                     }
                 }
 
+                console.log(`[groupTabsWithAI] Done! Created ${created} groups`);
                 return { success: true, data: { message: `Created ${created} groups`, groupsCreated: created, groups: result.groups } };
             } catch (err: any) {
                 console.error('[groupTabsWithAI] Error:', err);
