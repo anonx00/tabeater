@@ -1,5 +1,35 @@
 import { tabService, TabInfo } from './tabs';
-import { aiService } from './ai';
+
+// AI helper - sends to offscreen document via service worker
+async function aiPrompt(prompt: string): Promise<string> {
+    const response = await chrome.runtime.sendMessage({
+        action: 'chatWithOffscreenAI',
+        payload: {
+            messages: [
+                { role: 'user', content: prompt }
+            ]
+        }
+    });
+    if (response.success) {
+        return response.data.response;
+    }
+    throw new Error(response.error || 'AI request failed');
+}
+
+// Check if AI is available and ready
+async function canUseAI(): Promise<{ allowed: boolean; reason?: string }> {
+    try {
+        const response = await chrome.runtime.sendMessage({
+            action: 'getOffscreenAIStatus'
+        });
+        if (response.success && response.data?.ready) {
+            return { allowed: true };
+        }
+        return { allowed: false, reason: 'Local AI not ready' };
+    } catch {
+        return { allowed: false, reason: 'AI service unavailable' };
+    }
+}
 
 export interface TabHealth {
     tabId: number;
@@ -317,7 +347,7 @@ class AutoPilotService {
         const minGroups = Math.max(2, Math.ceil(tabs.length / 8));
         const maxGroups = Math.min(10, Math.ceil(tabs.length / 3));
 
-        const response = await aiService.prompt(
+        const response = await aiPrompt(
             `Group these tabs by activity. Return ONLY JSON array.
 
 ${tabList}
@@ -372,7 +402,7 @@ Stats:
 
 Give 2-3 actionable recommendations for better tab hygiene. Be concise.`;
 
-            report.aiInsights = await aiService.prompt(prompt);
+            report.aiInsights = await aiPrompt(prompt);
         } catch (err: any) {
             report.aiInsights = `AI analysis unavailable: ${err.message}`;
         }
@@ -429,20 +459,20 @@ Give 2-3 actionable recommendations for better tab hygiene. Be concise.`;
     // AI-powered tab categorization - zero bias, no examples
     async categorizeTabWithAI(tab: TabInfo): Promise<string> {
         try {
-            const canUseAI = await aiService.canMakeCall();
-            if (!canUseAI.allowed) {
+            const aiReady = await canUseAI();
+            if (!aiReady.allowed) {
                 return this.fallbackCategorize(tab);
             }
 
             const hostname = this.getHostname(tab.url);
-            const response = await aiService.prompt(
-                `"${tab.title}" (${hostname})
+            const response = await aiPrompt(
+                `"${tab.title}" [${hostname}]
 
-What is this tab for? One or two words only.`
+What category is this? Reply with ONE word only (e.g. Video, Code, Mail, Social, Shop, News, Music, Work, Chat).`
             );
 
-            const category = response.trim().split('\n')[0].replace(/[^a-zA-Z0-9\s]/g, '').trim();
-            return category.length > 0 && category.length <= 20 ? category : this.fallbackCategorize(tab);
+            const category = response.trim().split('\n')[0].replace(/[^a-zA-Z]/g, '').trim();
+            return category.length > 0 && category.length <= 10 ? category : this.fallbackCategorize(tab);
         } catch {
             return this.fallbackCategorize(tab);
         }
@@ -704,11 +734,11 @@ What is this tab for? One or two words only.`
         const groups = await chrome.tabGroups.query({ windowId: tab.windowId });
         if (groups.length === 0) return null;
 
-        // Check if we can make an AI call (rate limiting)
-        const canUseAI = await aiService.canMakeCall();
-        if (!canUseAI.allowed) {
-            console.log(`[AutoPilot] AI limit reached: ${canUseAI.reason}`);
-            return null;
+        // Check if we can make an AI call
+        const aiReady = await canUseAI();
+        if (!aiReady.allowed) {
+            console.log(`[AutoPilot] AI not ready: ${aiReady.reason}`);
+            return null; // Skip grouping when AI not ready
         }
 
         const hostname = this.getHostname(tab.url);
@@ -718,7 +748,7 @@ What is this tab for? One or two words only.`
             const groupList = groups.map(g => g.title || 'Unnamed').join(', ');
 
             // Smart AI prompt that understands tab context
-            const response = await aiService.prompt(
+            const response = await aiPrompt(
                 `I have a new browser tab and existing tab groups. Should this tab join one of these groups?
 
 NEW TAB:

@@ -7,6 +7,9 @@ import { TypewriterText } from '../ui/components/TypewriterText';
 import { MicroLabel } from '../ui/components/MicroLabel';
 import { ScrambleText } from '../ui/components/ScrambleText';
 
+// Note: WebLLM now runs in offscreen document, not in sidepanel
+// This allows AI to be shared across popup/sidepanel and persist
+
 interface TabInfo {
     id: number;
     title: string;
@@ -81,6 +84,7 @@ const Sidepanel = () => {
         chrome.tabs.onActivated.addListener(handleTabActivated);
 
         // Cleanup listeners on unmount
+        // Note: WebLLM now runs in offscreen document, no cleanup needed here
         return () => {
             chrome.tabs.onUpdated.removeListener(handleTabUpdated);
             chrome.tabs.onCreated.removeListener(handleTabCreated);
@@ -109,6 +113,8 @@ const Sidepanel = () => {
     const initializeAndLoad = async () => {
         await sendMessage('reinitializeAI');
         await loadData();
+        // Warmup AI in background for faster chat responses
+        sendMessage('warmupOffscreenAI').catch(() => {});
     };
 
     const loadData = async () => {
@@ -121,8 +127,15 @@ const Sidepanel = () => {
 
         if (tabsRes.success) setTabs(tabsRes.data);
         if (groupsRes.success) setGroups(groupsRes.data);
-        if (providerRes.success) setProvider(providerRes.data.provider);
         if (statsRes.success) setApiStats(statsRes.data);
+
+        // Check if WebLLM is preferred (stored in local storage)
+        const stored = await chrome.storage.local.get(['aiConfig', 'webllmReady']);
+        if (stored.aiConfig?.preferWebLLM || stored.webllmReady) {
+            setProvider('webllm');
+        } else if (providerRes.success) {
+            setProvider(providerRes.data.provider);
+        }
     };
 
     const switchToTab = useCallback((tabId: number, windowId: number) => {
@@ -154,8 +167,37 @@ const Sidepanel = () => {
         });
     }, []);
 
+    // Use WebLLM via offscreen document (shared with popup, persists across sessions)
+    const askWebLLM = useCallback(async (prompt: string): Promise<string> => {
+        const systemPrompt = `You are TabEater, a helpful browser tab assistant.
+Rules:
+- Give SHORT, direct answers (2-3 sentences max)
+- Never repeat yourself
+- Never use numbered lists with more than 5 items
+- If asked about tabs, briefly summarize what you see
+- Be conversational, not robotic`;
+
+        // Send to offscreen document via service worker
+        const response = await sendMessage('chatWithOffscreenAI', {
+            messages: [
+                { role: 'system', content: systemPrompt },
+                { role: 'user', content: prompt }
+            ]
+        });
+
+        if (response.success) {
+            return response.data.response;
+        } else {
+            throw new Error(response.error || 'AI chat failed');
+        }
+    }, [sendMessage]);
+
     const askAI = useCallback(async () => {
-        if (!chatInput.trim() || provider === 'none') return;
+        if (!chatInput.trim()) return;
+        if (provider === 'none') {
+            setChatMessages(prev => [...prev, { role: 'assistant', content: 'Please configure an AI provider in Settings first.' }]);
+            return;
+        }
 
         const userMessage = chatInput;
         setChatInput('');
@@ -163,22 +205,36 @@ const Sidepanel = () => {
         setLoading(true);
 
         try {
-            const tabContext = tabs.map(t => {
+            // Limit tab context to first 15 tabs for small models
+            const limitedTabs = tabs.slice(0, 15);
+            const tabContext = limitedTabs.map(t => {
                 try {
-                    return `${t.title} (${new URL(t.url).hostname})`;
+                    const host = new URL(t.url).hostname.replace('www.', '');
+                    return `${t.title.substring(0, 30)} (${host})`;
                 } catch {
-                    return t.title;
+                    return t.title.substring(0, 30);
                 }
-            }).join(', ');
-            const prompt = `Context: User has ${tabs.length} tabs open: ${tabContext}\n\nUser question: ${userMessage}`;
+            }).join('; ');
 
-            const response = await sendMessage('askAI', { prompt });
+            const prompt = `You have ${tabs.length} tabs. Here are some: ${tabContext}${tabs.length > 15 ? '...' : ''}\n\nQuestion: ${userMessage}\n\nAnswer briefly:`;
 
-            if (response.success) {
-                setChatMessages(prev => [...prev, { role: 'assistant', content: response.data.response }]);
+            let aiResponse: string;
+
+            // Use WebLLM directly if it's the provider (runs in page context)
+            if (provider === 'webllm') {
+                aiResponse = await askWebLLM(prompt);
             } else {
-                setChatMessages(prev => [...prev, { role: 'assistant', content: `Error: ${response.error}` }]);
+                // Use service worker for cloud providers
+                const response = await sendMessage('askAI', { prompt });
+                if (response.success) {
+                    aiResponse = response.data.response;
+                } else {
+                    throw new Error(response.error || 'AI request failed');
+                }
             }
+
+            setChatMessages(prev => [...prev, { role: 'assistant', content: aiResponse }]);
+
             // Refresh stats after AI call
             const statsRes = await sendMessage('getAPIUsageStats');
             if (statsRes.success) setApiStats(statsRes.data);
@@ -186,7 +242,7 @@ const Sidepanel = () => {
             setChatMessages(prev => [...prev, { role: 'assistant', content: `Error: ${err.message}` }]);
         }
         setLoading(false);
-    }, [chatInput, provider, tabs, sendMessage]);
+    }, [chatInput, provider, tabs, sendMessage, askWebLLM]);
 
     const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
         if (e.key === 'Enter' && !e.shiftKey) {
@@ -205,6 +261,7 @@ const Sidepanel = () => {
 
     const getProviderDisplay = () => {
         const labels: Record<string, string> = {
+            webllm: 'Local AI',
             nano: 'Nano',
             gemini: 'Gemini',
             openai: 'OpenAI',

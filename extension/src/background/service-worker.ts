@@ -5,6 +5,92 @@ import { autoPilotService } from '../services/autopilot';
 import { memoryService } from '../services/memory.service';
 import { TabManager } from './tab-manager';
 
+// Offscreen document management for WebLLM
+let offscreenCreating: Promise<void> | null = null;
+let offscreenLastHeartbeat = 0;
+let offscreenEngineReady = false;
+
+async function ensureOffscreenDocument(): Promise<void> {
+    const existingContexts = await chrome.runtime.getContexts({
+        contextTypes: [chrome.runtime.ContextType.OFFSCREEN_DOCUMENT],
+    });
+
+    if (existingContexts.length > 0) {
+        return; // Already exists
+    }
+
+    if (offscreenCreating) {
+        await offscreenCreating;
+        return;
+    }
+
+    console.log('[ServiceWorker] Creating offscreen document...');
+    offscreenCreating = chrome.offscreen.createDocument({
+        url: 'offscreen.html',
+        reasons: [chrome.offscreen.Reason.WORKERS],
+        justification: 'WebLLM AI processing with WebGPU',
+    });
+
+    await offscreenCreating;
+    offscreenCreating = null;
+    console.log('[ServiceWorker] Offscreen document created');
+}
+
+// Health check - verify offscreen document is responsive
+async function pingOffscreen(): Promise<boolean> {
+    try {
+        const response = await chrome.runtime.sendMessage({
+            target: 'offscreen',
+            action: 'ping',
+        });
+        return response?.pong === true;
+    } catch {
+        return false;
+    }
+}
+
+// Ensure offscreen is healthy, recreate if needed
+async function ensureOffscreenHealthy(): Promise<boolean> {
+    await ensureOffscreenDocument();
+
+    // Quick ping to verify it's responsive
+    const healthy = await pingOffscreen();
+    if (!healthy) {
+        console.warn('[ServiceWorker] Offscreen not responsive, recreating...');
+        // Try to close existing and recreate
+        try {
+            await chrome.offscreen.closeDocument();
+        } catch {}
+        offscreenCreating = null;
+        await ensureOffscreenDocument();
+        return pingOffscreen();
+    }
+    return true;
+}
+
+async function sendToOffscreen(action: string, data: any = {}): Promise<any> {
+    await ensureOffscreenHealthy();
+    return chrome.runtime.sendMessage({
+        target: 'offscreen',
+        action,
+        ...data,
+    });
+}
+
+// Warmup offscreen AI on extension startup
+async function warmupOffscreenAI() {
+    try {
+        const stored = await chrome.storage.local.get(['webllmReady', 'aiConfig']);
+        if (stored.webllmReady || stored.aiConfig?.preferWebLLM) {
+            console.log('[ServiceWorker] Warming up offscreen AI...');
+            await ensureOffscreenDocument();
+            // The offscreen document will auto-preload when created
+        }
+    } catch (err) {
+        console.warn('[ServiceWorker] Warmup failed:', err);
+    }
+}
+
 // Parse JSON from AI response - handles markdown code blocks
 function parseJSONResponse<T>(response: string, context: string): T | null {
     let clean = response.trim();
@@ -57,10 +143,14 @@ async function ensureServicesInitialized(): Promise<void> {
 chrome.runtime.onInstalled.addListener(async () => {
     await ensureServicesInitialized();
     await chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: false });
+    // Warmup AI if previously enabled
+    warmupOffscreenAI();
 });
 
 chrome.runtime.onStartup.addListener(async () => {
     await ensureServicesInitialized();
+    // Warmup AI if previously enabled - this makes subsequent AI calls faster
+    warmupOffscreenAI();
 });
 
 // Debounce map for fly mode processing
@@ -189,7 +279,22 @@ chrome.commands.onCommand.addListener(async (command) => {
     }
 });
 
-chrome.runtime.onMessage.addListener((message: Message, _sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message: Message & { target?: string; data?: any }, _sender, sendResponse) => {
+    // Handle messages from offscreen document
+    if (message.target === 'service-worker') {
+        if (message.action === 'webllm-status') {
+            // Store status so other pages can read it
+            chrome.storage.local.set({
+                offscreenAIStatus: message.data
+            }).catch(() => {});
+        } else if (message.action === 'offscreen-heartbeat') {
+            // Track offscreen health
+            offscreenLastHeartbeat = Date.now();
+            offscreenEngineReady = message.data?.engineReady || false;
+        }
+        return;
+    }
+
     ensureServicesInitialized()
         .then(() => handleMessage(message))
         .then(sendResponse)
@@ -269,6 +374,148 @@ async function handleMessage(message: Message): Promise<MessageResponse> {
         case 'smartOrganizePreview':
             return await smartOrganizePreview();
 
+        // AI tab grouping via offscreen document (persists even if popup closes)
+        case 'groupTabsWithAI':
+            try {
+                console.log('[groupTabsWithAI] Starting...');
+                const windowTabs = await tabService.getWindowTabs();
+                console.log(`[groupTabsWithAI] Got ${windowTabs.length} window tabs`);
+
+                // Get the window ID from the first tab
+                const targetWindowId = windowTabs.length > 0 ? windowTabs[0].windowId : undefined;
+                console.log(`[groupTabsWithAI] Target window: ${targetWindowId}`);
+
+                // Filter out tabs that are already in groups (groupId !== -1 means grouped)
+                const ungroupedTabs = windowTabs.filter(t => t.groupId === -1 || t.groupId === undefined);
+                console.log(`[groupTabsWithAI] ${ungroupedTabs.length} ungrouped tabs`);
+
+                if (ungroupedTabs.length < 2) {
+                    if (windowTabs.length >= 2 && ungroupedTabs.length < 2) {
+                        return { success: true, data: { message: 'Tabs already grouped!', groupsCreated: 0 } };
+                    }
+                    return { success: false, error: 'Need at least 2 ungrouped tabs' };
+                }
+
+                // Log tabs being sent to AI
+                console.log('[groupTabsWithAI] Tabs to group:');
+                ungroupedTabs.forEach((t, i) => {
+                    console.log(`  ${i}: ${t.title.substring(0, 50)} [${t.url.substring(0, 50)}]`);
+                });
+
+                // Send to offscreen document for AI processing
+                const result = await sendToOffscreen('group-tabs', {
+                    tabs: ungroupedTabs.map(t => ({ id: t.id, title: t.title, url: t.url })),
+                    modelId: message.payload?.modelId,
+                });
+
+                console.log('[groupTabsWithAI] AI result:', JSON.stringify(result, null, 2));
+
+                if (!result.success) {
+                    return { success: false, error: result.error || 'AI grouping failed' };
+                }
+
+                // Log the groups AI created
+                console.log('[groupTabsWithAI] Groups from AI:');
+                result.groups?.forEach((g: any) => {
+                    console.log(`  "${g.name}": tabs ${JSON.stringify(g.tabIds)}`);
+                });
+
+                // Apply the groups - use try/catch for each to handle errors gracefully
+                const groupColors: chrome.tabGroups.ColorEnum[] = ['blue', 'red', 'yellow', 'green', 'pink', 'purple', 'cyan', 'orange'];
+                let created = 0;
+                for (const group of result.groups) {
+                    if (group.tabIds && group.tabIds.length >= 2) {
+                        try {
+                            console.log(`[groupTabsWithAI] Creating group "${group.name}" with ${group.tabIds.length} tabs in window ${targetWindowId}`);
+                            // Create group with explicit windowId
+                            const groupId = await chrome.tabs.group({
+                                tabIds: group.tabIds,
+                                createProperties: targetWindowId ? { windowId: targetWindowId } : undefined
+                            });
+                            await chrome.tabGroups.update(groupId, {
+                                title: group.name,
+                                color: groupColors[created % groupColors.length]
+                            });
+                            created++;
+                        } catch (groupErr: any) {
+                            console.warn(`[groupTabsWithAI] Failed to create group "${group.name}":`, groupErr.message);
+                            // Continue with other groups
+                        }
+                    }
+                }
+
+                console.log(`[groupTabsWithAI] Done! Created ${created} groups`);
+                return { success: true, data: { message: `Created ${created} groups`, groupsCreated: created, groups: result.groups } };
+            } catch (err: any) {
+                console.error('[groupTabsWithAI] Error:', err);
+                return { success: false, error: err.message };
+            }
+
+        // Initialize offscreen AI engine
+        case 'initOffscreenAI':
+            try {
+                const initResult = await sendToOffscreen('init', { modelId: message.payload?.modelId });
+                return { success: initResult.success };
+            } catch (err: any) {
+                return { success: false, error: err.message };
+            }
+
+        // Get offscreen AI status
+        case 'getOffscreenAIStatus':
+            try {
+                const status = await sendToOffscreen('get-status');
+                return { success: true, data: status };
+            } catch (err: any) {
+                return { success: false, error: err.message };
+            }
+
+        // Warmup/preload AI engine (faster subsequent calls)
+        case 'warmupOffscreenAI':
+            try {
+                const warmupResult = await sendToOffscreen('warmup', {
+                    modelId: message.payload?.modelId
+                });
+                return { success: warmupResult.success, data: { ready: warmupResult.ready } };
+            } catch (err: any) {
+                return { success: false, error: err.message };
+            }
+
+        // Chat with AI via offscreen document
+        case 'chatWithOffscreenAI':
+            try {
+                const chatResult = await sendToOffscreen('chat', {
+                    messages: message.payload?.messages || []
+                });
+                if (chatResult.success) {
+                    return { success: true, data: { response: chatResult.response } };
+                } else {
+                    return { success: false, error: chatResult.error || 'Chat failed' };
+                }
+            } catch (err: any) {
+                return { success: false, error: err.message };
+            }
+
+        case 'applyTabGroups':
+            // Apply tab groups from local AI results (used by popup/sidepanel with WebLLM)
+            try {
+                const groups = message.payload.groups as { name: string; tabIds: number[] }[];
+                const groupColors: chrome.tabGroups.ColorEnum[] = ['blue', 'red', 'yellow', 'green', 'pink', 'purple', 'cyan', 'orange'];
+                let created = 0;
+                for (const group of groups) {
+                    if (group.tabIds && group.tabIds.length > 0) {
+                        const groupId = await chrome.tabs.group({ tabIds: group.tabIds });
+                        await chrome.tabGroups.update(groupId, {
+                            title: group.name,
+                            color: groupColors[created % groupColors.length]
+                        });
+                        created++;
+                    }
+                }
+                return { success: true, data: { message: `Created ${created} groups` } };
+            } catch (err: any) {
+                return { success: false, error: err.message };
+            }
+
         case 'getAIProvider':
             return { success: true, data: { provider: aiService.getProvider() } };
 
@@ -299,6 +546,22 @@ async function handleMessage(message: Message): Promise<MessageResponse> {
         case 'setRateLimits':
             await aiService.setRateLimits(message.payload);
             return { success: true };
+
+        // WebLLM (Local AI) handlers
+        case 'initializeWebLLM':
+            const webllmSuccess = await aiService.initializeWebLLM();
+            return { success: true, data: { initialized: webllmSuccess, state: aiService.getWebLLMState() } };
+
+        case 'getWebLLMState':
+            return { success: true, data: aiService.getWebLLMState() };
+
+        case 'unloadWebLLM':
+            await aiService.unloadWebLLM();
+            return { success: true, data: { provider: aiService.getProvider() } };
+
+        case 'checkWebGPUSupport':
+            const capabilities = await aiService.checkWebGPUSupport();
+            return { success: true, data: capabilities };
 
         case 'getRateLimits':
             const rateLimits = aiService.getRateLimits();
@@ -558,20 +821,32 @@ async function smartOrganizePreview(): Promise<MessageResponse> {
             return { success: true, data: { groups: [], message: 'Not enough tabs to organize' } };
         }
 
-        // Use simple indices (0, 1, 2...) instead of Chrome's large tab IDs
-        const tabList = tabs.map((t, idx) => `${idx}: ${t.title} (${new URL(t.url).hostname})`).join('\n');
+        // Use simple indices with clear format
+        const tabList = tabs.map((t, idx) => {
+            try {
+                const hostname = new URL(t.url).hostname.replace('www.', '');
+                return `${idx}. "${t.title}" [${hostname}]`;
+            } catch {
+                return `${idx}. "${t.title}"`;
+            }
+        }).join('\n');
 
         // Calculate target groups based on tab count
         const minGroups = Math.max(2, Math.ceil(tabs.length / 8));
         const maxGroups = Math.min(10, Math.ceil(tabs.length / 3));
 
         const aiResponse = await aiService.prompt(
-            `Group these tabs by activity. Return ONLY JSON array.
+            `Group these browser tabs by their PURPOSE.
 
+TABS:
 ${tabList}
 
-Create ${minGroups}-${maxGroups} groups. Keep names SHORT (1 word only, max 6 letters).
-Format: [{"name":"Name","ids":[0,1,2]}]`
+Examples: Video sites → "Video", Code sites → "Code", Email → "Mail", Social → "Social", Shopping → "Shop"
+
+Output ONLY JSON (no other text):
+[{"name":"Video","ids":[0,2]},{"name":"Code","ids":[1,3]}]
+
+Rules: name max 5 letters, minimum 2 tabs per group, every tab number used once`
         );
 
         console.log('[SmartOrganizePreview] AI response:', aiResponse);
@@ -638,20 +913,32 @@ async function smartOrganize(): Promise<MessageResponse> {
             return { success: true, data: { organized: [], message: 'Not enough tabs to organize' } };
         }
 
-        // Use simple indices (0, 1, 2...) instead of Chrome's large tab IDs
-        const tabList = tabs.map((t, idx) => `${idx}: ${t.title} (${new URL(t.url).hostname})`).join('\n');
+        // Use simple indices with clear format
+        const tabList = tabs.map((t, idx) => {
+            try {
+                const hostname = new URL(t.url).hostname.replace('www.', '');
+                return `${idx}. "${t.title}" [${hostname}]`;
+            } catch {
+                return `${idx}. "${t.title}"`;
+            }
+        }).join('\n');
 
         // Calculate target groups based on tab count
         const minGroups = Math.max(2, Math.ceil(tabs.length / 8));
         const maxGroups = Math.min(10, Math.ceil(tabs.length / 3));
 
         const aiResponse = await aiService.prompt(
-            `Group these tabs by activity. Return ONLY JSON array.
+            `Group these browser tabs by their PURPOSE.
 
+TABS:
 ${tabList}
 
-Create ${minGroups}-${maxGroups} groups. Keep names SHORT (1 word only, max 6 letters).
-Format: [{"name":"Name","ids":[0,1,2]}]`
+Examples: Video sites → "Video", Code sites → "Code", Email → "Mail", Social → "Social", Shopping → "Shop"
+
+Output ONLY JSON (no other text):
+[{"name":"Video","ids":[0,2]},{"name":"Code","ids":[1,3]}]
+
+Rules: name max 5 letters, minimum 2 tabs per group, every tab number used once`
         );
 
         const groups = parseJSONResponse<{ name: string; ids: (number | string)[] }[]>(aiResponse, 'SmartOrganize');

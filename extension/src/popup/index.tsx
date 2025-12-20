@@ -4,6 +4,9 @@ import { colors, spacing, typography, borderRadius, transitions, shadows } from 
 import { UndoToast } from '../ui/components/UndoToast';
 import { EmptyState } from '../ui/components/EmptyState';
 
+// Note: WebLLM now runs in offscreen document, not in popup
+// This allows AI operations to continue even if popup closes
+
 interface TabInfo {
     id: number;
     title: string;
@@ -91,7 +94,7 @@ const Popup = () => {
     const [view, setView] = useState<View>('tabs');
     const [loading, setLoading] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
-    const [provider, setProvider] = useState<string>('none');
+    const [provider, setProvider] = useState<string>('webllm');
     const [license, setLicense] = useState<LicenseStatus | null>(null);
     const [autoPilotReport, setAutoPilotReport] = useState<AutoPilotReport | null>(null);
     const [statusMessage, setStatusMessage] = useState<string>('');
@@ -106,6 +109,8 @@ const Popup = () => {
         checkProvider();
         checkLicense();
         loadQuickReport();
+        // Warmup AI in background for faster first interaction
+        sendMessage('warmupOffscreenAI').catch(() => {});
     }, []);
 
     const sendMessage = useCallback(async (action: string, payload?: any) => {
@@ -118,9 +123,9 @@ const Popup = () => {
     }, [sendMessage]);
 
     const checkProvider = useCallback(async () => {
-        const response = await sendMessage('getAIProvider');
-        if (response.success) setProvider(response.data.provider);
-    }, [sendMessage]);
+        // Local AI is the only provider now
+        setProvider('webllm');
+    }, []);
 
     const checkLicense = useCallback(async () => {
         const response = await sendMessage('getLicenseStatus', { forceRefresh: true });
@@ -172,14 +177,29 @@ const Popup = () => {
         }
         setGrouping(true);
         setLoading(true);
-        showStatus('Organizing tabs...');
-        const response = await sendMessage('smartOrganize');
-        if (response.success) {
-            showStatus(response.data.message);
+        showStatus('Grouping tabs...');
+
+        try {
+            // Use background service for AI grouping
+            // This persists even if popup closes - operation runs in offscreen document
+            const response = await sendMessage('groupTabsWithAI');
+
+            if (response.success) {
+                showStatus(response.data.message || 'Tabs grouped!');
+            } else {
+                // Check if it's a download/init issue
+                if (response.error?.includes('initialize') || response.error?.includes('download')) {
+                    showStatus('Open Settings to download AI model first');
+                } else {
+                    showStatus(response.error || 'Grouping failed - try again');
+                }
+            }
             loadTabs();
-        } else {
-            showStatus(response.error || 'Organization failed');
+        } catch (err: any) {
+            console.error('[Popup] Grouping error:', err);
+            showStatus(err.message || 'Organization failed');
         }
+
         setLoading(false);
         setGrouping(false);
     }, [provider, sendMessage, loadTabs, showStatus]);
@@ -297,8 +317,17 @@ const Popup = () => {
                 </div>
             </header>
 
-            {/* Status - subtle */}
-            {statusMessage && <div style={s.statusBar}>{statusMessage}</div>}
+            {/* Status - fixed height to prevent layout shifts */}
+            <div style={{
+                ...s.statusBar,
+                opacity: statusMessage ? 1 : 0,
+                height: statusMessage ? 'auto' : 0,
+                padding: statusMessage ? `${spacing.sm}px ${spacing.lg}px` : 0,
+                overflow: 'hidden',
+                transition: 'opacity 0.15s ease',
+            }}>
+                {statusMessage || '\u00A0'}
+            </div>
 
             {/* Hero Action - refined */}
             <div style={s.heroSection}>
@@ -594,13 +623,13 @@ const Popup = () => {
                     <div style={s.upgradeContent}>
                         <div style={s.upgradeHeader}>
                             <span style={s.upgradeTitle}>Upgrade to Pro</span>
-                            <span style={s.upgradePrice}>AUD $6</span>
-                            <span style={s.upgradePriceNote}>one-time</span>
+                            <span style={s.upgradePrice}>AUD $2</span>
+                            <span style={s.upgradePriceNote}>/month</span>
                         </div>
                         <ul style={s.upgradeFeatures}>
+                            <li>Local AI (100% private)</li>
                             <li>Unlimited AI scans</li>
                             <li>Auto Pilot mode</li>
-                            <li>Smart grouping</li>
                             <li>Up to 3 devices</li>
                         </ul>
                         <button style={s.upgradeBtn} onClick={handleUpgrade} disabled={loading}>

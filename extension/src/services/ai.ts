@@ -1,16 +1,18 @@
 import { licenseService } from './license';
+import { webllmService, WebLLMState } from '../ai/webllm';
 
 type AISession = {
     prompt: (text: string) => Promise<string>;
     destroy?: () => void;
 };
 
-type AIProvider = 'nano' | 'gemini' | 'openai' | 'anthropic' | 'none';
+type AIProvider = 'webllm' | 'nano' | 'gemini' | 'openai' | 'anthropic' | 'none';
 
 interface AIConfig {
     cloudProvider?: 'gemini' | 'openai' | 'anthropic';
     apiKey?: string;
     model?: string;
+    preferWebLLM?: boolean;  // User preference to use local WebLLM
 }
 
 const PROVIDER_CONFIGS = {
@@ -97,11 +99,28 @@ class AIService {
         // Reset counters if needed
         this.resetCountersIfNeeded();
 
+        // Priority 1: WebLLM (if user prefers and it's ready)
+        if (this.config.preferWebLLM && webllmService.isReady()) {
+            this.provider = 'webllm';
+            return 'webllm';
+        }
+
+        // Priority 2: Gemini Nano (Chrome's built-in AI)
         if (await this.initializeNano()) {
             this.provider = 'nano';
             return 'nano';
         }
 
+        // Priority 3: WebLLM (try to initialize if preferred)
+        if (this.config.preferWebLLM) {
+            const webllmReady = await webllmService.initialize();
+            if (webllmReady) {
+                this.provider = 'webllm';
+                return 'webllm';
+            }
+        }
+
+        // Priority 4: Cloud provider
         if (this.config.apiKey && this.config.cloudProvider) {
             this.provider = this.config.cloudProvider;
             return this.config.cloudProvider;
@@ -109,6 +128,52 @@ class AIService {
 
         this.provider = 'none';
         return 'none';
+    }
+
+    /**
+     * Initialize WebLLM explicitly (for manual activation)
+     */
+    async initializeWebLLM(): Promise<boolean> {
+        const success = await webllmService.initialize();
+        if (success) {
+            this.provider = 'webllm';
+            // Save preference
+            this.config.preferWebLLM = true;
+            await chrome.storage.local.set({ aiConfig: this.config });
+        }
+        return success;
+    }
+
+    /**
+     * Get WebLLM state for UI updates
+     */
+    getWebLLMState(): WebLLMState {
+        return webllmService.getState();
+    }
+
+    /**
+     * Check WebGPU capabilities
+     */
+    async checkWebGPUSupport() {
+        return webllmService.checkWebGPUSupport();
+    }
+
+    /**
+     * Unload WebLLM to free memory
+     */
+    async unloadWebLLM(): Promise<void> {
+        await webllmService.unload();
+        this.config.preferWebLLM = false;
+        await chrome.storage.local.set({ aiConfig: this.config });
+        // Re-initialize to fall back to another provider
+        await this.initialize();
+    }
+
+    /**
+     * Subscribe to WebLLM state changes
+     */
+    onWebLLMStateChange(listener: (state: WebLLMState) => void): () => void {
+        return webllmService.onStateChange(listener);
     }
 
     private getAIApi(): any {
@@ -360,9 +425,10 @@ class AIService {
         this.usageStats.hourCalls++;
 
         // Estimate cost per call (in cents) - rough estimates for typical usage
-        // Nano is free, cloud providers vary
+        // Local AI (WebLLM, Nano) is free, cloud providers vary
         const costPerCall: { [key: string]: number } = {
-            'nano': 0,
+            'webllm': 0,     // Free (local)
+            'nano': 0,       // Free (local)
             'gemini': 0.01,  // ~$0.0001 for flash
             'openai': 0.05,  // ~$0.0005 for gpt-4o-mini
             'anthropic': 0.03 // ~$0.0003 for haiku
@@ -418,15 +484,22 @@ class AIService {
         // Track usage before making call
         await this.trackAPIUsage(this.provider);
 
+        // WebLLM - Local AI (highest priority when active)
+        if (this.provider === 'webllm' && webllmService.isReady()) {
+            return await webllmService.prompt(text);
+        }
+
+        // Gemini Nano - Chrome's built-in AI
         if (this.provider === 'nano' && this.session) {
             return await this.session.prompt(text);
         }
 
+        // Cloud providers
         if (this.provider !== 'none' && this.config.apiKey) {
             return await this.cloudPrompt(text);
         }
 
-        throw new Error('No AI provider available. Configure API key in options.');
+        throw new Error('No AI provider available. Configure API key in options or enable Local AI.');
     }
 
     private async cloudPrompt(text: string): Promise<string> {
@@ -553,9 +626,23 @@ class AIService {
     }
 
     /**
+     * Check if the current provider is local (no data leaves device)
+     */
+    isLocalProvider(): boolean {
+        return this.provider === 'webllm' || this.provider === 'nano';
+    }
+
+    /**
      * Get privacy info about current provider
      */
     getPrivacyInfo(): { isLocal: boolean; provider: string; message: string } {
+        if (this.provider === 'webllm') {
+            return {
+                isLocal: true,
+                provider: 'Local AI (SmolLM2)',
+                message: 'AI runs 100% locally using WebGPU. No data ever leaves your device.'
+            };
+        }
         if (this.provider === 'nano') {
             return {
                 isLocal: true,
@@ -601,4 +688,5 @@ class AIService {
 
 export const aiService = new AIService();
 export type { AIConfig, AIProvider, NanoStatus, RateLimitConfig };
+export type { WebLLMState } from '../ai/webllm';
 export { DEFAULT_RATE_LIMITS };
