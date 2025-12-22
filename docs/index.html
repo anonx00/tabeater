@@ -618,8 +618,8 @@
     console.log('Initializing Tron: Ares Experience...');
 
     // ========================================
-    // TRON: ARES - COMPLETE 3D EXPERIENCE
-    // Immersive cyberpunk visualization
+    // TRON: ARES - ARTISTIC REDESIGN
+    // Dramatic lighting, glowing geometry, cinematic
     // ========================================
 
     const canvas = document.getElementById('bg-canvas');
@@ -627,151 +627,285 @@
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.5;
+    renderer.toneMappingExposure = 1.2;
 
     const scene = new THREE.Scene();
-    scene.fog = new THREE.FogExp2(0x000000, 0.0015);
+    scene.background = new THREE.Color(0x000000);
+    scene.fog = new THREE.FogExp2(0x000000, 0.002);
 
-    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
-    camera.position.set(0, 20, 100);
+    const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(0, 12, 35);
+    camera.lookAt(0, 0, 0);
 
     const isMobile = window.innerWidth < 768;
 
-    // Tron Colors
-    const CYAN = 0x00FFFF;
-    const ORANGE = 0xFF4500;
-    const BLUE = 0x0088FF;
+    // TRON COLORS
+    const CYAN = new THREE.Color(0x00FFFF);
+    const ORANGE = new THREE.Color(0xFF3300);
+    const BLUE = new THREE.Color(0x0088FF);
 
     // ========================================
-    // 1. INFINITE NEON GRID FLOOR
+    // 1. GLOWING GRID FLOOR
     // ========================================
-    const gridSize = 2000;
-    const gridDivisions = 100;
-    const gridHelper = new THREE.GridHelper(gridSize, gridDivisions, CYAN, CYAN);
-    gridHelper.material.opacity = 0.3;
+    const gridSize = 200;
+    const divisions = 40;
+
+    // Main grid with glowing shader
+    const gridHelper = new THREE.GridHelper(gridSize, divisions, 0x00FFFF, 0x00FFFF);
+    gridHelper.material.opacity = 0.5;
     gridHelper.material.transparent = true;
-    gridHelper.position.y = 0;
     scene.add(gridHelper);
 
-    // Add glowing grid lines
-    const gridGeometry = new THREE.PlaneGeometry(gridSize, gridSize, gridDivisions, gridDivisions);
-    const gridMaterial = new THREE.MeshBasicMaterial({
-        color: CYAN,
-        wireframe: true,
+    // Glowing grid plane with custom shader
+    const gridShaderMaterial = new THREE.ShaderMaterial({
         transparent: true,
-        opacity: 0.15,
-        side: THREE.DoubleSide
+        side: THREE.DoubleSide,
+        uniforms: {
+            time: { value: 0 },
+            color1: { value: CYAN },
+            color2: { value: BLUE }
+        },
+        vertexShader: `
+            varying vec2 vUv;
+            void main() {
+                vUv = uv;
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+        `,
+        fragmentShader: `
+            uniform float time;
+            uniform vec3 color1;
+            uniform vec3 color2;
+            varying vec2 vUv;
+
+            void main() {
+                float grid = 0.0;
+
+                // Create grid lines
+                float lineWidth = 0.02;
+                float x = mod(vUv.x * 40.0, 1.0);
+                float y = mod(vUv.y * 40.0, 1.0);
+
+                if (x < lineWidth || x > 1.0 - lineWidth || y < lineWidth || y > 1.0 - lineWidth) {
+                    grid = 1.0;
+                }
+
+                // Pulsing effect
+                float pulse = sin(time * 2.0 + vUv.x * 10.0) * 0.3 + 0.7;
+
+                // Distance fade
+                float dist = length(vUv - 0.5);
+                float fade = smoothstep(0.7, 0.3, dist);
+
+                vec3 color = mix(color1, color2, vUv.x);
+                gl_FragColor = vec4(color, grid * pulse * fade * 0.6);
+            }
+        `
     });
-    const gridPlane = new THREE.Mesh(gridGeometry, gridMaterial);
+
+    const gridPlane = new THREE.Mesh(
+        new THREE.PlaneGeometry(gridSize, gridSize),
+        gridShaderMaterial
+    );
     gridPlane.rotation.x = -Math.PI / 2;
-    gridPlane.position.y = 0.1;
+    gridPlane.position.y = 0.01;
     scene.add(gridPlane);
 
     // ========================================
-    // 2. NEON CITY SKYLINE
+    // 2. DRAMATIC LIGHT WALLS
     // ========================================
-    const buildings = [];
-    const buildingCount = isMobile ? 20 : 40;
+    const walls = [];
 
-    for (let i = 0; i < buildingCount; i++) {
-        const height = 50 + Math.random() * 150;
-        const width = 10 + Math.random() * 20;
-        const depth = 10 + Math.random() * 20;
+    // Cyan vertical walls
+    for (let i = 0; i < 4; i++) {
+        const height = 20 + Math.random() * 15;
+        const width = 0.3;
+        const depth = 15 + Math.random() * 10;
 
         const geometry = new THREE.BoxGeometry(width, height, depth);
-        const edges = new THREE.EdgesGeometry(geometry);
-        const material = new THREE.LineBasicMaterial({
-            color: i % 3 === 0 ? ORANGE : CYAN,
+        const material = new THREE.MeshBasicMaterial({
+            color: CYAN,
             transparent: true,
-            opacity: 0.6
+            opacity: 0.7,
+            side: THREE.DoubleSide
         });
-        const building = new THREE.LineSegments(edges, material);
 
-        const angle = (i / buildingCount) * Math.PI * 2;
-        const radius = 300 + Math.random() * 200;
-        building.position.x = Math.cos(angle) * radius;
-        building.position.z = Math.sin(angle) * radius;
-        building.position.y = height / 2;
+        const wall = new THREE.Mesh(geometry, material);
 
-        scene.add(building);
-        buildings.push(building);
+        const angle = (i / 4) * Math.PI * 2;
+        const radius = 30 + Math.random() * 15;
+        wall.position.x = Math.cos(angle) * radius;
+        wall.position.z = Math.sin(angle) * radius;
+        wall.position.y = height / 2;
+        wall.rotation.y = angle;
+
+        scene.add(wall);
+
+        // Add glow edges
+        const edges = new THREE.EdgesGeometry(geometry);
+        const edgeMaterial = new THREE.LineBasicMaterial({ color: 0x00FFFF, linewidth: 2 });
+        const edgeLines = new THREE.LineSegments(edges, edgeMaterial);
+        wall.add(edgeLines);
+
+        // Add point light
+        const light = new THREE.PointLight(0x00FFFF, 2, 50);
+        light.position.copy(wall.position);
+        light.position.y = height;
+        scene.add(light);
+
+        walls.push({ mesh: wall, light, baseY: wall.position.y, height });
+    }
+
+    // ORANGE accent walls (PROMINENT)
+    for (let i = 0; i < 3; i++) {
+        const height = 25 + Math.random() * 20;
+        const width = 0.5;
+        const depth = 20 + Math.random() * 15;
+
+        const geometry = new THREE.BoxGeometry(width, height, depth);
+        const material = new THREE.MeshBasicMaterial({
+            color: ORANGE,
+            transparent: true,
+            opacity: 0.8,
+            side: THREE.DoubleSide
+        });
+
+        const wall = new THREE.Mesh(geometry, material);
+
+        const angle = (i / 3) * Math.PI * 2 + Math.PI / 3;
+        const radius = 25 + Math.random() * 10;
+        wall.position.x = Math.cos(angle) * radius;
+        wall.position.z = Math.sin(angle) * radius;
+        wall.position.y = height / 2;
+        wall.rotation.y = angle + Math.PI / 2;
+
+        scene.add(wall);
+
+        // Add glow edges
+        const edges = new THREE.EdgesGeometry(geometry);
+        const edgeMaterial = new THREE.LineBasicMaterial({ color: 0xFF3300, linewidth: 2 });
+        const edgeLines = new THREE.LineSegments(edges, edgeMaterial);
+        wall.add(edgeLines);
+
+        // Add STRONG orange point light
+        const light = new THREE.PointLight(0xFF3300, 3, 60);
+        light.position.copy(wall.position);
+        light.position.y = height;
+        scene.add(light);
+
+        walls.push({ mesh: wall, light, baseY: wall.position.y, height, isOrange: true });
     }
 
     // ========================================
-    // 3. LIGHT CYCLE TRAILS
+    // 3. ENERGY BEAMS (Horizontal)
     // ========================================
-    const trails = [];
-    const trailCount = isMobile ? 3 : 6;
+    const beams = [];
 
-    for (let i = 0; i < trailCount; i++) {
+    for (let i = 0; i < 6; i++) {
         const points = [];
+        const startAngle = Math.random() * Math.PI * 2;
+        const radius = 20 + i * 5;
         const segments = 50;
-        const radius = 100 + i * 30;
 
         for (let j = 0; j < segments; j++) {
-            const angle = (j / segments) * Math.PI * 2;
-            points.push(new THREE.Vector3(
-                Math.cos(angle) * radius,
-                2,
-                Math.sin(angle) * radius
-            ));
+            const angle = startAngle + (j / segments) * Math.PI * 2;
+            const x = Math.cos(angle) * radius;
+            const z = Math.sin(angle) * radius;
+            const y = 5 + Math.sin(j * 0.3) * 3;
+            points.push(new THREE.Vector3(x, y, z));
         }
 
         const geometry = new THREE.BufferGeometry().setFromPoints(points);
         const material = new THREE.LineBasicMaterial({
-            color: i % 2 === 0 ? CYAN : ORANGE,
+            color: i % 2 === 0 ? 0x00FFFF : 0xFF3300,
             transparent: true,
             opacity: 0.8,
             linewidth: 2
         });
 
-        const trail = new THREE.Line(geometry, material);
-        scene.add(trail);
+        const beam = new THREE.Line(geometry, material);
+        scene.add(beam);
+        beams.push({ line: beam, rotation: Math.random() * 0.001 });
+    }
 
-        // Add glowing head
-        const headGeo = new THREE.SphereGeometry(2, 16, 16);
-        const headMat = new THREE.MeshBasicMaterial({
-            color: i % 2 === 0 ? CYAN : ORANGE,
+    // ========================================
+    // 4. ORGANIZED PARTICLE STREAMS
+    // ========================================
+    const particleStreams = [];
+
+    // Create organized vertical streams
+    for (let stream = 0; stream < 8; stream++) {
+        const particleCount = isMobile ? 50 : 100;
+        const positions = new Float32Array(particleCount * 3);
+        const colors = new Float32Array(particleCount * 3);
+
+        const angle = (stream / 8) * Math.PI * 2;
+        const radius = 40 + Math.random() * 10;
+        const baseX = Math.cos(angle) * radius;
+        const baseZ = Math.sin(angle) * radius;
+
+        const color = stream % 3 === 0 ? ORANGE : CYAN;
+
+        for (let i = 0; i < particleCount; i++) {
+            positions[i * 3] = baseX + (Math.random() - 0.5) * 2;
+            positions[i * 3 + 1] = Math.random() * 40;
+            positions[i * 3 + 2] = baseZ + (Math.random() - 0.5) * 2;
+
+            colors[i * 3] = color.r;
+            colors[i * 3 + 1] = color.g;
+            colors[i * 3 + 2] = color.b;
+        }
+
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+        const material = new THREE.PointsMaterial({
+            size: 0.3,
+            vertexColors: true,
             transparent: true,
-            opacity: 1
+            opacity: 0.8,
+            blending: THREE.AdditiveBlending
         });
-        const head = new THREE.Mesh(headGeo, headMat);
-        head.position.copy(points[0]);
-        scene.add(head);
 
-        trails.push({
-            line: trail,
-            head: head,
-            points: points,
-            progress: Math.random(),
-            speed: 0.002 + Math.random() * 0.003
+        const particles = new THREE.Points(geometry, material);
+        scene.add(particles);
+
+        particleStreams.push({
+            particles,
+            baseX,
+            baseZ,
+            speed: 0.1 + Math.random() * 0.1
         });
     }
 
     // ========================================
-    // 4. GLOWING DATA ORBS
+    // 5. GLOWING ORBS (Fewer, larger, more dramatic)
     // ========================================
     const orbs = [];
-    const orbCount = isMobile ? 10 : 20;
 
-    for (let i = 0; i < orbCount; i++) {
-        const geometry = new THREE.IcosahedronGeometry(2, 1);
+    for (let i = 0; i < 5; i++) {
+        const geometry = new THREE.SphereGeometry(2, 32, 32);
         const material = new THREE.MeshBasicMaterial({
-            color: i % 3 === 0 ? ORANGE : CYAN,
+            color: i === 2 ? ORANGE : CYAN,
             transparent: true,
-            opacity: 0.7,
-            wireframe: true
+            opacity: 0.6
         });
+
         const orb = new THREE.Mesh(geometry, material);
 
-        orb.position.x = (Math.random() - 0.5) * 300;
-        orb.position.y = 10 + Math.random() * 40;
-        orb.position.z = -100 - Math.random() * 300;
+        const angle = (i / 5) * Math.PI * 2;
+        const radius = 15 + i * 3;
+        orb.position.x = Math.cos(angle) * radius;
+        orb.position.z = Math.sin(angle) * radius;
+        orb.position.y = 8 + Math.random() * 5;
 
-        // Add glow
-        const glowGeo = new THREE.IcosahedronGeometry(3, 1);
+        scene.add(orb);
+
+        // Outer glow shell
+        const glowGeo = new THREE.SphereGeometry(3, 32, 32);
         const glowMat = new THREE.MeshBasicMaterial({
-            color: material.color,
+            color: i === 2 ? ORANGE : CYAN,
             transparent: true,
             opacity: 0.2,
             side: THREE.BackSide
@@ -779,74 +913,35 @@
         const glow = new THREE.Mesh(glowGeo, glowMat);
         orb.add(glow);
 
-        scene.add(orb);
+        // Point light
+        const light = new THREE.PointLight(i === 2 ? 0xFF3300 : 0x00FFFF, 2, 30);
+        orb.add(light);
 
-        orbs.push({
-            mesh: orb,
-            baseY: orb.position.y,
-            speed: 0.3 + Math.random() * 0.5,
-            offset: Math.random() * Math.PI * 2
-        });
+        orbs.push({ mesh: orb, baseY: orb.position.y, speed: 0.5 + Math.random() * 0.5, offset: Math.random() * Math.PI * 2 });
     }
 
     // ========================================
-    // 5. PARTICLE STREAM
+    // 6. AMBIENT LIGHTING
     // ========================================
-    const particleCount = isMobile ? 500 : 1500;
-    const particles = new Float32Array(particleCount * 3);
-    const particleVelocities = [];
-
-    for (let i = 0; i < particleCount; i++) {
-        particles[i * 3] = (Math.random() - 0.5) * 600;
-        particles[i * 3 + 1] = Math.random() * 100;
-        particles[i * 3 + 2] = -Math.random() * 400;
-
-        particleVelocities.push({
-            x: (Math.random() - 0.5) * 0.2,
-            y: (Math.random() - 0.5) * 0.1,
-            z: 0.5 + Math.random() * 0.5
-        });
-    }
-
-    const particleGeo = new THREE.BufferGeometry();
-    particleGeo.setAttribute('position', new THREE.BufferAttribute(particles, 3));
-
-    const particleMat = new THREE.PointsMaterial({
-        color: CYAN,
-        size: 2,
-        transparent: true,
-        opacity: 0.8,
-        blending: THREE.AdditiveBlending
-    });
-
-    const particleSystem = new THREE.Points(particleGeo, particleMat);
-    scene.add(particleSystem);
+    const ambientLight = new THREE.AmbientLight(0x001133, 0.3);
+    scene.add(ambientLight);
 
     // ========================================
-    // 6. POST-PROCESSING BLOOM
+    // 7. POST-PROCESSING BLOOM
     // ========================================
     const composer = new EffectComposer(renderer);
     composer.addPass(new RenderPass(scene, camera));
 
     const bloomPass = new UnrealBloomPass(
         new THREE.Vector2(window.innerWidth, window.innerHeight),
-        1.5, // strength
-        0.4, // radius
-        0.85 // threshold
+        2.0, // strength (increased)
+        0.6, // radius
+        0.3  // threshold (lower = more bloom)
     );
     composer.addPass(bloomPass);
 
     // ========================================
-    // 7. SCROLL INTERACTION
-    // ========================================
-    let scrollProgress = 0;
-
-    window.addEventListener('scroll', () => {
-        scrollProgress = window.scrollY / (document.body.scrollHeight - window.innerHeight);
-    });
-
-    // ========================================
-    // 8. MOUSE PARALLAX
+    // 8. MOUSE INTERACTION
     // ========================================
     const mouse = { x: 0, y: 0 };
 
@@ -856,68 +951,77 @@
     });
 
     // ========================================
+    // 9. SCROLL INTERACTION
+    // ========================================
+    let scrollProgress = 0;
+
+    window.addEventListener('scroll', () => {
+        scrollProgress = window.scrollY / (document.body.scrollHeight - window.innerHeight);
+    });
+
+    // ========================================
     // ANIMATION LOOP
     // ========================================
     let time = 0;
 
     function animate() {
         requestAnimationFrame(animate);
-
         time += 0.016;
 
-        // Scroll-based camera movement
-        camera.position.z = 100 - scrollProgress * 300;
-        camera.position.y = 20 + scrollProgress * 50;
-        camera.lookAt(0, 0, -scrollProgress * 200);
+        // Update grid shader
+        gridShaderMaterial.uniforms.time.value = time;
+
+        // Scroll camera
+        camera.position.y = 12 + scrollProgress * 20;
+        camera.position.z = 35 - scrollProgress * 15;
+        camera.lookAt(0, 5, 0);
 
         // Mouse parallax
-        camera.position.x += (mouse.x * 10 - camera.position.x) * 0.05;
+        camera.position.x += (mouse.x * 8 - camera.position.x) * 0.05;
 
-        // Animate grid (scroll effect)
-        gridPlane.position.z = (time * 20) % (gridSize / gridDivisions);
+        // Animate walls - pulsing
+        walls.forEach((wall, i) => {
+            const pulse = Math.sin(time * 2 + i) * 0.2 + 1;
+            wall.mesh.scale.y = pulse;
+            wall.light.intensity = pulse * (wall.isOrange ? 3 : 2);
 
-        // Rotate buildings
-        buildings.forEach((building, i) => {
-            building.rotation.y += 0.001;
-            building.material.opacity = 0.4 + Math.sin(time + i) * 0.2;
+            // Subtle opacity pulse
+            wall.mesh.material.opacity = 0.7 + Math.sin(time * 3 + i) * 0.2;
         });
 
-        // Animate light cycle trails
-        trails.forEach(trail => {
-            trail.progress += trail.speed;
-            if (trail.progress > 1) trail.progress = 0;
+        // Rotate energy beams
+        beams.forEach(beam => {
+            beam.line.rotation.y += beam.rotation;
+        });
 
-            const index = Math.floor(trail.progress * trail.points.length);
-            const point = trail.points[index];
-            if (point) {
-                trail.head.position.copy(point);
-                trail.head.scale.setScalar(1 + Math.sin(time * 10) * 0.3);
+        // Animate particle streams - rising motion
+        particleStreams.forEach(stream => {
+            const positions = stream.particles.geometry.attributes.position.array;
+
+            for (let i = 0; i < positions.length / 3; i++) {
+                positions[i * 3 + 1] += stream.speed;
+
+                // Reset when particle reaches top
+                if (positions[i * 3 + 1] > 40) {
+                    positions[i * 3 + 1] = 0;
+                    positions[i * 3] = stream.baseX + (Math.random() - 0.5) * 2;
+                    positions[i * 3 + 2] = stream.baseZ + (Math.random() - 0.5) * 2;
+                }
             }
+
+            stream.particles.geometry.attributes.position.needsUpdate = true;
         });
 
-        // Animate orbs
+        // Animate orbs - floating
         orbs.forEach(orb => {
-            orb.mesh.position.y = orb.baseY + Math.sin(time * orb.speed + orb.offset) * 5;
-            orb.mesh.rotation.x += 0.01;
-            orb.mesh.rotation.y += 0.015;
+            orb.mesh.position.y = orb.baseY + Math.sin(time * orb.speed + orb.offset) * 3;
+            orb.mesh.rotation.y += 0.01;
+
+            // Pulsing glow
+            const pulse = Math.sin(time * 2 + orb.offset) * 0.1 + 0.9;
+            orb.mesh.children[0].scale.setScalar(pulse);
         });
 
-        // Animate particles
-        const pos = particleSystem.geometry.attributes.position.array;
-        for (let i = 0; i < particleCount; i++) {
-            pos[i * 3] += particleVelocities[i].x;
-            pos[i * 3 + 1] += particleVelocities[i].y;
-            pos[i * 3 + 2] += particleVelocities[i].z;
-
-            if (pos[i * 3 + 2] > camera.position.z + 50) {
-                pos[i * 3 + 2] = camera.position.z - 400;
-                pos[i * 3] = (Math.random() - 0.5) * 600;
-                pos[i * 3 + 1] = Math.random() * 100;
-            }
-        }
-        particleSystem.geometry.attributes.position.needsUpdate = true;
-
-        // Render with bloom
         composer.render();
     }
 
@@ -931,7 +1035,7 @@
         composer.setSize(window.innerWidth, window.innerHeight);
     });
 
-    console.log('Tron: Ares experience loaded successfully!');
+    console.log('Tron: Ares experience loaded!');
 
     </script>
 </body>
