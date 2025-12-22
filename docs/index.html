@@ -621,12 +621,17 @@
     import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
     import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 
-    // ========================================
-    // TRON: ARES - THE GRID
-    // Infinite neon cyberpunk environment
-    // ========================================
+    console.log('Three.js imports loaded');
 
-    const isMobile = window.innerWidth < 768;
+    try {
+        console.log('Starting scene initialization...');
+
+        // ========================================
+        // TRON: ARES - THE GRID
+        // Infinite neon cyberpunk environment
+        // ========================================
+
+        const isMobile = window.innerWidth < 768;
 
     // TRON Colors
     const CYAN = 0x00FFFF;
@@ -1566,6 +1571,15 @@
         }
         lastScroll = scroll;
     });
+
+    } catch (error) {
+        console.error('Three.js initialization error:', error);
+        document.body.innerHTML += `<div style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #ff0000; font-family: monospace; background: rgba(0,0,0,0.9); padding: 20px; border: 2px solid #ff0000; z-index: 9999;">
+            <h2>Error Loading 3D Scene</h2>
+            <p>${error.message}</p>
+            <p>Check browser console for details.</p>
+        </div>`;
+    }
 
     </script>
 </body>
