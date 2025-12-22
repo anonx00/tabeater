@@ -615,427 +615,446 @@
     import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
     import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 
-    console.log('Initializing Tron: Ares Experience...');
-
     // ========================================
-    // TRON: ARES - ARTISTIC REDESIGN
-    // Dramatic lighting, glowing geometry, cinematic
+    // TRON: ARES - THE GRID
+    // Infinite neon cyberpunk environment
     // ========================================
-
-    const canvas = document.getElementById('bg-canvas');
-    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.5;
-
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x000510);
-    scene.fog = new THREE.FogExp2(0x000510, 0.0015);
-
-    const camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.set(0, 18, 45);
-    camera.lookAt(0, 0, -20);
 
     const isMobile = window.innerWidth < 768;
 
-    // TRON COLORS
-    const CYAN = new THREE.Color(0x00FFFF);
-    const ORANGE = new THREE.Color(0xFF3300);
-    const BLUE = new THREE.Color(0x0088FF);
+    // TRON Colors
+    const CYAN = 0x00FFFF;
+    const CYAN_BRIGHT = 0x6FFFE9;
+    const ORANGE = 0xFF6B00;
+    const PINK = 0xFF0080;
+    const WHITE = 0xFFFFFF;
 
     // ========================================
-    // 1. GLOWING GRID FLOOR
+    // SETUP
     // ========================================
-    const gridSize = 200;
-    const divisions = 40;
+    const canvas = document.getElementById('bg-canvas');
+    const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.2;
 
-    // Main grid with glowing shader
-    const gridHelper = new THREE.GridHelper(gridSize, divisions, 0x00FFFF, 0x0088FF);
-    gridHelper.material.opacity = 0.7;
-    gridHelper.material.transparent = true;
-    scene.add(gridHelper);
+    const scene = new THREE.Scene();
+    scene.fog = new THREE.FogExp2(0x000510, 0.002);
 
-    // Glowing grid plane with custom shader
-    const gridShaderMaterial = new THREE.ShaderMaterial({
-        transparent: true,
-        side: THREE.DoubleSide,
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
+    camera.position.set(0, 25, 50);
+
+    // ========================================
+    // INFINITE GRID with Shader
+    // ========================================
+    const gridShader = {
         uniforms: {
-            time: { value: 0 },
-            color1: { value: CYAN },
-            color2: { value: BLUE }
+            uTime: { value: 0 },
+            uColor1: { value: new THREE.Color(CYAN) },
+            uColor2: { value: new THREE.Color(CYAN_BRIGHT) },
+            uFogColor: { value: new THREE.Color(0x000510) },
+            uFogDensity: { value: 0.015 }
         },
         vertexShader: `
+            varying vec3 vWorldPosition;
             varying vec2 vUv;
             void main() {
                 vUv = uv;
-                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                vec4 worldPos = modelMatrix * vec4(position, 1.0);
+                vWorldPosition = worldPos.xyz;
+                gl_Position = projectionMatrix * viewMatrix * worldPos;
             }
         `,
         fragmentShader: `
-            uniform float time;
-            uniform vec3 color1;
-            uniform vec3 color2;
+            uniform float uTime;
+            uniform vec3 uColor1;
+            uniform vec3 uColor2;
+            uniform vec3 uFogColor;
+            uniform float uFogDensity;
+            varying vec3 vWorldPosition;
             varying vec2 vUv;
 
             void main() {
-                float grid = 0.0;
+                // Grid pattern
+                float gridSize = 10.0;
+                vec2 grid = abs(fract(vWorldPosition.xz / gridSize - 0.5) - 0.5);
+                float lineWidth = 0.03;
+                float line = min(
+                    smoothstep(lineWidth, 0.0, grid.x),
+                    1.0
+                ) + min(
+                    smoothstep(lineWidth, 0.0, grid.y),
+                    1.0
+                );
+                line = min(line, 1.0);
 
-                // Create grid lines
-                float lineWidth = 0.02;
-                float x = mod(vUv.x * 40.0, 1.0);
-                float y = mod(vUv.y * 40.0, 1.0);
+                // Pulse wave from center
+                float dist = length(vWorldPosition.xz);
+                float pulse = sin(dist * 0.05 - uTime * 2.0) * 0.5 + 0.5;
 
-                if (x < lineWidth || x > 1.0 - lineWidth || y < lineWidth || y > 1.0 - lineWidth) {
-                    grid = 1.0;
-                }
+                // Color gradient
+                vec3 color = mix(uColor1, uColor2, pulse);
 
-                // Pulsing effect
-                float pulse = sin(time * 2.0 + vUv.x * 10.0) * 0.2 + 0.9;
+                // Distance-based intensity
+                float intensity = 1.0 - smoothstep(0.0, 500.0, dist);
+                intensity *= intensity;
 
-                // Distance fade
-                float dist = length(vUv - 0.5);
-                float fade = smoothstep(0.8, 0.2, dist);
+                // Fog
+                float fogFactor = 1.0 - exp(-uFogDensity * dist);
+                color = mix(color, uFogColor, fogFactor);
 
-                vec3 color = mix(color1, color2, vUv.x);
-                gl_FragColor = vec4(color, grid * pulse * fade * 0.8);
+                float alpha = line * intensity * (0.6 + pulse * 0.2);
+                gl_FragColor = vec4(color, alpha);
             }
         `
+    };
+
+    const gridGeometry = new THREE.PlaneGeometry(1000, 1000);
+    const gridMaterial = new THREE.ShaderMaterial({
+        ...gridShader,
+        transparent: true,
+        side: THREE.DoubleSide,
+        depthWrite: false
     });
+    const grid = new THREE.Mesh(gridGeometry, gridMaterial);
+    grid.rotation.x = -Math.PI / 2;
+    grid.position.y = -10;
+    scene.add(grid);
 
-    const gridPlane = new THREE.Mesh(
-        new THREE.PlaneGeometry(gridSize, gridSize),
-        gridShaderMaterial
+    // ========================================
+    // TRON SUN - Horizon
+    // ========================================
+    const sunGroup = new THREE.Group();
+    const sunRadius = 100;
+
+    // Main arc
+    const sunArc = new THREE.Mesh(
+        new THREE.TorusGeometry(sunRadius, 1.5, 32, 256, Math.PI),
+        new THREE.MeshBasicMaterial({ color: CYAN_BRIGHT })
     );
-    gridPlane.rotation.x = -Math.PI / 2;
-    gridPlane.position.y = 0.01;
-    scene.add(gridPlane);
+    sunArc.rotation.x = Math.PI / 2;
+    sunArc.rotation.z = Math.PI;
+    sunGroup.add(sunArc);
 
-    // ========================================
-    // 2. DRAMATIC LIGHT WALLS
-    // ========================================
-    const walls = [];
-
-    // Cyan vertical walls (DOMINANT)
-    for (let i = 0; i < 5; i++) {
-        const height = 20 + Math.random() * 15;
-        const width = 0.3;
-        const depth = 15 + Math.random() * 10;
-
-        const geometry = new THREE.BoxGeometry(width, height, depth);
-        const material = new THREE.MeshBasicMaterial({
-            color: CYAN,
-            transparent: true,
-            opacity: 0.7,
-            side: THREE.DoubleSide
-        });
-
-        const wall = new THREE.Mesh(geometry, material);
-
-        const angle = (i / 4) * Math.PI * 2;
-        const radius = 30 + Math.random() * 15;
-        wall.position.x = Math.cos(angle) * radius;
-        wall.position.z = Math.sin(angle) * radius;
-        wall.position.y = height / 2;
-        wall.rotation.y = angle;
-
-        scene.add(wall);
-
-        // Add glow edges
-        const edges = new THREE.EdgesGeometry(geometry);
-        const edgeMaterial = new THREE.LineBasicMaterial({ color: 0x00FFFF, linewidth: 2 });
-        const edgeLines = new THREE.LineSegments(edges, edgeMaterial);
-        wall.add(edgeLines);
-
-        // Add point light (dominant cyan)
-        const light = new THREE.PointLight(0x00FFFF, 2.5, 55);
-        light.position.copy(wall.position);
-        light.position.y = height;
-        scene.add(light);
-
-        walls.push({ mesh: wall, light, baseY: wall.position.y, height });
+    // Glow layers
+    for (let i = 1; i <= 5; i++) {
+        const glow = new THREE.Mesh(
+            new THREE.TorusGeometry(sunRadius, i * 3, 16, 256, Math.PI),
+            new THREE.MeshBasicMaterial({
+                color: CYAN,
+                transparent: true,
+                opacity: 0.08 / i
+            })
+        );
+        glow.rotation.x = Math.PI / 2;
+        glow.rotation.z = Math.PI;
+        sunGroup.add(glow);
     }
 
-    // ORANGE accent walls (ACCENTS ONLY)
-    for (let i = 0; i < 2; i++) {
-        const height = 25 + Math.random() * 20;
-        const width = 0.5;
-        const depth = 20 + Math.random() * 15;
-
-        const geometry = new THREE.BoxGeometry(width, height, depth);
-        const material = new THREE.MeshBasicMaterial({
-            color: ORANGE,
-            transparent: true,
-            opacity: 0.8,
-            side: THREE.DoubleSide
-        });
-
-        const wall = new THREE.Mesh(geometry, material);
-
-        const angle = (i / 3) * Math.PI * 2 + Math.PI / 3;
-        const radius = 25 + Math.random() * 10;
-        wall.position.x = Math.cos(angle) * radius;
-        wall.position.z = Math.sin(angle) * radius;
-        wall.position.y = height / 2;
-        wall.rotation.y = angle + Math.PI / 2;
-
-        scene.add(wall);
-
-        // Add glow edges
-        const edges = new THREE.EdgesGeometry(geometry);
-        const edgeMaterial = new THREE.LineBasicMaterial({ color: 0xFF3300, linewidth: 2 });
-        const edgeLines = new THREE.LineSegments(edges, edgeMaterial);
-        wall.add(edgeLines);
-
-        // Add orange point light (accent)
-        const light = new THREE.PointLight(0xFF3300, 2, 50);
-        light.position.copy(wall.position);
-        light.position.y = height;
-        scene.add(light);
-
-        walls.push({ mesh: wall, light, baseY: wall.position.y, height, isOrange: true });
-    }
-
-    // ========================================
-    // 3. ENERGY BEAMS (Horizontal)
-    // ========================================
-    const beams = [];
-
-    for (let i = 0; i < 6; i++) {
-        const points = [];
-        const startAngle = Math.random() * Math.PI * 2;
-        const radius = 20 + i * 5;
-        const segments = 50;
-
-        for (let j = 0; j < segments; j++) {
-            const angle = startAngle + (j / segments) * Math.PI * 2;
-            const x = Math.cos(angle) * radius;
-            const z = Math.sin(angle) * radius;
-            const y = 5 + Math.sin(j * 0.3) * 3;
-            points.push(new THREE.Vector3(x, y, z));
+    // Horizontal lines
+    for (let i = 0; i < 25; i++) {
+        const y = 8 + i * 3.5;
+        const width = Math.sqrt(sunRadius * sunRadius - y * y) * 2;
+        if (width > 0) {
+            const line = new THREE.Mesh(
+                new THREE.PlaneGeometry(width, 0.8),
+                new THREE.MeshBasicMaterial({
+                    color: CYAN,
+                    transparent: true,
+                    opacity: 0.9 - i * 0.03,
+                    side: THREE.DoubleSide
+                })
+            );
+            line.position.y = y;
+            sunGroup.add(line);
         }
-
-        const geometry = new THREE.BufferGeometry().setFromPoints(points);
-        const material = new THREE.LineBasicMaterial({
-            color: i % 3 === 0 ? 0xFF3300 : 0x00FFFF,
-            transparent: true,
-            opacity: 0.8,
-            linewidth: 2
-        });
-
-        const beam = new THREE.Line(geometry, material);
-        scene.add(beam);
-        beams.push({ line: beam, rotation: Math.random() * 0.001 });
     }
 
+    sunGroup.position.set(0, -10, -500);
+    scene.add(sunGroup);
+
     // ========================================
-    // 4. ORGANIZED PARTICLE STREAMS
+    // LIGHT CYCLES - Bold trails
     // ========================================
-    const particleStreams = [];
+    const cycles = [];
+    const cycleCount = 8;
 
-    // Create organized vertical streams
-    for (let stream = 0; stream < 8; stream++) {
-        const particleCount = isMobile ? 50 : 100;
-        const positions = new Float32Array(particleCount * 3);
-        const colors = new Float32Array(particleCount * 3);
+    for (let i = 0; i < cycleCount; i++) {
+        const isEnemy = i >= cycleCount - 2;
+        const color = isEnemy ? ORANGE : CYAN;
 
-        const angle = (stream / 8) * Math.PI * 2;
-        const radius = 40 + Math.random() * 10;
-        const baseX = Math.cos(angle) * radius;
-        const baseZ = Math.sin(angle) * radius;
+        const trailLength = 200 + Math.random() * 150;
+        const x = (Math.random() - 0.5) * 300;
+        const z = -400 + Math.random() * 200;
 
-        const color = stream % 4 === 0 ? ORANGE : CYAN;
+        // Trail
+        const trail = new THREE.Mesh(
+            new THREE.BoxGeometry(0.8, 4, trailLength),
+            new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.95 })
+        );
+        trail.position.set(x, -8, z + trailLength / 2);
+        scene.add(trail);
 
-        for (let i = 0; i < particleCount; i++) {
-            positions[i * 3] = baseX + (Math.random() - 0.5) * 2;
-            positions[i * 3 + 1] = Math.random() * 40;
-            positions[i * 3 + 2] = baseZ + (Math.random() - 0.5) * 2;
+        // Head glow
+        const head = new THREE.Mesh(
+            new THREE.SphereGeometry(2, 16, 16),
+            new THREE.MeshBasicMaterial({ color: isEnemy ? 0xFF9944 : CYAN_BRIGHT })
+        );
+        scene.add(head);
 
-            colors[i * 3] = color.r;
-            colors[i * 3 + 1] = color.g;
-            colors[i * 3 + 2] = color.b;
-        }
-
-        const geometry = new THREE.BufferGeometry();
-        geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-        geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-
-        const material = new THREE.PointsMaterial({
-            size: 0.3,
-            vertexColors: true,
-            transparent: true,
-            opacity: 0.8,
-            blending: THREE.AdditiveBlending
-        });
-
-        const particles = new THREE.Points(geometry, material);
-        scene.add(particles);
-
-        particleStreams.push({
-            particles,
-            baseX,
-            baseZ,
-            speed: 0.1 + Math.random() * 0.1
+        cycles.push({
+            trail, head, x,
+            startZ: z,
+            length: trailLength,
+            speed: 1.5 + Math.random() * 1.5,
+            progress: Math.random()
         });
     }
 
     // ========================================
-    // 5. GLOWING ORBS (Fewer, larger, more dramatic)
+    // FLOATING DATA ORBS
     // ========================================
     const orbs = [];
+    const orbCount = isMobile ? 15 : 30;
 
-    for (let i = 0; i < 5; i++) {
-        const geometry = new THREE.SphereGeometry(2, 32, 32);
-        const material = new THREE.MeshBasicMaterial({
-            color: i === 2 ? ORANGE : CYAN,
-            transparent: true,
-            opacity: 0.6
+    for (let i = 0; i < orbCount; i++) {
+        const group = new THREE.Group();
+
+        // Core sphere
+        const core = new THREE.Mesh(
+            new THREE.IcosahedronGeometry(1, 1),
+            new THREE.MeshBasicMaterial({
+                color: i % 5 === 0 ? ORANGE : CYAN_BRIGHT,
+                transparent: true,
+                opacity: 0.9
+            })
+        );
+        group.add(core);
+
+        // Outer wireframe
+        const wireGeo = new THREE.IcosahedronGeometry(1.8, 0);
+        const wireframe = new THREE.LineSegments(
+            new THREE.EdgesGeometry(wireGeo),
+            new THREE.LineBasicMaterial({
+                color: CYAN,
+                transparent: true,
+                opacity: 0.5
+            })
+        );
+        group.add(wireframe);
+
+        // Ring
+        const ring = new THREE.Mesh(
+            new THREE.TorusGeometry(2.5, 0.05, 8, 32),
+            new THREE.MeshBasicMaterial({ color: CYAN, transparent: true, opacity: 0.6 })
+        );
+        ring.rotation.x = Math.random() * Math.PI;
+        ring.rotation.y = Math.random() * Math.PI;
+        group.add(ring);
+
+        const scale = 1 + Math.random() * 2;
+        group.scale.setScalar(scale);
+
+        const side = i % 2 === 0 ? 1 : -1;
+        group.position.set(
+            side * (30 + Math.random() * 80),
+            Math.random() * 50 - 5,
+            -50 - Math.random() * 250
+        );
+
+        scene.add(group);
+
+        orbs.push({
+            group,
+            core,
+            wireframe,
+            ring,
+            baseY: group.position.y,
+            rotSpeed: 0.01 + Math.random() * 0.02,
+            floatSpeed: 0.3 + Math.random() * 0.4,
+            floatOffset: Math.random() * Math.PI * 2,
+            pulsePhase: Math.random() * Math.PI * 2
         });
-
-        const orb = new THREE.Mesh(geometry, material);
-
-        const angle = (i / 5) * Math.PI * 2;
-        const radius = 15 + i * 3;
-        orb.position.x = Math.cos(angle) * radius;
-        orb.position.z = Math.sin(angle) * radius;
-        orb.position.y = 8 + Math.random() * 5;
-
-        scene.add(orb);
-
-        // Outer glow shell
-        const glowGeo = new THREE.SphereGeometry(3, 32, 32);
-        const glowMat = new THREE.MeshBasicMaterial({
-            color: i === 2 ? ORANGE : CYAN,
-            transparent: true,
-            opacity: 0.2,
-            side: THREE.BackSide
-        });
-        const glow = new THREE.Mesh(glowGeo, glowMat);
-        orb.add(glow);
-
-        // Point light
-        const light = new THREE.PointLight(i === 2 ? 0xFF3300 : 0x00FFFF, 2, 30);
-        orb.add(light);
-
-        orbs.push({ mesh: orb, baseY: orb.position.y, speed: 0.5 + Math.random() * 0.5, offset: Math.random() * Math.PI * 2 });
     }
 
     // ========================================
-    // 6. AMBIENT LIGHTING
+    // IDENTITY DISC
     // ========================================
-    const ambientLight = new THREE.AmbientLight(0x001144, 0.4);
-    scene.add(ambientLight);
+    const disc = new THREE.Group();
+
+    [5, 4, 2.5].forEach((r, i) => {
+        const ring = new THREE.Mesh(
+            new THREE.TorusGeometry(r, 0.12 - i * 0.02, 16, 100),
+            new THREE.MeshBasicMaterial({
+                color: i === 2 ? CYAN_BRIGHT : CYAN,
+                transparent: true,
+                opacity: 1 - i * 0.2
+            })
+        );
+        disc.add(ring);
+    });
+
+    // Spokes
+    for (let i = 0; i < 12; i++) {
+        const angle = (i / 12) * Math.PI * 2;
+        const spoke = new THREE.Line(
+            new THREE.BufferGeometry().setFromPoints([
+                new THREE.Vector3(Math.cos(angle) * 2.6, Math.sin(angle) * 2.6, 0),
+                new THREE.Vector3(Math.cos(angle) * 4.9, Math.sin(angle) * 4.9, 0)
+            ]),
+            new THREE.LineBasicMaterial({ color: CYAN, transparent: true, opacity: 0.5 })
+        );
+        disc.add(spoke);
+    }
+
+    disc.position.set(-40, 20, -80);
+    disc.rotation.x = 0.3;
+    disc.rotation.y = 0.4;
+    scene.add(disc);
 
     // ========================================
-    // 7. POST-PROCESSING BLOOM
+    // PARTICLES - Data stream
+    // ========================================
+    const particleCount = isMobile ? 500 : 1500;
+    const positions = new Float32Array(particleCount * 3);
+    const velocities = new Float32Array(particleCount * 3);
+    const colors = new Float32Array(particleCount * 3);
+
+    const cyanCol = new THREE.Color(CYAN);
+    const orangeCol = new THREE.Color(ORANGE);
+
+    for (let i = 0; i < particleCount; i++) {
+        positions[i * 3] = (Math.random() - 0.5) * 500;
+        positions[i * 3 + 1] = Math.random() * 120 - 20;
+        positions[i * 3 + 2] = Math.random() * 800 - 600;
+
+        velocities[i * 3 + 2] = 0.3 + Math.random() * 0.5;
+
+        const col = Math.random() > 0.92 ? orangeCol : cyanCol;
+        colors[i * 3] = col.r;
+        colors[i * 3 + 1] = col.g;
+        colors[i * 3 + 2] = col.b;
+    }
+
+    const particleGeo = new THREE.BufferGeometry();
+    particleGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    particleGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+    const particles = new THREE.Points(particleGeo, new THREE.PointsMaterial({
+        size: 1.2,
+        vertexColors: true,
+        transparent: true,
+        opacity: 0.9,
+        blending: THREE.AdditiveBlending
+    }));
+    scene.add(particles);
+
+    // ========================================
+    // POST-PROCESSING
     // ========================================
     const composer = new EffectComposer(renderer);
     composer.addPass(new RenderPass(scene, camera));
-
-    const bloomPass = new UnrealBloomPass(
+    composer.addPass(new UnrealBloomPass(
         new THREE.Vector2(window.innerWidth, window.innerHeight),
-        2.2, // strength (increased)
-        0.7, // radius
-        0.25  // threshold (lower = more bloom)
-    );
-    composer.addPass(bloomPass);
+        2.0, 0.5, 0.2
+    ));
 
     // ========================================
-    // 8. MOUSE INTERACTION
+    // INTERACTION
     // ========================================
-    const mouse = { x: 0, y: 0 };
+    const mouse = { x: 0, y: 0, tx: 0, ty: 0 };
+    let scroll = 0;
 
-    window.addEventListener('mousemove', (e) => {
-        mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
-        mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+    window.addEventListener('mousemove', e => {
+        mouse.tx = (e.clientX / window.innerWidth) * 2 - 1;
+        mouse.ty = -(e.clientY / window.innerHeight) * 2 + 1;
     });
-
-    // ========================================
-    // 9. SCROLL INTERACTION
-    // ========================================
-    let scrollProgress = 0;
 
     window.addEventListener('scroll', () => {
-        scrollProgress = window.scrollY / (document.body.scrollHeight - window.innerHeight);
+        scroll = window.scrollY / (document.body.scrollHeight - window.innerHeight);
     });
 
+    let visible = true;
+    const observer = new IntersectionObserver(e => visible = e[0].isIntersecting, { threshold: 0.1 });
+    observer.observe(canvas);
+
     // ========================================
-    // ANIMATION LOOP
+    // ANIMATION
     // ========================================
     let time = 0;
 
     function animate() {
         requestAnimationFrame(animate);
+        if (!visible) return;
+
         time += 0.016;
+        mouse.x += (mouse.tx - mouse.x) * 0.03;
+        mouse.y += (mouse.ty - mouse.y) * 0.03;
 
-        // Update grid shader
-        gridShaderMaterial.uniforms.time.value = time;
+        // Grid pulse
+        gridMaterial.uniforms.uTime.value = time;
 
-        // Scroll camera
-        camera.position.y = 12 + scrollProgress * 20;
-        camera.position.z = 35 - scrollProgress * 15;
-        camera.lookAt(0, 5, 0);
+        // Sun
+        sunGroup.scale.setScalar(1 + Math.sin(time * 0.8) * 0.02);
 
-        // Mouse parallax
-        camera.position.x += (mouse.x * 8 - camera.position.x) * 0.05;
-
-        // Animate walls - pulsing
-        walls.forEach((wall, i) => {
-            const pulse = Math.sin(time * 2 + i) * 0.2 + 1;
-            wall.mesh.scale.y = pulse;
-            wall.light.intensity = pulse * (wall.isOrange ? 3 : 2);
-
-            // Subtle opacity pulse
-            wall.mesh.material.opacity = 0.7 + Math.sin(time * 3 + i) * 0.2;
+        // Light cycles
+        cycles.forEach(c => {
+            c.progress += c.speed * 0.004;
+            if (c.progress > 1) c.progress = 0;
+            const z = c.startZ + c.progress * c.length;
+            c.head.position.set(c.x, -6, z + c.length);
+            c.head.scale.setScalar(1 + Math.sin(time * 10) * 0.3);
         });
 
-        // Rotate energy beams
-        beams.forEach(beam => {
-            beam.line.rotation.y += beam.rotation;
+        // Orbs
+        orbs.forEach(o => {
+            o.group.position.y = o.baseY + Math.sin(time * o.floatSpeed + o.floatOffset) * 3;
+            o.wireframe.rotation.x += o.rotSpeed;
+            o.wireframe.rotation.y += o.rotSpeed * 0.7;
+            o.ring.rotation.z += o.rotSpeed * 0.5;
+            const pulse = 0.7 + Math.sin(time * 2 + o.pulsePhase) * 0.3;
+            o.core.material.opacity = pulse;
         });
 
-        // Animate particle streams - rising motion
-        particleStreams.forEach(stream => {
-            const positions = stream.particles.geometry.attributes.position.array;
+        // Disc
+        disc.rotation.z += 0.008;
+        disc.position.y = 20 + Math.sin(time * 0.5) * 2;
+        disc.children.forEach((c, i) => {
+            if (c.type === 'Mesh') c.rotation.z -= 0.003 * (i + 1);
+        });
 
-            for (let i = 0; i < positions.length / 3; i++) {
-                positions[i * 3 + 1] += stream.speed;
-
-                // Reset when particle reaches top
-                if (positions[i * 3 + 1] > 40) {
-                    positions[i * 3 + 1] = 0;
-                    positions[i * 3] = stream.baseX + (Math.random() - 0.5) * 2;
-                    positions[i * 3 + 2] = stream.baseZ + (Math.random() - 0.5) * 2;
-                }
+        // Particles
+        const pos = particles.geometry.attributes.position.array;
+        for (let i = 0; i < particleCount; i++) {
+            pos[i * 3 + 2] += velocities[i * 3 + 2];
+            if (pos[i * 3 + 2] > 200) {
+                pos[i * 3 + 2] = -600;
+                pos[i * 3] = (Math.random() - 0.5) * 500;
             }
+        }
+        particles.geometry.attributes.position.needsUpdate = true;
 
-            stream.particles.geometry.attributes.position.needsUpdate = true;
-        });
-
-        // Animate orbs - floating
-        orbs.forEach(orb => {
-            orb.mesh.position.y = orb.baseY + Math.sin(time * orb.speed + orb.offset) * 3;
-            orb.mesh.rotation.y += 0.01;
-
-            // Pulsing glow
-            const pulse = Math.sin(time * 2 + orb.offset) * 0.1 + 0.9;
-            orb.mesh.children[0].scale.setScalar(pulse);
-        });
+        // Camera
+        const camZ = 50 - scroll * 30;
+        const camY = 25 - scroll * 10;
+        camera.position.x += (mouse.x * 25 - camera.position.x) * 0.02;
+        camera.position.y += (camY + mouse.y * 12 - camera.position.y) * 0.02;
+        camera.position.z += (camZ - camera.position.z) * 0.02;
+        camera.lookAt(mouse.x * 20, mouse.y * 10 - scroll * 20, -150 - scroll * 100);
 
         composer.render();
     }
 
     animate();
 
-    // Resize handler
+    // Resize
     window.addEventListener('resize', () => {
         camera.aspect = window.innerWidth / window.innerHeight;
         camera.updateProjectionMatrix();
         renderer.setSize(window.innerWidth, window.innerHeight);
         composer.setSize(window.innerWidth, window.innerHeight);
     });
-
-    console.log('Tron: Ares experience loaded!');
 
     </script>
 </body>
