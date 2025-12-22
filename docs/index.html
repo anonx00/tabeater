@@ -609,8 +609,14 @@
     }
     </script>
 
+    <!-- Additional libraries for enhanced features -->
+    <script src="https://unpkg.com/cannon-es@0.20.0/dist/cannon-es.js"></script>
+    <script src="https://unpkg.com/@tweenjs/tween.js@23.1.2/dist/tween.umd.js"></script>
+
     <script type="module">
     import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { CSS3DRenderer, CSS3DObject } from 'three/addons/renderers/CSS3DRenderer.js';
     import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
     import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
     import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
@@ -639,11 +645,45 @@
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.2;
 
+    // CSS3D Renderer for overlays
+    const css3dRenderer = new CSS3DRenderer();
+    css3dRenderer.setSize(window.innerWidth, window.innerHeight);
+    css3dRenderer.domElement.style.position = 'absolute';
+    css3dRenderer.domElement.style.top = '0';
+    css3dRenderer.domElement.style.pointerEvents = 'none';
+    document.body.appendChild(css3dRenderer.domElement);
+
     const scene = new THREE.Scene();
     scene.fog = new THREE.FogExp2(0x000510, 0.002);
 
+    // Lighting for PBR materials
+    const ambientLight = new THREE.AmbientLight(0x6FFFE9, 0.3);
+    scene.add(ambientLight);
+
+    const directionalLight = new THREE.DirectionalLight(0x00FFFF, 0.5);
+    directionalLight.position.set(50, 100, 50);
+    scene.add(directionalLight);
+
+    // Physics world setup
+    const world = new CANNON.World({
+        gravity: new CANNON.Vec3(0, -2, 0)
+    });
+    world.defaultContactMaterial.friction = 0.3;
+    world.defaultContactMaterial.restitution = 0.6;
+
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
-    camera.position.set(0, 25, 50);
+    camera.position.set(0, 50, 100);
+    camera.lookAt(0, 0, 0);
+
+    // OrbitControls for interactive camera movement
+    const controls = new OrbitControls(camera, canvas);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+    controls.minDistance = 30;
+    controls.maxDistance = 200;
+    controls.maxPolarAngle = Math.PI / 2.2;
+    controls.autoRotate = true;
+    controls.autoRotateSpeed = 0.3;
 
     // ========================================
     // INFINITE GRID with Shader
@@ -721,6 +761,15 @@
     grid.rotation.x = -Math.PI / 2;
     grid.position.y = -10;
     scene.add(grid);
+
+    // Physics floor collider
+    const floorBody = new CANNON.Body({
+        mass: 0,
+        shape: new CANNON.Plane(),
+        position: new CANNON.Vec3(0, -10, 0)
+    });
+    floorBody.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2);
+    world.addBody(floorBody);
 
     // ========================================
     // TRON SUN - Horizon
@@ -813,68 +862,130 @@
     }
 
     // ========================================
-    // FLOATING DATA ORBS
+    // FLOATING DATA ORBS with Physics & Raycasting
     // ========================================
     const orbs = [];
-    const orbCount = isMobile ? 15 : 30;
+    const orbCount = isMobile ? 10 : 20;
+
+    // Mock tab data
+    const tabData = [
+        { title: 'TabEater - GitHub', url: 'github.com/anonx00/tabeater' },
+        { title: 'Three.js Docs', url: 'threejs.org/docs' },
+        { title: 'Chrome Web Store', url: 'chrome.google.com/webstore' },
+        { title: 'Cannon.js Physics', url: 'github.com/pmndrs/cannon-es' },
+        { title: 'TRON: Ares Trailer', url: 'youtube.com' },
+        { title: 'AI Tab Manager', url: 'tabeater.com' },
+        { title: 'WebGPU Docs', url: 'gpuweb.github.io' },
+        { title: 'Shader Playground', url: 'shadertoy.com' },
+        { title: 'JavaScript Guide', url: 'developer.mozilla.org' },
+        { title: 'React Documentation', url: 'react.dev' }
+    ];
 
     for (let i = 0; i < orbCount; i++) {
         const group = new THREE.Group();
+        const radius = 2 + Math.random() * 1.5;
 
-        // Core sphere
+        // Core sphere with PBR material
         const core = new THREE.Mesh(
-            new THREE.IcosahedronGeometry(1, 1),
-            new THREE.MeshBasicMaterial({
+            new THREE.SphereGeometry(radius, 32, 32),
+            new THREE.MeshStandardMaterial({
                 color: i % 5 === 0 ? ORANGE : CYAN_BRIGHT,
-                transparent: true,
-                opacity: 0.9
+                metalness: 0.8,
+                roughness: 0.2,
+                emissive: i % 5 === 0 ? ORANGE : CYAN,
+                emissiveIntensity: 0.3
             })
         );
+        core.castShadow = true;
+        core.receiveShadow = true;
         group.add(core);
 
+        // Point light inside orb
+        const light = new THREE.PointLight(
+            i % 5 === 0 ? ORANGE : CYAN,
+            2,
+            20
+        );
+        group.add(light);
+
         // Outer wireframe
-        const wireGeo = new THREE.IcosahedronGeometry(1.8, 0);
+        const wireGeo = new THREE.IcosahedronGeometry(radius * 1.3, 0);
         const wireframe = new THREE.LineSegments(
             new THREE.EdgesGeometry(wireGeo),
             new THREE.LineBasicMaterial({
                 color: CYAN,
                 transparent: true,
-                opacity: 0.5
+                opacity: 0.4
             })
         );
         group.add(wireframe);
 
-        // Ring
-        const ring = new THREE.Mesh(
-            new THREE.TorusGeometry(2.5, 0.05, 8, 32),
-            new THREE.MeshBasicMaterial({ color: CYAN, transparent: true, opacity: 0.6 })
-        );
-        ring.rotation.x = Math.random() * Math.PI;
-        ring.rotation.y = Math.random() * Math.PI;
-        group.add(ring);
-
-        const scale = 1 + Math.random() * 2;
-        group.scale.setScalar(scale);
-
-        const side = i % 2 === 0 ? 1 : -1;
-        group.position.set(
-            side * (30 + Math.random() * 80),
-            Math.random() * 50 - 5,
-            -50 - Math.random() * 250
-        );
+        const x = (Math.random() - 0.5) * 150;
+        const y = 20 + Math.random() * 40;
+        const z = -50 - Math.random() * 200;
+        group.position.set(x, y, z);
 
         scene.add(group);
+
+        // Physics body
+        const body = new CANNON.Body({
+            mass: 1,
+            shape: new CANNON.Sphere(radius),
+            position: new CANNON.Vec3(x, y, z),
+            linearDamping: 0.3,
+            angularDamping: 0.3
+        });
+
+        // Apply random initial force
+        body.applyImpulse(
+            new CANNON.Vec3(
+                (Math.random() - 0.5) * 5,
+                (Math.random() - 0.5) * 5,
+                (Math.random() - 0.5) * 5
+            ),
+            body.position
+        );
+
+        world.addBody(body);
+
+        // CSS3D overlay for tab info
+        const div = document.createElement('div');
+        div.style.cssText = `
+            background: rgba(0, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(0, 255, 255, 0.5);
+            border-radius: 8px;
+            padding: 8px 12px;
+            color: #00FFFF;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+            white-space: nowrap;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+        `;
+        const tab = tabData[i % tabData.length];
+        div.innerHTML = `<div style="font-weight: 600;">${tab.title}</div><div style="opacity: 0.7; font-size: 9px;">${tab.url}</div>`;
+
+        const css3dObject = new CSS3DObject(div);
+        css3dObject.position.copy(group.position);
+        css3dObject.position.y += radius + 5;
+        css3dObject.scale.setScalar(0.1);
+        scene.add(css3dObject);
 
         orbs.push({
             group,
             core,
             wireframe,
-            ring,
-            baseY: group.position.y,
-            rotSpeed: 0.01 + Math.random() * 0.02,
-            floatSpeed: 0.3 + Math.random() * 0.4,
-            floatOffset: Math.random() * Math.PI * 2,
-            pulsePhase: Math.random() * Math.PI * 2
+            light,
+            body,
+            css3dObject,
+            div,
+            radius,
+            baseScale: 1,
+            hovered: false,
+            tabData: tab
         });
     }
 
@@ -954,21 +1065,150 @@
     // POST-PROCESSING
     // ========================================
     const composer = new EffectComposer(renderer);
-    composer.addPass(new RenderPass(scene, camera));
+    const renderPass = new RenderPass(scene, camera);
+    composer.addPass(renderPass);
     composer.addPass(new UnrealBloomPass(
         new THREE.Vector2(window.innerWidth, window.innerHeight),
         2.0, 0.5, 0.2
     ));
 
     // ========================================
-    // INTERACTION
+    // INTERACTION - Raycasting & Light Trails
     // ========================================
     const mouse = { x: 0, y: 0, tx: 0, ty: 0 };
     let scroll = 0;
+    const raycaster = new THREE.Raycaster();
+    const mouseVector = new THREE.Vector2();
+    let hoveredOrb = null;
 
+    // Light trails for buttons
+    const lightTrails = [];
+
+    function createLightTrail(startX, startY, buttonElement) {
+        const startPos = new THREE.Vector3();
+        startPos.x = (startX / window.innerWidth) * 2 - 1;
+        startPos.y = -(startY / window.innerHeight) * 2 + 1;
+        startPos.z = 0.5;
+        startPos.unproject(camera);
+
+        const endPos = new THREE.Vector3(
+            (Math.random() - 0.5) * 200,
+            Math.random() * 30,
+            -100 - Math.random() * 200
+        );
+
+        // Create Catmull-Rom spline path
+        const midPoint1 = new THREE.Vector3().lerpVectors(startPos, endPos, 0.3);
+        midPoint1.x += (Math.random() - 0.5) * 50;
+        midPoint1.y += (Math.random() - 0.5) * 30;
+
+        const midPoint2 = new THREE.Vector3().lerpVectors(startPos, endPos, 0.7);
+        midPoint2.x += (Math.random() - 0.5) * 50;
+        midPoint2.y += (Math.random() - 0.5) * 30;
+
+        const curve = new THREE.CatmullRomCurve3([startPos, midPoint1, midPoint2, endPos]);
+        const points = curve.getPoints(50);
+
+        const geometry = new THREE.BufferGeometry().setFromPoints(points);
+        const material = new THREE.LineBasicMaterial({
+            color: buttonElement && buttonElement.classList.contains('btn-primary') ? CYAN_BRIGHT : ORANGE,
+            transparent: true,
+            opacity: 0.8,
+            blending: THREE.AdditiveBlending,
+            linewidth: 2
+        });
+
+        const trail = new THREE.Line(geometry, material);
+        scene.add(trail);
+
+        // Particle sparks at head
+        const sparkCount = 20;
+        const sparkPositions = new Float32Array(sparkCount * 3);
+        for (let i = 0; i < sparkCount; i++) {
+            sparkPositions[i * 3] = 0;
+            sparkPositions[i * 3 + 1] = 0;
+            sparkPositions[i * 3 + 2] = 0;
+        }
+
+        const sparkGeometry = new THREE.BufferGeometry();
+        sparkGeometry.setAttribute('position', new THREE.BufferAttribute(sparkPositions, 3));
+        const sparkMaterial = new THREE.PointsMaterial({
+            color: material.color,
+            size: 1.5,
+            transparent: true,
+            opacity: 1,
+            blending: THREE.AdditiveBlending
+        });
+        const sparks = new THREE.Points(sparkGeometry, sparkMaterial);
+        scene.add(sparks);
+
+        lightTrails.push({
+            trail,
+            sparks,
+            curve,
+            points,
+            progress: 0,
+            speed: 0.015,
+            life: 1
+        });
+    }
+
+    // Mouse move for raycasting
     window.addEventListener('mousemove', e => {
         mouse.tx = (e.clientX / window.innerWidth) * 2 - 1;
         mouse.ty = -(e.clientY / window.innerHeight) * 2 + 1;
+
+        mouseVector.x = mouse.tx;
+        mouseVector.y = mouse.ty;
+    });
+
+    // Click to disperse orbs
+    window.addEventListener('click', e => {
+        raycaster.setFromCamera(mouseVector, camera);
+        const intersects = raycaster.intersectObjects(orbs.map(o => o.core));
+
+        if (intersects.length > 0) {
+            const clickedOrb = orbs.find(o => o.core === intersects[0].object);
+            if (clickedOrb) {
+                // Apply force to clicked orb
+                const force = new CANNON.Vec3(
+                    (Math.random() - 0.5) * 50,
+                    Math.random() * 30,
+                    (Math.random() - 0.5) * 50
+                );
+                clickedOrb.body.applyImpulse(force, clickedOrb.body.position);
+
+                // Disperse nearby orbs
+                orbs.forEach(orb => {
+                    if (orb !== clickedOrb) {
+                        const dist = orb.body.position.distanceTo(clickedOrb.body.position);
+                        if (dist < 30) {
+                            const direction = new CANNON.Vec3();
+                            direction.copy(orb.body.position).vsub(clickedOrb.body.position).normalize();
+                            orb.body.applyImpulse(direction.scale(20 / (dist + 1)), orb.body.position);
+                        }
+                    }
+                });
+            }
+        }
+    });
+
+    // Button hover/click light trails
+    document.querySelectorAll('.btn').forEach(btn => {
+        btn.addEventListener('mouseenter', e => {
+            const rect = btn.getBoundingClientRect();
+            createLightTrail(rect.left + rect.width / 2, rect.top + rect.height / 2, btn);
+        });
+
+        btn.addEventListener('click', e => {
+            // Create multiple faster trails on click
+            const rect = btn.getBoundingClientRect();
+            for (let i = 0; i < 3; i++) {
+                setTimeout(() => {
+                    createLightTrail(rect.left + rect.width / 2, rect.top + rect.height / 2, btn);
+                }, i * 50);
+            }
+        });
     });
 
     window.addEventListener('scroll', () => {
@@ -992,8 +1232,9 @@
         mouse.x += (mouse.tx - mouse.x) * 0.03;
         mouse.y += (mouse.ty - mouse.y) * 0.03;
 
-        // Grid pulse
+        // Grid pulse (both scenes)
         gridMaterial.uniforms.uTime.value = time;
+        if (altGridMaterial) altGridMaterial.uniforms.uTime.value = time;
 
         // Sun
         sunGroup.scale.setScalar(1 + Math.sin(time * 0.8) * 0.02);
@@ -1007,14 +1248,41 @@
             c.head.scale.setScalar(1 + Math.sin(time * 10) * 0.3);
         });
 
-        // Orbs
+        // Update physics
+        world.step(1 / 60);
+
+        // Orbs - sync with physics, raycasting for hover
+        raycaster.setFromCamera(mouseVector, camera);
+        const intersects = raycaster.intersectObjects(orbs.map(o => o.core));
+
         orbs.forEach(o => {
-            o.group.position.y = o.baseY + Math.sin(time * o.floatSpeed + o.floatOffset) * 3;
-            o.wireframe.rotation.x += o.rotSpeed;
-            o.wireframe.rotation.y += o.rotSpeed * 0.7;
-            o.ring.rotation.z += o.rotSpeed * 0.5;
-            const pulse = 0.7 + Math.sin(time * 2 + o.pulsePhase) * 0.3;
-            o.core.material.opacity = pulse;
+            // Sync Three.js mesh with physics body
+            o.group.position.copy(o.body.position);
+            o.group.quaternion.copy(o.body.quaternion);
+
+            // Wireframe rotation
+            o.wireframe.rotation.x += 0.01;
+            o.wireframe.rotation.y += 0.007;
+
+            // Hover effect
+            const isHovered = intersects.length > 0 && intersects[0].object === o.core;
+            if (isHovered !== o.hovered) {
+                o.hovered = isHovered;
+                const targetScale = isHovered ? 1.2 : 1;
+                o.group.scale.lerp(new THREE.Vector3(targetScale, targetScale, targetScale), 0.1);
+                o.div.style.opacity = isHovered ? '1' : '0';
+                canvas.style.cursor = isHovered ? 'pointer' : 'default';
+            }
+
+            // Update CSS3D overlay position
+            o.css3dObject.position.copy(o.group.position);
+            o.css3dObject.position.y += o.radius + 5;
+            o.css3dObject.lookAt(camera.position);
+
+            // Pulse emissive intensity
+            const pulse = 0.2 + Math.sin(time * 2) * 0.1;
+            o.core.material.emissiveIntensity = pulse;
+            o.light.intensity = 1.5 + pulse;
         });
 
         // Disc
@@ -1024,26 +1292,87 @@
             if (c.type === 'Mesh') c.rotation.z -= 0.003 * (i + 1);
         });
 
-        // Particles
+        // Particles with mouse attraction
         const pos = particles.geometry.attributes.position.array;
+        const mousePos3D = new THREE.Vector3(mouse.x * 100, mouse.y * 50, -100);
+
         for (let i = 0; i < particleCount; i++) {
-            pos[i * 3 + 2] += velocities[i * 3 + 2];
-            if (pos[i * 3 + 2] > 200) {
-                pos[i * 3 + 2] = -600;
-                pos[i * 3] = (Math.random() - 0.5) * 500;
+            const idx = i * 3;
+
+            // Normal forward movement
+            pos[idx + 2] += velocities[idx + 2];
+
+            // Mouse attraction
+            const particlePos = new THREE.Vector3(pos[idx], pos[idx + 1], pos[idx + 2]);
+            const dist = particlePos.distanceTo(mousePos3D);
+
+            if (dist < 100) {
+                const attraction = (100 - dist) / 100;
+                const direction = mousePos3D.clone().sub(particlePos).normalize();
+                pos[idx] += direction.x * attraction * 0.5;
+                pos[idx + 1] += direction.y * attraction * 0.5;
+                pos[idx + 2] += direction.z * attraction * 0.5;
+            }
+
+            // Reset if out of bounds
+            if (pos[idx + 2] > 200) {
+                pos[idx + 2] = -600;
+                pos[idx] = (Math.random() - 0.5) * 500;
+                pos[idx + 1] = Math.random() * 120 - 20;
             }
         }
         particles.geometry.attributes.position.needsUpdate = true;
 
-        // Camera
-        const camZ = 50 - scroll * 30;
-        const camY = 25 - scroll * 10;
-        camera.position.x += (mouse.x * 25 - camera.position.x) * 0.02;
-        camera.position.y += (camY + mouse.y * 12 - camera.position.y) * 0.02;
-        camera.position.z += (camZ - camera.position.z) * 0.02;
-        camera.lookAt(mouse.x * 20, mouse.y * 10 - scroll * 20, -150 - scroll * 100);
+        // Animate light trails
+        lightTrails.forEach((lt, index) => {
+            lt.progress += lt.speed;
+            lt.life -= 0.005;
 
+            if (lt.progress < 1 && lt.life > 0) {
+                // Move sparks along curve
+                const headPos = lt.curve.getPoint(Math.min(lt.progress, 1));
+                const sparkPos = lt.sparks.geometry.attributes.position.array;
+
+                for (let i = 0; i < 20; i++) {
+                    sparkPos[i * 3] = headPos.x + (Math.random() - 0.5) * 3;
+                    sparkPos[i * 3 + 1] = headPos.y + (Math.random() - 0.5) * 3;
+                    sparkPos[i * 3 + 2] = headPos.z + (Math.random() - 0.5) * 3;
+                }
+                lt.sparks.geometry.attributes.position.needsUpdate = true;
+
+                // Fade trail
+                lt.trail.material.opacity = 0.8 * lt.life;
+                lt.sparks.material.opacity = lt.life;
+            } else {
+                // Remove trail
+                scene.remove(lt.trail);
+                scene.remove(lt.sparks);
+                lt.trail.geometry.dispose();
+                lt.trail.material.dispose();
+                lt.sparks.geometry.dispose();
+                lt.sparks.material.dispose();
+                lightTrails.splice(index, 1);
+            }
+        });
+
+        // Update controls
+        controls.update();
+
+        // Adjust camera based on scroll (subtle)
+        const scrollInfluence = scroll * 0.3;
+        controls.target.y = -scrollInfluence * 30;
+
+        // Update render pass to use current scene
+        renderPass.scene = currentScene;
+
+        // Render
         composer.render();
+        css3dRenderer.render(currentScene, camera);
+
+        // Update TWEEN animations
+        if (typeof TWEEN !== 'undefined') {
+            TWEEN.update();
+        }
     }
 
     animate();
@@ -1054,6 +1383,168 @@
         camera.updateProjectionMatrix();
         renderer.setSize(window.innerWidth, window.innerHeight);
         composer.setSize(window.innerWidth, window.innerHeight);
+        css3dRenderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // ========================================
+    // PORTAL TRANSITIONS (Multi-Scene Setup)
+    // ========================================
+    const scene2 = new THREE.Scene();
+    scene2.fog = new THREE.FogExp2(0x1a0010, 0.002); // Purple-tinted alternate scene
+
+    // Add alternate grid to scene2 (orange/pink theme)
+    const altGridMaterial = new THREE.ShaderMaterial({
+        ...gridShader,
+        uniforms: {
+            uTime: { value: 0 },
+            uColor1: { value: new THREE.Color(ORANGE) },
+            uColor2: { value: new THREE.Color(PINK) },
+            uFogColor: { value: new THREE.Color(0x1a0010) },
+            uFogDensity: { value: 0.015 }
+        },
+        transparent: true,
+        side: THREE.DoubleSide,
+        depthWrite: false
+    });
+    const altGrid = new THREE.Mesh(new THREE.PlaneGeometry(1000, 1000), altGridMaterial);
+    altGrid.rotation.x = -Math.PI / 2;
+    altGrid.position.y = -10;
+    scene2.add(altGrid);
+
+    // Portal geometry with hexagonal frame
+    const portalGroup = new THREE.Group();
+    const portalRadius = 20;
+
+    // Hexagonal frame
+    const hexShape = new THREE.Shape();
+    for (let i = 0; i < 6; i++) {
+        const angle = (i / 6) * Math.PI * 2;
+        const x = Math.cos(angle) * portalRadius;
+        const y = Math.sin(angle) * portalRadius;
+        if (i === 0) hexShape.moveTo(x, y);
+        else hexShape.lineTo(x, y);
+    }
+    hexShape.closePath();
+
+    // Neon frame lines
+    for (let i = 0; i < 6; i++) {
+        const angle = (i / 6) * Math.PI * 2;
+        const nextAngle = ((i + 1) / 6) * Math.PI * 2;
+        const line = new THREE.Line(
+            new THREE.BufferGeometry().setFromPoints([
+                new THREE.Vector3(Math.cos(angle) * portalRadius, Math.sin(angle) * portalRadius, 0),
+                new THREE.Vector3(Math.cos(nextAngle) * portalRadius, Math.sin(nextAngle) * portalRadius, 0)
+            ]),
+            new THREE.LineBasicMaterial({ color: CYAN_BRIGHT, linewidth: 3 })
+        );
+        portalGroup.add(line);
+    }
+
+    // Portal surface (stencil masked area)
+    const portalSurface = new THREE.Mesh(
+        new THREE.CircleGeometry(portalRadius - 1, 6),
+        new THREE.MeshBasicMaterial({
+            color: CYAN,
+            transparent: true,
+            opacity: 0.1,
+            side: THREE.DoubleSide
+        })
+    );
+    portalGroup.add(portalSurface);
+
+    // Add glow rings
+    for (let i = 1; i <= 3; i++) {
+        const glowRing = new THREE.Mesh(
+            new THREE.RingGeometry(portalRadius + i * 2, portalRadius + i * 2 + 0.5, 6),
+            new THREE.MeshBasicMaterial({
+                color: CYAN,
+                transparent: true,
+                opacity: 0.3 / i,
+                side: THREE.DoubleSide
+            })
+        );
+        portalGroup.add(glowRing);
+    }
+
+    portalGroup.position.set(0, 30, -150);
+    portalGroup.visible = false; // Hidden by default
+    scene.add(portalGroup);
+
+    // Portal activation (trigger on scroll to bottom)
+    let portalActive = false;
+    let currentScene = scene;
+
+    function activatePortal() {
+        if (portalActive) return;
+        portalActive = true;
+        portalGroup.visible = true;
+
+        // Particle burst effect
+        const burstCount = 200;
+        const burstPositions = new Float32Array(burstCount * 3);
+        for (let i = 0; i < burstCount; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const radius = Math.random() * portalRadius;
+            burstPositions[i * 3] = Math.cos(angle) * radius;
+            burstPositions[i * 3 + 1] = Math.sin(angle) * radius;
+            burstPositions[i * 3 + 2] = 0;
+        }
+
+        const burstGeo = new THREE.BufferGeometry();
+        burstGeo.setAttribute('position', new THREE.BufferAttribute(burstPositions, 3));
+        const burstParticles = new THREE.Points(burstGeo, new THREE.PointsMaterial({
+            color: CYAN_BRIGHT,
+            size: 2,
+            transparent: true,
+            opacity: 1,
+            blending: THREE.AdditiveBlending
+        }));
+        burstParticles.position.copy(portalGroup.position);
+        scene.add(burstParticles);
+
+        // Animate burst expansion
+        let burstTime = 0;
+        const burstInterval = setInterval(() => {
+            burstTime += 0.05;
+            const scale = 1 + burstTime * 3;
+            burstParticles.scale.setScalar(scale);
+            burstParticles.material.opacity = Math.max(0, 1 - burstTime);
+
+            if (burstTime > 1) {
+                clearInterval(burstInterval);
+                scene.remove(burstParticles);
+                burstGeo.dispose();
+                burstParticles.material.dispose();
+            }
+        }, 16);
+
+        // Camera fly-through with TWEEN.js
+        if (typeof TWEEN !== 'undefined') {
+            const startPos = camera.position.clone();
+            const targetPos = portalGroup.position.clone();
+            targetPos.z += 30;
+
+            new TWEEN.Tween(camera.position)
+                .to(targetPos, 2000)
+                .easing(TWEEN.Easing.Cubic.InOut)
+                .onComplete(() => {
+                    // Switch scenes
+                    currentScene = currentScene === scene ? scene2 : scene;
+                    camera.position.copy(startPos);
+                    portalActive = false;
+                    portalGroup.visible = false;
+                })
+                .start();
+        }
+    }
+
+    // Trigger portal on deep scroll (80%+)
+    let lastScroll = 0;
+    window.addEventListener('scroll', () => {
+        if (scroll > 0.8 && lastScroll <= 0.8) {
+            activatePortal();
+        }
+        lastScroll = scroll;
     });
 
     </script>
