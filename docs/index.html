@@ -664,12 +664,17 @@
     directionalLight.position.set(50, 100, 50);
     scene.add(directionalLight);
 
-    // Physics world setup
-    const world = new CANNON.World({
-        gravity: new CANNON.Vec3(0, -2, 0)
-    });
-    world.defaultContactMaterial.friction = 0.3;
-    world.defaultContactMaterial.restitution = 0.6;
+    // Physics world setup (check if CANNON is available)
+    let world = null;
+    if (typeof CANNON !== 'undefined') {
+        world = new CANNON.World({
+            gravity: new CANNON.Vec3(0, -2, 0)
+        });
+        world.defaultContactMaterial.friction = 0.3;
+        world.defaultContactMaterial.restitution = 0.6;
+    } else {
+        console.warn('CANNON not loaded, physics disabled');
+    }
 
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
     camera.position.set(0, 50, 100);
@@ -763,13 +768,15 @@
     scene.add(grid);
 
     // Physics floor collider
-    const floorBody = new CANNON.Body({
-        mass: 0,
-        shape: new CANNON.Plane(),
-        position: new CANNON.Vec3(0, -10, 0)
-    });
-    floorBody.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2);
-    world.addBody(floorBody);
+    if (world && typeof CANNON !== 'undefined') {
+        const floorBody = new CANNON.Body({
+            mass: 0,
+            shape: new CANNON.Plane(),
+            position: new CANNON.Vec3(0, -10, 0)
+        });
+        floorBody.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2);
+        world.addBody(floorBody);
+    }
 
     // ========================================
     // TRON SUN - Horizon
@@ -927,26 +934,29 @@
 
         scene.add(group);
 
-        // Physics body
-        const body = new CANNON.Body({
-            mass: 1,
-            shape: new CANNON.Sphere(radius),
-            position: new CANNON.Vec3(x, y, z),
-            linearDamping: 0.3,
-            angularDamping: 0.3
-        });
+        // Physics body (if CANNON is available)
+        let body = null;
+        if (world && typeof CANNON !== 'undefined') {
+            body = new CANNON.Body({
+                mass: 1,
+                shape: new CANNON.Sphere(radius),
+                position: new CANNON.Vec3(x, y, z),
+                linearDamping: 0.3,
+                angularDamping: 0.3
+            });
 
-        // Apply random initial force
-        body.applyImpulse(
-            new CANNON.Vec3(
-                (Math.random() - 0.5) * 5,
-                (Math.random() - 0.5) * 5,
-                (Math.random() - 0.5) * 5
-            ),
-            body.position
-        );
+            // Apply random initial force
+            body.applyImpulse(
+                new CANNON.Vec3(
+                    (Math.random() - 0.5) * 5,
+                    (Math.random() - 0.5) * 5,
+                    (Math.random() - 0.5) * 5
+                ),
+                body.position
+            );
 
-        world.addBody(body);
+            world.addBody(body);
+        }
 
         // CSS3D overlay for tab info
         const div = document.createElement('div');
@@ -985,7 +995,10 @@
             radius,
             baseScale: 1,
             hovered: false,
-            tabData: tab
+            tabData: tab,
+            baseY: y,
+            floatSpeed: 0.3 + Math.random() * 0.4,
+            floatOffset: Math.random() * Math.PI * 2
         });
     }
 
@@ -1169,7 +1182,7 @@
 
         if (intersects.length > 0) {
             const clickedOrb = orbs.find(o => o.core === intersects[0].object);
-            if (clickedOrb) {
+            if (clickedOrb && clickedOrb.body && world && typeof CANNON !== 'undefined') {
                 // Apply force to clicked orb
                 const force = new CANNON.Vec3(
                     (Math.random() - 0.5) * 50,
@@ -1180,7 +1193,7 @@
 
                 // Disperse nearby orbs
                 orbs.forEach(orb => {
-                    if (orb !== clickedOrb) {
+                    if (orb !== clickedOrb && orb.body) {
                         const dist = orb.body.position.distanceTo(clickedOrb.body.position);
                         if (dist < 30) {
                             const direction = new CANNON.Vec3();
@@ -1249,16 +1262,23 @@
         });
 
         // Update physics
-        world.step(1 / 60);
+        if (world) {
+            world.step(1 / 60);
+        }
 
-        // Orbs - sync with physics, raycasting for hover
+        // Orbs - sync with physics or use fallback animation, raycasting for hover
         raycaster.setFromCamera(mouseVector, camera);
         const intersects = raycaster.intersectObjects(orbs.map(o => o.core));
 
         orbs.forEach(o => {
-            // Sync Three.js mesh with physics body
-            o.group.position.copy(o.body.position);
-            o.group.quaternion.copy(o.body.quaternion);
+            if (o.body && world) {
+                // Sync Three.js mesh with physics body
+                o.group.position.copy(o.body.position);
+                o.group.quaternion.copy(o.body.quaternion);
+            } else {
+                // Fallback floating animation (no physics)
+                o.group.position.y = o.baseY + Math.sin(time * o.floatSpeed + o.floatOffset) * 3;
+            }
 
             // Wireframe rotation
             o.wireframe.rotation.x += 0.01;
