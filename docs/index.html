@@ -1079,6 +1079,9 @@
     }));
     scene.add(particles);
 
+    // Declare altGridMaterial here (will be initialized in portal section)
+    let altGridMaterial = null;
+
     // ========================================
     // POST-PROCESSING
     // ========================================
@@ -1418,7 +1421,7 @@
     scene2.fog = new THREE.FogExp2(0x1a0010, 0.002); // Purple-tinted alternate scene
 
     // Add alternate grid to scene2 (orange/pink theme)
-    const altGridMaterial = new THREE.ShaderMaterial({
+    altGridMaterial = new THREE.ShaderMaterial({
         ...gridShader,
         uniforms: {
             uTime: { value: 0 },
