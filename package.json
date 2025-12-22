@@ -1,0 +1,51 @@
+{
+  "name": "phantom-tabs",
+  "version": "1.0.0",
+  "description": "Tactical Tab Intelligence System - AI-powered Chrome extension",
+  "scripts": {
+    "icons": "node scripts/generate-icons.js",
+    "build": "npm run icons && webpack --mode production",
+    "watch": "webpack --mode development --watch",
+    "lint": "eslint . --ext .ts,.tsx",
+    "test": "jest",
+    "package": "npm run build && cd dist && zip -r ../tabeater-extension.zip ."
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@mlc-ai/web-llm": "^0.2.80",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "webextension-polyfill": "^0.10.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.18",
+    "@types/chrome": "^0.0.260",
+    "@types/jest": "^29.5.12",
+    "@types/react": "^18.2.55",
+    "@types/react-dom": "^18.2.19",
+    "@types/webextension-polyfill": "^0.10.7",
+    "@typescript-eslint/eslint-plugin": "^6.21.0",
+    "@typescript-eslint/parser": "^6.21.0",
+    "autoprefixer": "^10.4.22",
+    "copy-webpack-plugin": "^12.0.2",
+    "css-loader": "^7.1.2",
+    "dotenv": "^17.2.3",
+    "eslint": "^8.56.0",
+    "eslint-plugin-react": "^7.33.2",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "jest": "^29.7.0",
+    "mini-css-extract-plugin": "^2.9.4",
+    "postcss": "^8.5.6",
+    "postcss-loader": "^8.2.0",
+    "prettier": "^3.2.5",
+    "sharp": "^0.34.5",
+    "style-loader": "^4.0.0",
+    "tailwindcss": "^4.1.18",
+    "ts-jest": "^29.1.2",
+    "ts-loader": "^9.5.1",
+    "typescript": "^5.3.3",
+    "webpack": "^5.90.1",
+    "webpack-cli": "^5.1.4"
+  }
+}

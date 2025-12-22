@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <filter id="glow128" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <linearGradient id="glowGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#00FF88" stop-opacity="1"/>
+      <stop offset="100%" stop-color="#00DD66" stop-opacity="0.8"/>
+    </linearGradient>
+  </defs>
+  <rect width="128" height="128" fill="#0a0a0a" rx="16"/>
+  <g filter="url(#glow128)">
+    <!-- Folder shape -->
+    <path d="M16 34V102C16 107 20 111 25 111H103C108 111 112 107 112 102V44C112 39 108 35 103 35H64L54 22H25C20 22 16 26 16 31V34Z"
+          fill="none" stroke="url(#glowGrad)" stroke-width="5" stroke-linejoin="round"/>
+    <!-- Inner square indicator -->
+    <rect x="32" y="50" width="22" height="22" fill="#00FF88" rx="2"/>
+    <!-- Bottom lines -->
+    <line x1="32" y1="88" x2="96" y2="88" stroke="#00FF88" stroke-width="4" stroke-linecap="round" opacity="0.7"/>
+    <line x1="32" y1="98" x2="80" y2="98" stroke="#00FF88" stroke-width="3" stroke-linecap="round" opacity="0.5"/>
+  </g>
+</svg>

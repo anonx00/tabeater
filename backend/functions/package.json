@@ -1,0 +1,17 @@
+{
+  "name": "phantom-tabs-api",
+  "version": "1.0.0",
+  "main": "index.js",
+  "engines": {
+    "node": "20"
+  },
+  "scripts": {
+    "start": "functions-framework --target=api",
+    "deploy": "gcloud functions deploy api --gen2 --runtime=nodejs20 --trigger-http --allow-unauthenticated --region=us-central1"
+  },
+  "dependencies": {
+    "@google-cloud/firestore": "^7.1.0",
+    "@google-cloud/functions-framework": "^3.3.0",
+    "stripe": "^14.0.0"
+  }
+}
