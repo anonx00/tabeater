@@ -661,6 +661,9 @@
     const scene = new THREE.Scene();
     scene.fog = new THREE.FogExp2(0x000510, 0.002);
 
+    // Current scene (for portal transitions - will be used later)
+    let currentScene = scene;
+
     // Lighting for PBR materials
     const ambientLight = new THREE.AmbientLight(0x6FFFE9, 0.3);
     scene.add(ambientLight);
@@ -1500,7 +1503,6 @@
 
     // Portal activation (trigger on scroll to bottom)
     let portalActive = false;
-    let currentScene = scene;
 
     function activatePortal() {
         if (portalActive) return;
