@@ -68,13 +68,45 @@ async function ensureOffscreenHealthy(): Promise<boolean> {
     return true;
 }
 
-async function sendToOffscreen(action: string, data: any = {}): Promise<any> {
+async function sendToOffscreen(action: string, data: any = {}, retries = 3): Promise<any> {
     await ensureOffscreenHealthy();
-    return chrome.runtime.sendMessage({
-        target: 'offscreen',
-        action,
-        ...data,
-    });
+
+    for (let attempt = 0; attempt <= retries; attempt++) {
+        try {
+            const response = await chrome.runtime.sendMessage({
+                target: 'offscreen',
+                action,
+                ...data,
+            });
+
+            // If we got a response, return it
+            if (response !== undefined) {
+                return response;
+            }
+
+            // Response is undefined - receiving end doesn't exist yet
+            if (attempt < retries) {
+                // Wait with exponential backoff (100ms, 200ms, 400ms)
+                const delay = Math.pow(2, attempt) * 100;
+                console.log(`[ServiceWorker] Offscreen not ready, retrying in ${delay}ms... (attempt ${attempt + 1}/${retries})`);
+                await new Promise(resolve => setTimeout(resolve, delay));
+
+                // Verify offscreen is still there
+                await ensureOffscreenHealthy();
+            }
+        } catch (err: any) {
+            if (attempt < retries && err.message?.includes('Receiving end does not exist')) {
+                const delay = Math.pow(2, attempt) * 100;
+                console.log(`[ServiceWorker] Connection failed, retrying in ${delay}ms... (attempt ${attempt + 1}/${retries})`);
+                await new Promise(resolve => setTimeout(resolve, delay));
+                await ensureOffscreenHealthy();
+            } else {
+                throw err;
+            }
+        }
+    }
+
+    throw new Error('Offscreen document not responding after multiple attempts');
 }
 
 // Warmup offscreen AI on extension startup
@@ -492,6 +524,20 @@ async function handleMessage(message: Message): Promise<MessageResponse> {
                     return { success: false, error: chatResult.error || 'Chat failed' };
                 }
             } catch (err: any) {
+                return { success: false, error: err.message };
+            }
+
+        // Clear WebLLM model cache
+        case 'clearModelCache':
+            try {
+                const clearResult = await sendToOffscreen('clear-cache', {}, 1); // Only 1 retry for cache clear
+                if (clearResult && clearResult.success) {
+                    return { success: true };
+                } else {
+                    return { success: false, error: clearResult?.error || 'Cache clear failed' };
+                }
+            } catch (err: any) {
+                console.error('[ServiceWorker] Cache clear error:', err);
                 return { success: false, error: err.message };
             }
 

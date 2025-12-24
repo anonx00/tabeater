@@ -400,7 +400,41 @@ async function handleVerifyByEmail(req, res) {
         if (matchingSession) {
             console.log('Found matching session by email:', matchingSession.id);
 
-            // Payment found! Activate the current license
+            // SECURITY: Check if this payment is already linked to another active license
+            const originalLicenseKey = matchingSession.metadata?.licenseKey;
+
+            if (originalLicenseKey && originalLicenseKey !== licenseKey) {
+                // Check if the original license is already active
+                const originalDoc = await db.collection('devices').doc(originalLicenseKey).get();
+
+                if (originalDoc.exists && originalDoc.data().paid) {
+                    // Original license is already active - check device count
+                    const originalData = originalDoc.data();
+                    const allowedDevices = originalData.allowedDevices || [originalData.deviceId];
+
+                    if (allowedDevices.length >= MAX_DEVICES_PER_LICENSE) {
+                        console.log('Payment already used by another license at max capacity');
+                        return res.status(403).json({
+                            verified: false,
+                            status: 'device_limit_reached',
+                            message: `This payment is already active on ${MAX_DEVICES_PER_LICENSE} devices. Remove a device from your original license first.`
+                        });
+                    }
+
+                    // If original license has space, redirect user to use the original license instead
+                    console.log('Payment already used by another license with available slots');
+                    return res.status(409).json({
+                        verified: false,
+                        status: 'payment_already_used',
+                        message: 'This email is already associated with an active license. Please use your original device or remove a device from your account.'
+                    });
+                }
+            }
+
+            // Payment found and either:
+            // 1. Not yet linked to any license, OR
+            // 2. Linked to this exact license, OR
+            // 3. Original license is expired/inactive
             await db.collection('devices').doc(licenseKey).update({
                 paid: true,
                 paidAt: new Date().toISOString(),

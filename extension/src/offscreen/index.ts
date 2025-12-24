@@ -461,6 +461,66 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 sendResponse({ success: true });
             }
             return true;
+
+        case 'clear-cache':
+            // Clear model cache from IndexedDB
+            (async () => {
+                try {
+                    // Unload engine first
+                    if (webllmEngine) {
+                        await webllmEngine.unload();
+                        webllmEngine = null;
+                    }
+
+                    // Delete WebLLM model cache database
+                    await new Promise<void>((resolve, reject) => {
+                        const deleteReq = indexedDB.deleteDatabase('webllm-model-cache');
+                        deleteReq.onsuccess = () => {
+                            console.log('[Offscreen] Deleted webllm-model-cache');
+                            resolve();
+                        };
+                        deleteReq.onerror = () => {
+                            console.warn('[Offscreen] Failed to delete webllm-model-cache');
+                            resolve(); // Continue anyway
+                        };
+                        deleteReq.onblocked = () => {
+                            console.warn('[Offscreen] Delete blocked for webllm-model-cache');
+                            setTimeout(() => resolve(), 1000); // Timeout after 1s
+                        };
+                    });
+
+                    // Delete tvmjs cache database
+                    await new Promise<void>((resolve, reject) => {
+                        const deleteReq = indexedDB.deleteDatabase('tvmjs');
+                        deleteReq.onsuccess = () => {
+                            console.log('[Offscreen] Deleted tvmjs');
+                            resolve();
+                        };
+                        deleteReq.onerror = () => {
+                            console.warn('[Offscreen] Failed to delete tvmjs');
+                            resolve(); // Continue anyway
+                        };
+                        deleteReq.onblocked = () => {
+                            console.warn('[Offscreen] Delete blocked for tvmjs');
+                            setTimeout(() => resolve(), 1000);
+                        };
+                    });
+
+                    // Update storage
+                    await chrome.storage.local.set({
+                        webllmReady: false,
+                        webllmModel: null,
+                        offscreenAIStatus: { status: 'not_initialized', progress: 0, message: 'Cache cleared' }
+                    });
+
+                    console.log('[Offscreen] Model cache cleared successfully');
+                    sendResponse({ success: true });
+                } catch (error: any) {
+                    console.error('[Offscreen] Cache clear error:', error);
+                    sendResponse({ success: false, error: error.message });
+                }
+            })();
+            return true;
     }
 });
 

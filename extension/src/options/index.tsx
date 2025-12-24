@@ -421,19 +421,25 @@ const OptionsPage: React.FC = () => {
     // Clear WebLLM IndexedDB cache to free up storage
     const clearWebLLMCache = async () => {
         try {
-            // WebLLM stores models in IndexedDB under these databases
-            const dbNames = ['webllm-model-cache', 'webllm-wasm-cache', 'tvmjs'];
-            for (const dbName of dbNames) {
-                try {
-                    await new Promise<void>((resolve, reject) => {
-                        const req = indexedDB.deleteDatabase(dbName);
-                        req.onsuccess = () => resolve();
-                        req.onerror = () => reject(req.error);
-                        req.onblocked = () => resolve(); // Continue even if blocked
-                    });
-                    console.log(`[WebLLM] Cleared ${dbName} cache`);
-                } catch (e) {
-                    console.log(`[WebLLM] Could not clear ${dbName}:`, e);
+            // Use service worker to clear cache via offscreen document
+            // This properly unloads the engine first before clearing IndexedDB
+            const response = await chrome.runtime.sendMessage({ action: 'clearModelCache' });
+            if (!response.success) {
+                console.warn('[WebLLM] Cache clear failed, trying direct method');
+                // Fallback: Direct IndexedDB deletion
+                const dbNames = ['webllm-model-cache', 'webllm-wasm-cache', 'tvmjs'];
+                for (const dbName of dbNames) {
+                    try {
+                        await new Promise<void>((resolve, reject) => {
+                            const req = indexedDB.deleteDatabase(dbName);
+                            req.onsuccess = () => resolve();
+                            req.onerror = () => reject(req.error);
+                            req.onblocked = () => resolve(); // Continue even if blocked
+                        });
+                        console.log(`[WebLLM] Cleared ${dbName} cache`);
+                    } catch (e) {
+                        console.log(`[WebLLM] Could not clear ${dbName}:`, e);
+                    }
                 }
             }
         } catch (e) {
