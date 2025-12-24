@@ -20,7 +20,7 @@ const DEFAULT_MODEL_ID = 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC';
 
 // Reasoning models that support chain-of-thought
 const REASONING_MODELS = [
-    'DeepSeek-R1-Distill-Qwen-7B-q4f16_1-MLC',
+    'DeepSeek-R1', // Matches any DeepSeek-R1 variant
     'deepseek',
 ];
 
