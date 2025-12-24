@@ -55,13 +55,46 @@ export function parseGroupingResponse(response: string): TabGroupsArray {
     clean = clean.replace(/^```(?:json|JSON)?\n?/gm, '');
     clean = clean.replace(/\n?```$/gm, '');
 
-    // Extract JSON array or object
-    const jsonMatch = clean.match(/\[[\s\S]*\]|\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      throw new Error('No JSON found in response');
+    // Try multiple JSON extraction strategies
+    let parsed: any = null;
+
+    // Strategy 1: Find the first complete JSON array/object using balanced bracket matching
+    const jsonMatch = findBalancedJSON(clean);
+    if (jsonMatch) {
+      try {
+        parsed = JSON.parse(jsonMatch);
+      } catch (e) {
+        console.warn('Strategy 1 failed (balanced brackets):', e);
+      }
     }
 
-    const parsed = JSON.parse(jsonMatch[0]);
+    // Strategy 2: Use regex as fallback
+    if (!parsed) {
+      const regexMatch = clean.match(/\[[\s\S]*\]|\{[\s\S]*\}/);
+      if (regexMatch) {
+        try {
+          parsed = JSON.parse(regexMatch[0]);
+        } catch (e) {
+          console.warn('Strategy 2 failed (regex):', e);
+        }
+      }
+    }
+
+    // Strategy 3: Try to extract from "OUTPUT:" or "groups:" markers
+    if (!parsed) {
+      const outputMatch = clean.match(/(?:OUTPUT:|groups:)\s*(\[[\s\S]*?\])/i);
+      if (outputMatch) {
+        try {
+          parsed = JSON.parse(outputMatch[1]);
+        } catch (e) {
+          console.warn('Strategy 3 failed (OUTPUT marker):', e);
+        }
+      }
+    }
+
+    if (!parsed) {
+      throw new Error('No valid JSON found in response');
+    }
 
     // Try reasoning output format first
     try {
@@ -75,9 +108,49 @@ export function parseGroupingResponse(response: string): TabGroupsArray {
     }
   } catch (error: any) {
     console.error('❌ Failed to parse grouping response:', error);
-    console.error('Response:', response);
+    console.error('Response:', response.substring(0, 500));
     throw new Error(`Invalid grouping response: ${error?.message || error}`);
   }
+}
+
+/**
+ * Find balanced JSON (array or object) in a string
+ * Handles cases where AI adds text before/after the JSON
+ */
+function findBalancedJSON(text: string): string | null {
+  // Try to find array first
+  let depth = 0;
+  let startIdx = -1;
+
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] === '[') {
+      if (depth === 0) startIdx = i;
+      depth++;
+    } else if (text[i] === ']') {
+      depth--;
+      if (depth === 0 && startIdx !== -1) {
+        return text.substring(startIdx, i + 1);
+      }
+    }
+  }
+
+  // Try to find object
+  depth = 0;
+  startIdx = -1;
+
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] === '{') {
+      if (depth === 0) startIdx = i;
+      depth++;
+    } else if (text[i] === '}') {
+      depth--;
+      if (depth === 0 && startIdx !== -1) {
+        return text.substring(startIdx, i + 1);
+      }
+    }
+  }
+
+  return null;
 }
 
 /**

@@ -15,8 +15,8 @@ import * as webllm from '@mlc-ai/web-llm';
 import { PROMPTS, formatTabsForPrompt, TabData } from '../ai/prompts';
 import { parseGroupingResponse } from '../shared/schemas';
 
-// Default model - smaller for better compatibility
-const DEFAULT_MODEL_ID = 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC';
+// Default model - DeepSeek R1 7B with advanced reasoning capabilities
+const DEFAULT_MODEL_ID = 'DeepSeek-R1-Distill-Qwen-7B-q4f16_1-MLC';
 
 // Reasoning models that support chain-of-thought
 const REASONING_MODELS = [

@@ -2,15 +2,12 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
 import { colors, spacing, typography, borderRadius, shadows, transitions, scanlineOverlay } from '../shared/theme';
 
-// WebLLM Model ID (default) - Using smaller model for better compatibility
-const WEBLLM_MODEL_ID = 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC';
+// WebLLM Model ID (default) - DeepSeek R1 7B with advanced reasoning
+const WEBLLM_MODEL_ID = 'DeepSeek-R1-Distill-Qwen-7B-q4f16_1-MLC';
 
 // Available Local AI Models
 const LOCAL_AI_MODELS = [
-    { id: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC', name: 'Qwen 1.5B', size: '1GB', vram: '1.8GB', speed: 'Fast', quality: 'Good', recommended: false },
-    { id: 'DeepSeek-R1-Distill-Qwen-1.5B-q4f16_1-MLC', name: 'DeepSeek-R1 1.5B', size: '1GB', vram: '2GB', speed: 'Fast', quality: 'Very Good', recommended: false, reasoning: true },
-    { id: 'Llama-3.2-3B-Instruct-q4f16_1-MLC', name: 'Llama 3B', size: '2GB', vram: '3GB', speed: 'Medium', quality: 'Best', recommended: false },
-    { id: 'DeepSeek-R1-Distill-Qwen-7B-q4f16_1-MLC', name: 'DeepSeek-R1 7B', size: '4.5GB', vram: '6GB', speed: 'Slower', quality: 'Exceptional', recommended: true, reasoning: true },
+    { id: 'DeepSeek-R1-Distill-Qwen-7B-q4f16_1-MLC', name: 'DeepSeek-R1 7B', size: '4.5GB', vram: '6GB', speed: 'Fast', quality: 'Exceptional', recommended: true, reasoning: true },
 ];
 
 // Types
