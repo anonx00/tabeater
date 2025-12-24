@@ -29,12 +29,20 @@ export const AI_MODELS = {
             'claude-3-opus-latest',
         ],
     },
+    deepseek: {
+        default: 'deepseek-chat',
+        available: [
+            'deepseek-chat',
+            'deepseek-reasoner',
+        ],
+    },
 };
 
 export const AI_ENDPOINTS = {
     gemini: 'https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent',
     openai: 'https://api.openai.com/v1/chat/completions',
     anthropic: 'https://api.anthropic.com/v1/messages',
+    deepseek: 'https://api.deepseek.com/v1/chat/completions',
 };
 
 export const AI_PROVIDER_INFO = {
@@ -56,10 +64,16 @@ export const AI_PROVIDER_INFO = {
         color: '#d4a574',
         getKeyUrl: 'https://console.anthropic.com/settings/keys',
     },
+    deepseek: {
+        name: 'DeepSeek',
+        description: 'Advanced reasoning AI',
+        color: '#00d4ff',
+        getKeyUrl: 'https://platform.deepseek.com/api_keys',
+    },
 };
 
-export type AIProviderType = 'webllm' | 'nano' | 'gemini' | 'openai' | 'anthropic' | 'none';
-export type CloudProviderType = 'gemini' | 'openai' | 'anthropic';
+export type AIProviderType = 'webllm' | 'nano' | 'gemini' | 'openai' | 'anthropic' | 'deepseek' | 'none';
+export type CloudProviderType = 'gemini' | 'openai' | 'anthropic' | 'deepseek';
 export type LocalProviderType = 'webllm' | 'nano';
 
 export const LOCAL_AI_INFO = {

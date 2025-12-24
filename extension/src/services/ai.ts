@@ -6,10 +6,10 @@ type AISession = {
     destroy?: () => void;
 };
 
-type AIProvider = 'webllm' | 'nano' | 'gemini' | 'openai' | 'anthropic' | 'none';
+type AIProvider = 'webllm' | 'nano' | 'gemini' | 'openai' | 'anthropic' | 'deepseek' | 'none';
 
 interface AIConfig {
-    cloudProvider?: 'gemini' | 'openai' | 'anthropic';
+    cloudProvider?: 'gemini' | 'openai' | 'anthropic' | 'deepseek';
     apiKey?: string;
     model?: string;
     preferWebLLM?: boolean;  // User preference to use local WebLLM
@@ -33,6 +33,11 @@ const PROVIDER_CONFIGS = {
             'x-api-key': key,
             'anthropic-version': '2023-06-01'
         }),
+    },
+    deepseek: {
+        endpoint: 'https://api.deepseek.com/v1/chat/completions',
+        defaultModel: 'deepseek-chat',
+        authHeader: (key: string) => ({ 'Authorization': `Bearer ${key}` }),
     }
 };
 
@@ -512,6 +517,8 @@ class AIService {
             return this.callOpenAI(text, model);
         } else if (this.config.cloudProvider === 'anthropic') {
             return this.callAnthropic(text, model);
+        } else if (this.config.cloudProvider === 'deepseek') {
+            return this.callDeepSeek(text, model);
         }
 
         throw new Error('Unknown provider');
@@ -604,6 +611,40 @@ class AIService {
         return data.content?.[0]?.text || 'No response';
     }
 
+    private async callDeepSeek(text: string, model: string): Promise<string> {
+        // Check if using reasoning model
+        const isReasoningModel = model.includes('reasoner') || model.includes('r1');
+        const maxTokens = isReasoningModel ? 4000 : 500;
+        const systemPrompt = isReasoningModel
+            ? 'You are TabEater, an expert tab intelligence assistant. Think step-by-step and provide detailed reasoning before your conclusions.'
+            : 'You are TabEater, a tactical tab intelligence assistant. Provide concise, actionable insights.';
+
+        const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${this.config.apiKey}`
+            },
+            body: JSON.stringify({
+                model: model,
+                messages: [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: text }
+                ],
+                max_tokens: maxTokens,
+                temperature: isReasoningModel ? 0.6 : 0.7,
+            })
+        });
+
+        if (!response.ok) {
+            const error = await response.text();
+            throw new Error(`DeepSeek API error: ${response.status} - ${error}`);
+        }
+
+        const data = await response.json();
+        return data.choices?.[0]?.message?.content || 'No response';
+    }
+
     async setConfig(config: AIConfig): Promise<void> {
         this.config = { ...this.config, ...config };
         await chrome.storage.local.set({ aiConfig: this.config });
@@ -622,7 +663,7 @@ class AIService {
      * Check if the current provider sends data to cloud servers
      */
     isCloudProvider(): boolean {
-        return this.provider === 'gemini' || this.provider === 'openai' || this.provider === 'anthropic';
+        return this.provider === 'gemini' || this.provider === 'openai' || this.provider === 'anthropic' || this.provider === 'deepseek';
     }
 
     /**

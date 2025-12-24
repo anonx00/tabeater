@@ -12,9 +12,17 @@
  */
 
 import * as webllm from '@mlc-ai/web-llm';
+import { PROMPTS, formatTabsForPrompt, TabData } from '../ai/prompts';
+import { parseGroupingResponse } from '../shared/schemas';
 
 // Default model - smaller for better compatibility
 const DEFAULT_MODEL_ID = 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC';
+
+// Reasoning models that support chain-of-thought
+const REASONING_MODELS = [
+    'DeepSeek-R1-Distill-Qwen-7B-q4f16_1-MLC',
+    'deepseek',
+];
 
 // Global engine instance
 let webllmEngine: webllm.MLCEngineInterface | null = null;
@@ -210,7 +218,7 @@ async function groupTabs(tabs: { id: number; title: string; url: string }[]): Pr
     console.log(`[Offscreen] AI Grouping ${tabs.length} tabs`);
 
     try {
-        // Build tab list with FULL hostname for better AI understanding
+        // Build tab list for AI
         const tabList = tabs.map((t, idx) => {
             try {
                 const hostname = new URL(t.url).hostname.replace('www.', '');
@@ -222,8 +230,25 @@ async function groupTabs(tabs: { id: number; title: string; url: string }[]): Pr
 
         console.log('[Offscreen] Tab list for AI:\n' + tabList);
 
-        // Few-shot prompt with explicit examples matching input format
-        const prompt = `Categorize browser tabs by their domain into groups.
+        // Check if using reasoning model
+        const isReasoningModel = REASONING_MODELS.some(m => currentModelId.includes(m));
+
+        let prompt: string;
+        let systemPrompt: string;
+        let maxTokens: number;
+        let temperature: number;
+
+        if (isReasoningModel) {
+            // Use chain-of-thought reasoning for advanced models
+            console.log('[Offscreen] 🧠 Using REASONING mode');
+            prompt = PROMPTS.REASONING_CLUSTER.replace('${tabs}', tabList);
+            systemPrompt = 'You are an expert at analyzing and organizing browser tabs. Think step-by-step and provide reasoning.';
+            maxTokens = Math.max(4000, tabs.length * 100); // More tokens for reasoning
+            temperature = 0.5; // Moderate temperature for reasoning
+        } else {
+            // Fast, concise prompt for smaller models
+            console.log('[Offscreen] ⚡ Using STANDARD mode');
+            prompt = `Categorize browser tabs by their domain into groups.
 
 INPUT:
 0. [mail.google.com] Inbox - Gmail
@@ -249,74 +274,44 @@ INPUT:
 ${tabList}
 
 OUTPUT:`;
-
-        // More tokens for many tabs
-        const maxTokens = Math.max(1500, tabs.length * 50);
+            systemPrompt = 'You categorize browser tabs by looking at their domain. Output only valid JSON arrays. Match domains exactly: netflix/youtube/primevideo/stan/hianime=Video, gmail/outlook/mail=Mail, github/stackoverflow=Code, x.com/twitter/reddit=Social, claude/chatgpt/gemini/openai=AI, console.cloud/twilio/analytics=Cloud, medium/producthunt=News.';
+            maxTokens = Math.max(1500, tabs.length * 50);
+            temperature = 0.0; // Deterministic for simple models
+        }
 
         console.log('[Offscreen] Sending to AI...');
         const response = await webllmEngine!.chat.completions.create({
             messages: [
-                {
-                    role: 'system',
-                    content: 'You categorize browser tabs by looking at their domain. Output only valid JSON arrays. Match domains exactly: netflix/youtube/primevideo/stan/hianime=Video, gmail/outlook/mail=Mail, github/stackoverflow=Code, x.com/twitter/reddit=Social, claude/chatgpt/gemini/openai=AI, console.cloud/twilio/analytics=Cloud, medium/producthunt=News.'
-                },
+                { role: 'system', content: systemPrompt },
                 { role: 'user', content: prompt }
             ],
             max_tokens: maxTokens,
-            temperature: 0.0,  // Zero temperature for deterministic output
+            temperature,
+            frequency_penalty: isReasoningModel ? 0.3 : 0.0,
+            presence_penalty: isReasoningModel ? 0.2 : 0.0,
         });
 
-        let aiText = response.choices[0]?.message?.content?.trim() || '';
-        console.log('[Offscreen] AI raw response:', aiText);
+        const aiText = response.choices[0]?.message?.content?.trim() || '';
+        console.log('[Offscreen] AI raw response:', aiText.substring(0, 500) + (aiText.length > 500 ? '...' : ''));
 
-        // Strip markdown code blocks
-        aiText = aiText.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
-
-        // Extract JSON array
-        let groups = null;
-        const jsonStart = aiText.indexOf('[');
-        const jsonEnd = aiText.lastIndexOf(']');
-
-        if (jsonStart >= 0 && jsonEnd > jsonStart) {
-            try {
-                let jsonStr = aiText.substring(jsonStart, jsonEnd + 1);
-                // Fix common JSON issues
-                jsonStr = jsonStr.replace(/,\s*}/g, '}').replace(/,\s*\]/g, ']');
-                jsonStr = jsonStr.replace(/'/g, '"'); // Single to double quotes
-                groups = JSON.parse(jsonStr);
-                console.log('[Offscreen] Parsed groups:', JSON.stringify(groups));
-            } catch (e) {
-                console.log('[Offscreen] JSON parse failed:', e);
-            }
-        }
-
-        if (!groups || !Array.isArray(groups)) {
-            console.log('[Offscreen] No valid JSON array found');
-            return { success: false, error: 'AI did not return valid JSON groups' };
-        }
-
-        // Helper to get ids from various formats AI might use
-        const getGroupIds = (g: any): number[] => {
-            const arr = g.ids || g.tabIds || g.tabs || g.indices || [];
-            return Array.isArray(arr) ? arr : [];
-        };
+        // Use Zod validation to parse response
+        const validatedGroups = parseGroupingResponse(aiText);
+        console.log('[Offscreen] ✅ Validated groups:', validatedGroups);
 
         // Map indices to real tab IDs, ensuring no duplicates
         const usedIndices = new Set<number>();
-        const validGroups = groups
-            .filter((g: any) => g && typeof g.name === 'string' && g.name.length > 0 && getGroupIds(g).length >= 2)
-            .map((g: any) => {
-                const groupIds = getGroupIds(g);
-                const realTabIds = groupIds
-                    .map((idx: any) => {
-                        const index = typeof idx === 'string' ? parseInt(idx, 10) : idx;
-                        if (typeof index === 'number' && !isNaN(index) && index >= 0 && index < tabs.length && !usedIndices.has(index)) {
-                            usedIndices.add(index);
-                            return tabs[index].id;
+        const validGroups = validatedGroups
+            .filter(g => g.ids.length >= 2) // Minimum 2 tabs per group
+            .map(g => {
+                const realTabIds = g.ids
+                    .map(idx => {
+                        if (idx >= 0 && idx < tabs.length && !usedIndices.has(idx)) {
+                            usedIndices.add(idx);
+                            return tabs[idx].id;
                         }
                         return null;
                     })
-                    .filter((id: number | null): id is number => id !== null);
+                    .filter((id): id is number => id !== null);
 
                 return {
                     name: g.name.substring(0, 8),  // Max 8 chars for group name

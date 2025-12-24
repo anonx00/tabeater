@@ -7,8 +7,9 @@ const WEBLLM_MODEL_ID = 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC';
 
 // Available Local AI Models
 const LOCAL_AI_MODELS = [
-    { id: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC', name: 'Qwen 1.5B', size: '1GB', vram: '1.8GB', speed: 'Fast', quality: 'Good', recommended: true },
+    { id: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC', name: 'Qwen 1.5B', size: '1GB', vram: '1.8GB', speed: 'Fast', quality: 'Good', recommended: false },
     { id: 'Llama-3.2-3B-Instruct-q4f16_1-MLC', name: 'Llama 3B', size: '2GB', vram: '3GB', speed: 'Medium', quality: 'Best', recommended: false },
+    { id: 'DeepSeek-R1-Distill-Qwen-7B-q4f16_1-MLC', name: 'DeepSeek-R1 7B', size: '4.5GB', vram: '6GB', speed: 'Slower', quality: 'Exceptional', recommended: true, reasoning: true },
 ];
 
 // Types
@@ -167,6 +168,9 @@ const OptionsPage: React.FC = () => {
     const [webllmLoading, setWebllmLoading] = useState(false);
     const [selectedLocalModel, setSelectedLocalModel] = useState(WEBLLM_MODEL_ID);
 
+    // Cloud AI config state
+    const [aiConfig, setAiConfig] = useState<{ cloudProvider?: 'gemini' | 'openai' | 'anthropic' | 'deepseek'; apiKey?: string; model?: string; preferWebLLM?: boolean }>({});
+
     // Load data
     useEffect(() => {
         loadConfig();
@@ -203,7 +207,12 @@ const OptionsPage: React.FC = () => {
     }, [autoPilotSettings]);
 
     const loadConfig = async () => {
-        // Local AI is the only provider now
+        // Load cloud AI config from storage
+        const stored = await chrome.storage.local.get(['aiConfig']);
+        if (stored.aiConfig) {
+            setAiConfig(stored.aiConfig);
+        }
+        // Set active provider (webllm by default)
         setActiveProvider('webllm');
     };
 
@@ -643,6 +652,7 @@ const OptionsPage: React.FC = () => {
             <main style={s.viewport}>
                 {/* Provider Panel */}
                 {activeNav === 'provider' && (
+                    <>
                     <div style={s.panel}>
                         <div style={s.panelHeader}>
                             <h2 style={s.panelTitle}>Local AI</h2>
@@ -844,6 +854,153 @@ const OptionsPage: React.FC = () => {
                         )}
 
                     </div>
+
+                    {/* Cloud AI Providers Panel */}
+                    <div style={{ ...s.panel, marginTop: spacing.lg }}>
+                        <div style={s.panelHeader}>
+                            <h2 style={s.panelTitle}>Cloud AI Providers</h2>
+                            <p style={{ ...s.panelDesc, marginTop: spacing.xs }}>
+                                Configure cloud AI APIs as fallback or primary provider
+                            </p>
+                        </div>
+
+                        {/* Provider Selection */}
+                        <div style={{ marginTop: spacing.lg }}>
+                            <label style={s.inputLabel}>
+                                Select Provider
+                            </label>
+                            <select
+                                style={s.select}
+                                value={aiConfig?.cloudProvider || ''}
+                                onChange={async (e) => {
+                                    const provider = e.target.value as 'gemini' | 'openai' | 'anthropic' | 'deepseek' | '';
+                                    const newConfig = { ...aiConfig, cloudProvider: provider || undefined };
+                                    setAiConfig(newConfig);
+                                    await chrome.storage.local.set({ aiConfig: newConfig });
+                                }}
+                            >
+                                <option value="">None (Local AI only)</option>
+                                <option value="gemini">🔷 Google Gemini</option>
+                                <option value="openai">🟢 OpenAI (GPT)</option>
+                                <option value="anthropic">🟠 Anthropic (Claude)</option>
+                                <option value="deepseek">🔵 DeepSeek (Reasoning AI)</option>
+                            </select>
+                        </div>
+
+                        {aiConfig?.cloudProvider && (
+                            <>
+                                {/* API Key Input */}
+                                <div style={{ marginTop: spacing.md }}>
+                                    <label style={s.inputLabel}>
+                                        API Key
+                                        <span style={{ marginLeft: spacing.xs, color: colors.textDim, fontSize: typography.sizeXs }}>
+                                            (stored locally, never shared)
+                                        </span>
+                                    </label>
+                                    <input
+                                        type="password"
+                                        style={s.input}
+                                        placeholder={`Enter your ${aiConfig.cloudProvider} API key`}
+                                        value={aiConfig?.apiKey || ''}
+                                        onChange={(e) => setAiConfig({ ...aiConfig, apiKey: e.target.value })}
+                                        onBlur={async () => {
+                                            await chrome.storage.local.set({ aiConfig });
+                                        }}
+                                    />
+                                    <a
+                                        href={
+                                            aiConfig.cloudProvider === 'gemini' ? 'https://aistudio.google.com/app/apikey' :
+                                            aiConfig.cloudProvider === 'openai' ? 'https://platform.openai.com/api-keys' :
+                                            aiConfig.cloudProvider === 'anthropic' ? 'https://console.anthropic.com/settings/keys' :
+                                            'https://platform.deepseek.com/api_keys'
+                                        }
+                                        target="_blank"
+                                        style={{
+                                            color: colors.accentCyan,
+                                            fontSize: typography.sizeSm,
+                                            textDecoration: 'none',
+                                            display: 'inline-block',
+                                            marginTop: spacing.xs,
+                                        }}
+                                    >
+                                        → Get API key
+                                    </a>
+                                </div>
+
+                                {/* Model Selection */}
+                                <div style={{ marginTop: spacing.md }}>
+                                    <label style={s.inputLabel}>
+                                        Model
+                                    </label>
+                                    <select
+                                        style={s.select}
+                                        value={aiConfig?.model || ''}
+                                        onChange={async (e) => {
+                                            const newConfig = { ...aiConfig, model: e.target.value };
+                                            setAiConfig(newConfig);
+                                            await chrome.storage.local.set({ aiConfig: newConfig });
+                                        }}
+                                    >
+                                        <option value="">Default</option>
+                                        {aiConfig.cloudProvider === 'gemini' && (
+                                            <>
+                                                <option value="gemini-2.0-flash">Gemini 2.0 Flash (Recommended)</option>
+                                                <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+                                                <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+                                            </>
+                                        )}
+                                        {aiConfig.cloudProvider === 'openai' && (
+                                            <>
+                                                <option value="gpt-4o-mini">GPT-4o Mini (Recommended)</option>
+                                                <option value="gpt-4o">GPT-4o</option>
+                                                <option value="gpt-4-turbo">GPT-4 Turbo</option>
+                                            </>
+                                        )}
+                                        {aiConfig.cloudProvider === 'anthropic' && (
+                                            <>
+                                                <option value="claude-3-5-haiku-latest">Claude 3.5 Haiku (Recommended)</option>
+                                                <option value="claude-3-5-sonnet-latest">Claude 3.5 Sonnet</option>
+                                                <option value="claude-3-opus-latest">Claude 3 Opus</option>
+                                            </>
+                                        )}
+                                        {aiConfig.cloudProvider === 'deepseek' && (
+                                            <>
+                                                <option value="deepseek-chat">DeepSeek Chat (Recommended)</option>
+                                                <option value="deepseek-reasoner">DeepSeek Reasoner (Advanced)</option>
+                                            </>
+                                        )}
+                                    </select>
+                                </div>
+
+                                {/* Info Box */}
+                                <div style={{
+                                    marginTop: spacing.md,
+                                    padding: spacing.md,
+                                    borderRadius: borderRadius.md,
+                                    border: `1px solid ${colors.borderIdle}`,
+                                    background: 'rgba(0, 212, 255, 0.04)',
+                                }}>
+                                    <div style={{ fontSize: typography.sizeSm, color: colors.textMuted }}>
+                                        <div style={{ marginBottom: spacing.xs }}>
+                                            <strong>Provider:</strong> {
+                                                aiConfig.cloudProvider === 'gemini' ? 'Google Gemini - Fast & efficient' :
+                                                aiConfig.cloudProvider === 'openai' ? 'OpenAI GPT - General purpose' :
+                                                aiConfig.cloudProvider === 'anthropic' ? 'Anthropic Claude - Long context' :
+                                                'DeepSeek - Advanced reasoning'
+                                            }
+                                        </div>
+                                        <div style={{ marginBottom: spacing.xs }}>
+                                            <strong>Privacy:</strong> Data sent to {aiConfig.cloudProvider} servers
+                                        </div>
+                                        <div>
+                                            <strong>Cost:</strong> API usage charged by provider (~$0.01-$0.05 per request)
+                                        </div>
+                                    </div>
+                                </div>
+                            </>
+                        )}
+                    </div>
+                    </>
                 )}
 
                 {/* Auto-Pilot Panel */}
