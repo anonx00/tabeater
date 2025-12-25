@@ -1,17 +1,26 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
   <defs>
-    <linearGradient id="glow" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#00ff88;stop-opacity:0.2"/>
-      <stop offset="100%" style="stop-color:#00ff88;stop-opacity:0"/>
+    <filter id="glow128" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <linearGradient id="glowGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#00FF88" stop-opacity="1"/>
+      <stop offset="100%" stop-color="#00DD66" stop-opacity="0.8"/>
     </linearGradient>
   </defs>
-  <rect width="128" height="128" rx="24" fill="#0a0a0a"/>
-  <rect width="128" height="128" rx="24" fill="url(#glow)"/>
-  <rect x="20" y="24" width="88" height="14" rx="4" fill="#00ff88"/>
-  <rect x="20" y="46" width="76" height="14" rx="4" fill="#00ff88" opacity="0.7"/>
-  <rect x="20" y="68" width="60" height="14" rx="4" fill="#00ff88" opacity="0.4"/>
-  <circle cx="100" cy="100" r="18" fill="#0a0a0a" stroke="#00ff88" stroke-width="3"/>
-  <circle cx="100" cy="100" r="8" fill="#00ff88"/>
-  <path d="M96 96 L100 92 L104 96" stroke="#0a0a0a" stroke-width="2" fill="none" stroke-linecap="round"/>
-  <path d="M100 92 L100 108" stroke="#0a0a0a" stroke-width="2" stroke-linecap="round"/>
+  <rect width="128" height="128" fill="#0a0a0a" rx="16"/>
+  <g filter="url(#glow128)">
+    <!-- Folder shape -->
+    <path d="M16 34V102C16 107 20 111 25 111H103C108 111 112 107 112 102V44C112 39 108 35 103 35H64L54 22H25C20 22 16 26 16 31V34Z"
+          fill="none" stroke="url(#glowGrad)" stroke-width="5" stroke-linejoin="round"/>
+    <!-- Inner square indicator -->
+    <rect x="32" y="50" width="22" height="22" fill="#00FF88" rx="2"/>
+    <!-- Bottom lines -->
+    <line x1="32" y1="88" x2="96" y2="88" stroke="#00FF88" stroke-width="4" stroke-linecap="round" opacity="0.7"/>
+    <line x1="32" y1="98" x2="80" y2="98" stroke="#00FF88" stroke-width="3" stroke-linecap="round" opacity="0.5"/>
+  </g>
 </svg>

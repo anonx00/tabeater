@@ -30,10 +30,56 @@ class TabService {
     }
 
     async getWindowTabs(windowId?: number): Promise<TabInfo[]> {
+        let targetWindowId = windowId;
+
+        // If no windowId specified, find the best normal window
+        if (!targetWindowId) {
+            try {
+                // Get all normal windows
+                const allWindows = await chrome.windows.getAll({ windowTypes: ['normal'] });
+                const normalWindows = allWindows.filter(w => w.type === 'normal');
+
+                console.log(`[TabService] Found ${normalWindows.length} normal windows`);
+
+                if (normalWindows.length === 0) {
+                    console.log('[TabService] No normal windows found');
+                    return [];
+                }
+
+                // Prefer the focused window, otherwise the most recent one
+                const focusedNormal = normalWindows.find(w => w.focused);
+                targetWindowId = focusedNormal?.id || normalWindows[0]?.id;
+
+                console.log(`[TabService] Using window ${targetWindowId} (focused: ${!!focusedNormal})`);
+            } catch (err) {
+                console.error('[TabService] Error finding windows:', err);
+                // Fallback to current window
+                targetWindowId = chrome.windows.WINDOW_ID_CURRENT;
+            }
+        }
+
         const tabs = await chrome.tabs.query({
-            windowId: windowId || chrome.windows.WINDOW_ID_CURRENT
+            windowId: targetWindowId
         });
-        return tabs.map(this.mapTab);
+
+        console.log(`[TabService] Found ${tabs.length} tabs in window ${targetWindowId}`);
+
+        // Filter out tabs that can't be grouped (chrome:// URLs, etc.)
+        const filtered = tabs.filter(tab => {
+            // Exclude chrome:// and edge:// URLs
+            if (tab.url?.startsWith('chrome://') || tab.url?.startsWith('edge://')) {
+                return false;
+            }
+            // Exclude chrome-extension:// pages
+            if (tab.url?.startsWith('chrome-extension://')) {
+                return false;
+            }
+            return true;
+        });
+
+        console.log(`[TabService] After filtering: ${filtered.length} tabs`);
+
+        return filtered.map(this.mapTab);
     }
 
     async getActiveTab(): Promise<TabInfo | null> {
@@ -64,6 +110,17 @@ class TabService {
     }
 
     async groupTabs(tabIds: number[], title: string): Promise<number> {
+        // Check if a group with this title already exists
+        const existingGroups = await chrome.tabGroups.query({ title });
+
+        if (existingGroups.length > 0) {
+            // Add tabs to existing group instead of creating duplicate
+            const groupId = existingGroups[0].id;
+            await chrome.tabs.group({ tabIds, groupId });
+            return groupId;
+        }
+
+        // Create new group if none exists
         const groupId = await chrome.tabs.group({ tabIds });
         await chrome.tabGroups.update(groupId, { title });
         return groupId;
@@ -126,7 +183,13 @@ class TabService {
     private normalizeUrl(url: string): string {
         try {
             const parsed = new URL(url);
-            return `${parsed.hostname}${parsed.pathname}`.replace(/\/$/, '');
+            // Include hostname, pathname, and search params for accurate duplicate detection
+            // Only tabs with EXACT same URL (minus fragment) are considered duplicates
+            let normalized = `${parsed.hostname}${parsed.pathname}`;
+            if (parsed.search) {
+                normalized += parsed.search;
+            }
+            return normalized.replace(/\/$/, '');
         } catch {
             return url;
         }

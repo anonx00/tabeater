@@ -1,5 +1,117 @@
 import { aiService } from '../services/ai';
 import { tabService, TabInfo } from '../services/tabs';
+import { licenseService } from '../services/license';
+import { autoPilotService } from '../services/autopilot';
+import { memoryService } from '../services/memory.service';
+import { TabManager } from './tab-manager';
+
+// Offscreen document management for WebLLM
+let offscreenCreating: Promise<void> | null = null;
+let offscreenLastHeartbeat = 0;
+let offscreenEngineReady = false;
+
+async function ensureOffscreenDocument(): Promise<void> {
+    const existingContexts = await chrome.runtime.getContexts({
+        contextTypes: [chrome.runtime.ContextType.OFFSCREEN_DOCUMENT],
+    });
+
+    if (existingContexts.length > 0) {
+        return; // Already exists
+    }
+
+    if (offscreenCreating) {
+        await offscreenCreating;
+        return;
+    }
+
+    console.log('[ServiceWorker] Creating offscreen document...');
+    offscreenCreating = chrome.offscreen.createDocument({
+        url: 'offscreen.html',
+        reasons: [chrome.offscreen.Reason.WORKERS],
+        justification: 'WebLLM AI processing with WebGPU',
+    });
+
+    await offscreenCreating;
+    offscreenCreating = null;
+    console.log('[ServiceWorker] Offscreen document created');
+}
+
+// Health check - verify offscreen document is responsive
+async function pingOffscreen(): Promise<boolean> {
+    try {
+        const response = await chrome.runtime.sendMessage({
+            target: 'offscreen',
+            action: 'ping',
+        });
+        return response?.pong === true;
+    } catch {
+        return false;
+    }
+}
+
+// Ensure offscreen is healthy, recreate if needed
+async function ensureOffscreenHealthy(): Promise<boolean> {
+    await ensureOffscreenDocument();
+
+    // Quick ping to verify it's responsive
+    const healthy = await pingOffscreen();
+    if (!healthy) {
+        console.warn('[ServiceWorker] Offscreen not responsive, recreating...');
+        // Try to close existing and recreate
+        try {
+            await chrome.offscreen.closeDocument();
+        } catch {}
+        offscreenCreating = null;
+        await ensureOffscreenDocument();
+        return pingOffscreen();
+    }
+    return true;
+}
+
+async function sendToOffscreen(action: string, data: any = {}): Promise<any> {
+    await ensureOffscreenHealthy();
+    return chrome.runtime.sendMessage({
+        target: 'offscreen',
+        action,
+        ...data,
+    });
+}
+
+// Warmup offscreen AI on extension startup
+async function warmupOffscreenAI() {
+    try {
+        const stored = await chrome.storage.local.get(['webllmReady', 'aiConfig']);
+        if (stored.webllmReady || stored.aiConfig?.preferWebLLM) {
+            console.log('[ServiceWorker] Warming up offscreen AI...');
+            await ensureOffscreenDocument();
+            // The offscreen document will auto-preload when created
+        }
+    } catch (err) {
+        console.warn('[ServiceWorker] Warmup failed:', err);
+    }
+}
+
+// Parse JSON from AI response - handles markdown code blocks
+function parseJSONResponse<T>(response: string, context: string): T | null {
+    let clean = response.trim();
+
+    // Strip markdown code blocks
+    clean = clean.replace(/^```(?:json|JSON)?\n?/gm, '');
+    clean = clean.replace(/\n?```$/gm, '');
+    clean = clean.trim();
+
+    // Find JSON array
+    const match = clean.match(/\[[\s\S]*\]/);
+    const jsonStr = match ? match[0] : clean;
+
+    try {
+        return JSON.parse(jsonStr);
+    } catch (err) {
+        console.error(`[${context}] JSON parse failed:`, err);
+        console.error(`[${context}] Raw response:`, response.slice(0, 500));
+        return null;
+    }
+}
 
 interface Message {
     action: string;
@@ -12,23 +124,191 @@ interface MessageResponse {
     error?: string;
 }
 
-chrome.runtime.onInstalled.addListener(async () => {
+// Single initialization promise to prevent race conditions
+let initializationPromise: Promise<void> | null = null;
+
+async function initializeServices(): Promise<void> {
+    await licenseService.initialize();
     await aiService.initialize();
+}
+
+// Ensure services are initialized only once, even if called concurrently
+async function ensureServicesInitialized(): Promise<void> {
+    if (!initializationPromise) {
+        initializationPromise = initializeServices();
+    }
+    return initializationPromise;
+}
+
+chrome.runtime.onInstalled.addListener(async () => {
+    await ensureServicesInitialized();
     await chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: false });
+    // Warmup AI if previously enabled
+    warmupOffscreenAI();
 });
 
 chrome.runtime.onStartup.addListener(async () => {
-    await aiService.initialize();
+    await ensureServicesInitialized();
+    // Warmup AI if previously enabled - this makes subsequent AI calls faster
+    warmupOffscreenAI();
 });
 
-chrome.runtime.onMessage.addListener((message: Message, _sender, sendResponse) => {
-    handleMessage(message)
+// Debounce map for fly mode processing
+const flyModeDebounceMap = new Map<number, ReturnType<typeof setTimeout>>();
+
+// Auto Pilot: Process new tabs when they finish loading
+chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+    // Only act when the page is fully loaded and has a url
+    if (changeInfo.status === 'complete' && tab.url && !tab.url.startsWith('chrome://')) {
+        try {
+            await ensureServicesInitialized();
+
+            // Load settings to check mode
+            const settings = await autoPilotService.loadSettings();
+
+            // Skip if in manual mode
+            if (settings.mode === 'manual') return;
+
+            // Auto-processing requires PRO license
+            const licenseStatus = await licenseService.getStatus();
+            if (!licenseStatus.paid) return;
+
+            // Skip if tab is already in a group (for grouping logic)
+            if (tab.groupId !== undefined && tab.groupId !== -1) {
+                // Still check for duplicates even if grouped
+                if (settings.mode === 'auto-cleanup' || settings.mode === 'fly-mode') {
+                    // Check for duplicate immediately
+                    const tabInfo = {
+                        id: tabId,
+                        title: tab.title || '',
+                        url: tab.url,
+                        favIconUrl: tab.favIconUrl,
+                        active: tab.active,
+                        pinned: tab.pinned,
+                        groupId: tab.groupId ?? -1,
+                        windowId: tab.windowId
+                    };
+                    const dupCheck = await autoPilotService.checkDuplicate(tabInfo);
+                    if (dupCheck.isDuplicate) {
+                        await chrome.tabs.remove(tabId);
+                        // Show notification if enabled
+                        if (settings.showNotifications) {
+                            await showAutoPilotNotification(`Closed duplicate tab`);
+                        }
+                    }
+                }
+                return;
+            }
+
+            // Clear any existing debounce for this tab
+            if (flyModeDebounceMap.has(tabId)) {
+                clearTimeout(flyModeDebounceMap.get(tabId)!);
+            }
+
+            // Debounce processing to avoid rapid-fire on redirects
+            const debounceMs = settings.flyModeDebounceMs || 5000;
+            const timeoutId = setTimeout(async () => {
+                flyModeDebounceMap.delete(tabId);
+
+                try {
+                    // Re-fetch the tab to get latest state
+                    const currentTab = await chrome.tabs.get(tabId);
+                    if (!currentTab || currentTab.url?.startsWith('chrome://')) return;
+
+                    const tabInfo = {
+                        id: tabId,
+                        title: currentTab.title || '',
+                        url: currentTab.url || '',
+                        favIconUrl: currentTab.favIconUrl,
+                        active: currentTab.active,
+                        pinned: currentTab.pinned,
+                        groupId: currentTab.groupId ?? -1,
+                        windowId: currentTab.windowId
+                    };
+
+                    const result = await autoPilotService.processNewTab(tabInfo);
+
+                    // Show notification if action was taken and notifications are enabled
+                    if (result.action !== 'none' && settings.showNotifications && result.message) {
+                        await showAutoPilotNotification(result.message);
+                    }
+                } catch (err) {
+                    // Tab might have been closed, ignore
+                    console.debug('Fly mode processing failed:', err);
+                }
+            }, debounceMs);
+
+            flyModeDebounceMap.set(tabId, timeoutId);
+        } catch (err) {
+            // Silently fail - auto-processing is a convenience feature
+            console.debug('Auto-pilot failed:', err);
+        }
+    }
+});
+
+// Clean up debounce timers when tabs are closed
+chrome.tabs.onRemoved.addListener((tabId) => {
+    if (flyModeDebounceMap.has(tabId)) {
+        clearTimeout(flyModeDebounceMap.get(tabId)!);
+        flyModeDebounceMap.delete(tabId);
+    }
+});
+
+// Show a notification for auto-pilot actions (uses chrome badge for now)
+async function showAutoPilotNotification(message: string) {
+    // Set badge text briefly to indicate action
+    await chrome.action.setBadgeText({ text: '!' });
+    await chrome.action.setBadgeBackgroundColor({ color: '#3b82f6' });
+
+    // Clear badge after 3 seconds
+    setTimeout(async () => {
+        await chrome.action.setBadgeText({ text: '' });
+    }, 3000);
+
+    // Also log for debugging
+    console.log('[AutoPilot]', message);
+}
+
+// Handle keyboard shortcuts
+chrome.commands.onCommand.addListener(async (command) => {
+    if (command === 'open_sidepanel') {
+        const windows = await chrome.windows.getAll();
+        if (windows.length > 0 && windows[0].id !== undefined) {
+            await chrome.sidePanel.open({ windowId: windows[0].id });
+        }
+    }
+});
+
+chrome.runtime.onMessage.addListener((message: Message & { target?: string; data?: any }, _sender, sendResponse) => {
+    // Handle messages from offscreen document
+    if (message.target === 'service-worker') {
+        if (message.action === 'webllm-status') {
+            // Store status so other pages can read it
+            chrome.storage.local.set({
+                offscreenAIStatus: message.data
+            }).catch(() => {});
+        } else if (message.action === 'offscreen-heartbeat') {
+            // Track offscreen health
+            offscreenLastHeartbeat = Date.now();
+            offscreenEngineReady = message.data?.engineReady || false;
+        }
+        return;
+    }
+
+    ensureServicesInitialized()
+        .then(() => handleMessage(message))
         .then(sendResponse)
         .catch(err => sendResponse({ success: false, error: err.message }));
     return true;
 });
 
 async function handleMessage(message: Message): Promise<MessageResponse> {
+    // Input validation helper
+    const validatePayload = (required: string[]): boolean => {
+        if (!message.payload) return required.length === 0;
+        return required.every(key => message.payload[key] !== undefined);
+    };
+
     switch (message.action) {
         case 'getTabs':
             return { success: true, data: await tabService.getAllTabs() };
@@ -40,10 +320,16 @@ async function handleMessage(message: Message): Promise<MessageResponse> {
             return { success: true, data: await tabService.getActiveTab() };
 
         case 'closeTab':
+            if (!validatePayload(['tabId']) || typeof message.payload.tabId !== 'number') {
+                return { success: false, error: 'Invalid tabId' };
+            }
             await tabService.closeTab(message.payload.tabId);
             return { success: true };
 
         case 'closeTabs':
+            if (!validatePayload(['tabIds']) || !Array.isArray(message.payload.tabIds)) {
+                return { success: false, error: 'Invalid tabIds array' };
+            }
             await tabService.closeTabs(message.payload.tabIds);
             return { success: true };
 
@@ -65,6 +351,17 @@ async function handleMessage(message: Message): Promise<MessageResponse> {
             const allTabs = await tabService.getAllTabs();
             return { success: true, data: tabService.groupByDomain(allTabs) };
 
+        // Quick Focus Score (free for all users - no AI, just analysis)
+        case 'getQuickFocusScore':
+            const quickReport = await autoPilotService.analyze();
+            return {
+                success: true,
+                data: {
+                    focusScore: quickReport.analytics?.healthScore || 50,
+                    report: quickReport
+                }
+            };
+
         case 'summarizeTab':
             return await summarizeTab(message.payload.tabId);
 
@@ -74,8 +371,165 @@ async function handleMessage(message: Message): Promise<MessageResponse> {
         case 'smartOrganize':
             return await smartOrganize();
 
+        case 'smartOrganizePreview':
+            return await smartOrganizePreview();
+
+        // AI tab grouping via offscreen document (persists even if popup closes)
+        case 'groupTabsWithAI':
+            try {
+                console.log('[groupTabsWithAI] Starting...');
+                const windowTabs = await tabService.getWindowTabs();
+                console.log(`[groupTabsWithAI] Got ${windowTabs.length} window tabs`);
+
+                // Get the window ID from the first tab
+                const targetWindowId = windowTabs.length > 0 ? windowTabs[0].windowId : undefined;
+                console.log(`[groupTabsWithAI] Target window: ${targetWindowId}`);
+
+                // Filter out tabs that are already in groups (groupId !== -1 means grouped)
+                const ungroupedTabs = windowTabs.filter(t => t.groupId === -1 || t.groupId === undefined);
+                console.log(`[groupTabsWithAI] ${ungroupedTabs.length} ungrouped tabs`);
+
+                if (ungroupedTabs.length < 2) {
+                    if (windowTabs.length >= 2 && ungroupedTabs.length < 2) {
+                        return { success: true, data: { message: 'Tabs already grouped!', groupsCreated: 0 } };
+                    }
+                    return { success: false, error: 'Need at least 2 ungrouped tabs' };
+                }
+
+                // Log tabs being sent to AI
+                console.log('[groupTabsWithAI] Tabs to group:');
+                ungroupedTabs.forEach((t, i) => {
+                    console.log(`  ${i}: ${t.title.substring(0, 50)} [${t.url.substring(0, 50)}]`);
+                });
+
+                // Send to offscreen document for AI processing
+                const result = await sendToOffscreen('group-tabs', {
+                    tabs: ungroupedTabs.map(t => ({ id: t.id, title: t.title, url: t.url })),
+                    modelId: message.payload?.modelId,
+                });
+
+                console.log('[groupTabsWithAI] AI result:', JSON.stringify(result, null, 2));
+
+                if (!result.success) {
+                    return { success: false, error: result.error || 'AI grouping failed' };
+                }
+
+                // Log the groups AI created
+                console.log('[groupTabsWithAI] Groups from AI:');
+                result.groups?.forEach((g: any) => {
+                    console.log(`  "${g.name}": tabs ${JSON.stringify(g.tabIds)}`);
+                });
+
+                // Apply the groups - use try/catch for each to handle errors gracefully
+                const groupColors: chrome.tabGroups.ColorEnum[] = ['blue', 'red', 'yellow', 'green', 'pink', 'purple', 'cyan', 'orange'];
+                let created = 0;
+                for (const group of result.groups) {
+                    if (group.tabIds && group.tabIds.length >= 2) {
+                        try {
+                            console.log(`[groupTabsWithAI] Creating group "${group.name}" with ${group.tabIds.length} tabs in window ${targetWindowId}`);
+                            // Create group with explicit windowId
+                            const groupId = await chrome.tabs.group({
+                                tabIds: group.tabIds,
+                                createProperties: targetWindowId ? { windowId: targetWindowId } : undefined
+                            });
+                            await chrome.tabGroups.update(groupId, {
+                                title: group.name,
+                                color: groupColors[created % groupColors.length]
+                            });
+                            created++;
+                        } catch (groupErr: any) {
+                            console.warn(`[groupTabsWithAI] Failed to create group "${group.name}":`, groupErr.message);
+                            // Continue with other groups
+                        }
+                    }
+                }
+
+                console.log(`[groupTabsWithAI] Done! Created ${created} groups`);
+                return { success: true, data: { message: `Created ${created} groups`, groupsCreated: created, groups: result.groups } };
+            } catch (err: any) {
+                console.error('[groupTabsWithAI] Error:', err);
+                return { success: false, error: err.message };
+            }
+
+        // Initialize offscreen AI engine
+        case 'initOffscreenAI':
+            try {
+                const initResult = await sendToOffscreen('init', { modelId: message.payload?.modelId });
+                return { success: initResult.success };
+            } catch (err: any) {
+                return { success: false, error: err.message };
+            }
+
+        // Get offscreen AI status
+        case 'getOffscreenAIStatus':
+            try {
+                const status = await sendToOffscreen('get-status');
+                return { success: true, data: status };
+            } catch (err: any) {
+                return { success: false, error: err.message };
+            }
+
+        // Warmup/preload AI engine (faster subsequent calls)
+        case 'warmupOffscreenAI':
+            try {
+                const warmupResult = await sendToOffscreen('warmup', {
+                    modelId: message.payload?.modelId
+                });
+                return { success: warmupResult.success, data: { ready: warmupResult.ready } };
+            } catch (err: any) {
+                return { success: false, error: err.message };
+            }
+
+        // Chat with AI via offscreen document
+        case 'chatWithOffscreenAI':
+            try {
+                const chatResult = await sendToOffscreen('chat', {
+                    messages: message.payload?.messages || []
+                });
+                if (chatResult.success) {
+                    return { success: true, data: { response: chatResult.response } };
+                } else {
+                    return { success: false, error: chatResult.error || 'Chat failed' };
+                }
+            } catch (err: any) {
+                return { success: false, error: err.message };
+            }
+
+        case 'applyTabGroups':
+            // Apply tab groups from local AI results (used by popup/sidepanel with WebLLM)
+            try {
+                const groups = message.payload.groups as { name: string; tabIds: number[] }[];
+                const groupColors: chrome.tabGroups.ColorEnum[] = ['blue', 'red', 'yellow', 'green', 'pink', 'purple', 'cyan', 'orange'];
+                let created = 0;
+                for (const group of groups) {
+                    if (group.tabIds && group.tabIds.length > 0) {
+                        const groupId = await chrome.tabs.group({ tabIds: group.tabIds });
+                        await chrome.tabGroups.update(groupId, {
+                            title: group.name,
+                            color: groupColors[created % groupColors.length]
+                        });
+                        created++;
+                    }
+                }
+                return { success: true, data: { message: `Created ${created} groups` } };
+            } catch (err: any) {
+                return { success: false, error: err.message };
+            }
+
         case 'getAIProvider':
             return { success: true, data: { provider: aiService.getProvider() } };
+
+        case 'getAIPrivacyInfo':
+            return { success: true, data: aiService.getPrivacyInfo() };
+
+        case 'checkNanoStatus':
+            const nanoStatus = await aiService.checkNanoAvailability();
+            return { success: true, data: nanoStatus };
+
+        case 'reinitializeAI':
+            const newProvider = await aiService.initialize();
+            const currentNanoStatus = aiService.getNanoStatus();
+            return { success: true, data: { provider: newProvider, nanoStatus: currentNanoStatus } };
 
         case 'setAIConfig':
             await aiService.setConfig(message.payload);
@@ -84,6 +538,158 @@ async function handleMessage(message: Message): Promise<MessageResponse> {
         case 'askAI':
             const response = await aiService.prompt(message.payload.prompt);
             return { success: true, data: { response } };
+
+        case 'getAPIUsageStats':
+            const usageStats = await aiService.getUsageStats();
+            return { success: true, data: usageStats };
+
+        case 'setRateLimits':
+            await aiService.setRateLimits(message.payload);
+            return { success: true };
+
+        // WebLLM (Local AI) handlers
+        case 'initializeWebLLM':
+            const webllmSuccess = await aiService.initializeWebLLM();
+            return { success: true, data: { initialized: webllmSuccess, state: aiService.getWebLLMState() } };
+
+        case 'getWebLLMState':
+            return { success: true, data: aiService.getWebLLMState() };
+
+        case 'unloadWebLLM':
+            await aiService.unloadWebLLM();
+            return { success: true, data: { provider: aiService.getProvider() } };
+
+        case 'checkWebGPUSupport':
+            const capabilities = await aiService.checkWebGPUSupport();
+            return { success: true, data: capabilities };
+
+        case 'getRateLimits':
+            const rateLimits = aiService.getRateLimits();
+            return { success: true, data: rateLimits };
+
+        case 'resetUsageStats':
+            await aiService.resetUsageStats();
+            return { success: true };
+
+        case 'getLicenseStatus':
+            const status = await licenseService.getStatus(message.payload?.forceRefresh);
+            return { success: true, data: status };
+
+        case 'getCheckoutUrl':
+            const checkoutUrl = await licenseService.getCheckoutUrl();
+            return { success: true, data: { url: checkoutUrl } };
+
+        case 'verifyByEmail':
+            if (!message.payload?.email) {
+                return { success: false, error: 'Email is required' };
+            }
+            const verifyResult = await licenseService.verifyByEmail(message.payload.email);
+            return { success: verifyResult.verified, data: verifyResult, error: verifyResult.message };
+
+        case 'isDeviceAuthorized':
+            const authResult = await licenseService.isDeviceAuthorized();
+            return { success: authResult.authorized, data: authResult };
+
+        case 'getVerifiedEmail':
+            const verifiedEmail = await licenseService.getVerifiedEmail();
+            return { success: true, data: { email: verifiedEmail } };
+
+        // Auto Pilot actions (PRO features)
+        case 'autoPilotAnalyze':
+            // Check if user has PRO license
+            const analyzeStatus = await licenseService.getStatus();
+            if (!analyzeStatus.paid) {
+                return { success: false, error: 'TRIAL_EXPIRED: Auto Pilot requires Pro license' };
+            }
+            const analyzeReport = await autoPilotService.analyze();
+            return { success: true, data: analyzeReport };
+
+        case 'autoPilotAnalyzeWithAI':
+            // Check if user has PRO license
+            const aiStatus = await licenseService.getStatus();
+            if (!aiStatus.paid) {
+                return { success: false, error: 'TRIAL_EXPIRED: Auto Pilot requires Pro license' };
+            }
+            const aiReport = await autoPilotService.analyzeWithAI();
+            return { success: true, data: aiReport };
+
+        case 'autoPilotExecute':
+            // Check if user has PRO license
+            const executeStatus = await licenseService.getStatus();
+            if (!executeStatus.paid) {
+                return { success: false, error: 'TRIAL_EXPIRED: Auto Pilot requires Pro license' };
+            }
+            const executeResult = await autoPilotService.executeAutoPilot();
+            return { success: true, data: executeResult };
+
+        case 'autoPilotCleanup':
+            // Check if user has PRO license
+            const cleanupStatus = await licenseService.getStatus();
+            if (!cleanupStatus.paid) {
+                return { success: false, error: 'TRIAL_EXPIRED: Auto Pilot requires Pro license' };
+            }
+            const cleanupResult = await autoPilotService.executeCleanup(message.payload.tabIds);
+            return { success: true, data: cleanupResult };
+
+        case 'autoPilotGroup':
+            // Check if user has PRO license
+            const groupStatus = await licenseService.getStatus();
+            if (!groupStatus.paid) {
+                return { success: false, error: 'TRIAL_EXPIRED: Auto Pilot requires Pro license' };
+            }
+            const groupResult = await autoPilotService.executeGrouping(message.payload.groups);
+            return { success: true, data: groupResult };
+
+        // Contextual Tab Grouping - groups based on page content analysis
+        case 'contextualGroup':
+            // Check if user has PRO license
+            const contextualStatus = await licenseService.getStatus();
+            if (!contextualStatus.paid) {
+                return { success: false, error: 'TRIAL_EXPIRED: Contextual grouping requires Pro license' };
+            }
+            const contextualResult = await contextualGroupTabs();
+            return contextualResult;
+
+        case 'getAutoPilotSettings':
+            const settings = await autoPilotService.loadSettings();
+            return { success: true, data: settings };
+
+        case 'setAutoPilotSettings':
+            await autoPilotService.saveSettings(message.payload);
+            return { success: true };
+
+        // Device management for Pro users
+        case 'getDevices':
+            const devices = await licenseService.getDevices();
+            return { success: true, data: devices };
+
+        case 'removeDevice':
+            if (!message.payload?.deviceId) {
+                return { success: false, error: 'Device ID required' };
+            }
+            const removed = await licenseService.removeDevice(message.payload.deviceId);
+            return { success: removed, data: { removed } };
+
+        // Trial info
+        case 'getTrialInfo':
+            const trialInfo = await licenseService.getTrialInfo();
+            return { success: true, data: trialInfo };
+
+        // Memory tracking
+        case 'getMemoryReport':
+            const memoryReport = await memoryService.generateReport();
+            return { success: true, data: memoryReport };
+
+        case 'getMemoryOptimizations':
+            const suggestions = await memoryService.getOptimizationSuggestions();
+            return { success: true, data: { suggestions } };
+
+        case 'hasAdvancedMemory':
+            return { success: true, data: { available: memoryService.hasAdvancedMemory() } };
+
+        case 'requestAdvancedMemory':
+            const granted = await memoryService.requestAdvancedMemoryPermission();
+            return { success: true, data: { granted } };
 
         default:
             return { success: false, error: 'Unknown action' };
@@ -110,43 +716,96 @@ async function summarizeTab(tabId: number): Promise<MessageResponse> {
 async function analyzeAllTabs(): Promise<MessageResponse> {
     try {
         const tabs = await tabService.getAllTabs();
-        const tabSummary = tabs.map(t => `- ${t.title} (${new URL(t.url).hostname})`).join('\n');
+
+        // Token budgeting: limit to 100 tabs max, truncate long URLs
+        const limitedTabs = tabs.slice(0, 100);
+        const tabSummary = limitedTabs.map(t => {
+            const hostname = new URL(t.url).hostname;
+            return `${t.id}|${t.title.slice(0, 60)}|${hostname}`;
+        }).join('\n');
 
         const analysis = await aiService.prompt(
-            `Analyze these browser tabs and provide insights:
-            - Identify any duplicates or similar pages
-            - Suggest which tabs might be closed
-            - Recommend how to organize them
+            `You are a tab analysis assistant. Analyze these tabs and return ONLY valid JSON - no markdown, no explanation, no extra text.
 
-            Tabs:\n${tabSummary}`
-        );
+Tabs (format: id|title|domain):
+${tabSummary}
 
-        return { success: true, data: { analysis, tabCount: tabs.length } };
-    } catch (err: any) {
-        return { success: false, error: err.message };
-    }
+CRITICAL: Your entire response must be a single valid JSON object starting with { and ending with }. Do not include \`\`\`json or any other formatting.
+
+Required JSON structure:
+{
+  "summary": "One-sentence overview",
+  "duplicates": [{"title": "string", "count": number, "ids": [numbers], "action": "string"}],
+  "closeable": [{"id": number, "title": "string", "reason": "string", "priority": "string"}],
+  "groups": [{"name": "string", "tabs": ["string"], "reason": "string"}],
+  "insights": ["string"]
 }
 
-async function smartOrganize(): Promise<MessageResponse> {
-    try {
-        const tabs = await tabService.getAllTabs();
-        const groups = tabService.groupByDomain(tabs);
+Rules:
+- Return ONLY the JSON object, nothing else
+- Keep all arrays even if empty []
+- Concise reasons (max 5 words)
+- Group names: 1-2 words only
+- Priority: high/medium/low
+- Max 5 closeable, 4 groups, 4 insights
+- Start response with { and end with }`
+        );
 
-        const organized: { groupName: string; tabIds: number[] }[] = [];
+        // Clean and parse JSON response
+        let parsedAnalysis;
+        try {
+            // Remove markdown code blocks and extract JSON
+            let cleanJson = analysis.trim();
 
-        for (const group of groups) {
-            if (group.tabs.length >= 2) {
-                const tabIds = group.tabs.map(t => t.id);
-                await tabService.groupTabs(tabIds, group.name);
-                organized.push({ groupName: group.name, tabIds });
+            // Remove markdown code fences (multiple patterns)
+            cleanJson = cleanJson.replace(/^```(?:json|JSON)?\s*/gm, '');
+            cleanJson = cleanJson.replace(/```\s*$/gm, '');
+            cleanJson = cleanJson.replace(/^`+|`+$/g, '');
+
+            // Remove any leading/trailing text before/after the JSON object
+            // Match the first { to the last matching }
+            const firstBrace = cleanJson.indexOf('{');
+            const lastBrace = cleanJson.lastIndexOf('}');
+
+            if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+                cleanJson = cleanJson.substring(firstBrace, lastBrace + 1);
             }
+
+            // Try to parse
+            parsedAnalysis = JSON.parse(cleanJson);
+
+            // Validate structure and provide defaults
+            parsedAnalysis = {
+                summary: parsedAnalysis.summary || 'Analysis complete',
+                duplicates: Array.isArray(parsedAnalysis.duplicates) ? parsedAnalysis.duplicates : [],
+                closeable: Array.isArray(parsedAnalysis.closeable) ? parsedAnalysis.closeable.slice(0, 5) : [],
+                groups: Array.isArray(parsedAnalysis.groups) ? parsedAnalysis.groups.slice(0, 4) : [],
+                insights: Array.isArray(parsedAnalysis.insights) ? parsedAnalysis.insights.slice(0, 4) : []
+            };
+        } catch (parseErr) {
+            console.error('JSON parse error:', parseErr);
+            console.error('Raw AI response:', analysis);
+            console.error('Attempted to parse:', analysis.substring(0, 500));
+
+            // Fallback: return error message with helpful info
+            parsedAnalysis = {
+                summary: 'AI returned invalid format',
+                duplicates: [],
+                closeable: [],
+                groups: [],
+                insights: [
+                    'The AI response could not be parsed as valid JSON.',
+                    'Try clicking Scan again, or check your AI configuration in Settings.'
+                ]
+            };
         }
 
         return {
             success: true,
             data: {
-                organized,
-                message: `Organized ${organized.length} groups`
+                analysis: parsedAnalysis,
+                tabCount: tabs.length,
+                isStructured: true
             }
         };
     } catch (err: any) {
@@ -154,10 +813,195 @@ async function smartOrganize(): Promise<MessageResponse> {
     }
 }
 
-chrome.commands.onCommand.addListener(async (command) => {
-    if (command === 'smart-organize') {
-        await smartOrganize();
+async function smartOrganizePreview(): Promise<MessageResponse> {
+    try {
+        const tabs = await tabService.getAllTabs();
+
+        if (tabs.length < 2) {
+            return { success: true, data: { groups: [], message: 'Not enough tabs to organize' } };
+        }
+
+        // Use simple indices with clear format
+        const tabList = tabs.map((t, idx) => {
+            try {
+                const hostname = new URL(t.url).hostname.replace('www.', '');
+                return `${idx}. "${t.title}" [${hostname}]`;
+            } catch {
+                return `${idx}. "${t.title}"`;
+            }
+        }).join('\n');
+
+        // Calculate target groups based on tab count
+        const minGroups = Math.max(2, Math.ceil(tabs.length / 8));
+        const maxGroups = Math.min(10, Math.ceil(tabs.length / 3));
+
+        const aiResponse = await aiService.prompt(
+            `Group these browser tabs by their PURPOSE.
+
+TABS:
+${tabList}
+
+Examples: Video sites → "Video", Code sites → "Code", Email → "Mail", Social → "Social", Shopping → "Shop"
+
+Output ONLY JSON (no other text):
+[{"name":"Video","ids":[0,2]},{"name":"Code","ids":[1,3]}]
+
+Rules: name max 5 letters, minimum 2 tabs per group, every tab number used once`
+        );
+
+        console.log('[SmartOrganizePreview] AI response:', aiResponse);
+
+        const groups = parseJSONResponse<{ name: string; ids: (number | string)[] }[]>(aiResponse, 'SmartOrganizePreview');
+        if (!groups) {
+            return { success: false, error: 'AI did not return valid JSON. Check AI configuration.' };
+        }
+
+        console.log('[SmartOrganizePreview] Parsed groups:', JSON.stringify(groups));
+
+        // Map indices back to real tab IDs, enforce short names
+        const enrichedGroups = groups
+            .filter(g => g.ids && g.ids.length >= 2 && g.name)
+            .map(group => {
+                // Convert to numbers and treat as indices
+                const indices = group.ids.map(id => typeof id === 'string' ? parseInt(id, 10) : id);
+                const validTabs = indices
+                    .filter(idx => !isNaN(idx) && idx >= 0 && idx < tabs.length)
+                    .map(idx => tabs[idx]);
+
+                return {
+                    name: group.name,
+                    tabCount: validTabs.length,
+                    tabs: validTabs.map(tab => ({
+                        id: tab.id,
+                        title: tab.title || 'Unknown',
+                        url: tab.url || '',
+                        favIconUrl: tab.favIconUrl
+                    }))
+                };
+            })
+            .filter(g => g.tabCount >= 2);
+
+        console.log('[SmartOrganizePreview] Final groups:', enrichedGroups.length);
+
+        return {
+            success: true,
+            data: {
+                groups: enrichedGroups,
+                totalTabs: tabs.length,
+                groupedTabs: enrichedGroups.reduce((sum, g) => sum + g.tabCount, 0)
+            }
+        };
+    } catch (err: any) {
+        return { success: false, error: err.message };
     }
-});
+}
+
+async function smartOrganize(): Promise<MessageResponse> {
+    try {
+        // Check license before executing (enforces free tier limit)
+        const useCheck = await licenseService.checkAndUse();
+        if (!useCheck.allowed) {
+            const reason = useCheck.reason === 'trial_expired'
+                ? 'TRIAL_EXPIRED: Upgrade to Pro for unlimited access'
+                : 'LIMIT_REACHED: Daily limit reached. Upgrade to Pro for unlimited access';
+            return { success: false, error: reason };
+        }
+
+        const tabs = await tabService.getAllTabs();
+
+        if (tabs.length < 2) {
+            return { success: true, data: { organized: [], message: 'Not enough tabs to organize' } };
+        }
+
+        // Use simple indices with clear format
+        const tabList = tabs.map((t, idx) => {
+            try {
+                const hostname = new URL(t.url).hostname.replace('www.', '');
+                return `${idx}. "${t.title}" [${hostname}]`;
+            } catch {
+                return `${idx}. "${t.title}"`;
+            }
+        }).join('\n');
+
+        // Calculate target groups based on tab count
+        const minGroups = Math.max(2, Math.ceil(tabs.length / 8));
+        const maxGroups = Math.min(10, Math.ceil(tabs.length / 3));
+
+        const aiResponse = await aiService.prompt(
+            `Group these browser tabs by their PURPOSE.
+
+TABS:
+${tabList}
+
+Examples: Video sites → "Video", Code sites → "Code", Email → "Mail", Social → "Social", Shopping → "Shop"
+
+Output ONLY JSON (no other text):
+[{"name":"Video","ids":[0,2]},{"name":"Code","ids":[1,3]}]
+
+Rules: name max 5 letters, minimum 2 tabs per group, every tab number used once`
+        );
+
+        const groups = parseJSONResponse<{ name: string; ids: (number | string)[] }[]>(aiResponse, 'SmartOrganize');
+        if (!groups) {
+            return { success: false, error: 'AI did not return valid JSON. Check AI configuration.' };
+        }
+
+        const organized: { groupName: string; tabIds: number[] }[] = [];
+        for (const group of groups) {
+            if (group.ids && group.ids.length >= 2 && group.name) {
+                // Convert indices to real tab IDs
+                const indices = group.ids.map(id => typeof id === 'string' ? parseInt(id, 10) : id);
+                const validTabIds = indices
+                    .filter(idx => !isNaN(idx) && idx >= 0 && idx < tabs.length)
+                    .map(idx => tabs[idx].id);
+
+                if (validTabIds.length >= 2) {
+                    await tabService.groupTabs(validTabIds, group.name);
+                    organized.push({ groupName: group.name, tabIds: validTabIds });
+                }
+            }
+        }
+
+        return {
+            success: true,
+            data: {
+                organized,
+                message: organized.length > 0 ? `Created ${organized.length} groups` : 'No groups to create'
+            }
+        };
+    } catch (err: any) {
+        return { success: false, error: err.message };
+    }
+}
+
+// Contextual Tab Grouping - analyzes page content for smarter grouping
+const tabManager = new TabManager();
+
+async function contextualGroupTabs(): Promise<MessageResponse> {
+    try {
+        const result = await tabManager.applyContextualGroups();
+
+        if (result.success && result.groups.length > 0) {
+            return {
+                success: true,
+                data: {
+                    groups: result.groups,
+                    message: `Created ${result.groups.length} contextual groups: ${result.groups.join(', ')}`
+                }
+            };
+        } else {
+            return {
+                success: true,
+                data: {
+                    groups: [],
+                    message: 'No contextual groups could be created (need at least 2 related tabs)'
+                }
+            };
+        }
+    } catch (err: any) {
+        console.error('Contextual grouping failed:', err);
+        return { success: false, error: err.message || 'Contextual grouping failed' };
+    }
+}
 
 export {};

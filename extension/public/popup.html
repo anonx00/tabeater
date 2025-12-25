@@ -1,14 +1,47 @@
 <!DOCTYPE html>
-<html>
-  <head>
-    <meta charset="UTF-8" />
-    <title>PHANTOM TABS</title>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=400, initial-scale=1.0">
+    <meta name="color-scheme" content="dark">
+    <title>TabEater</title>
     <style>
-      body { margin: 0; width: 400px; height: 600px; background: #000; color: #fff; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        html, body {
+            width: 380px;
+            max-height: 520px;
+            overflow: hidden;
+            background-color: #050505;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            color: #FFFFFF;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        #root {
+            width: 100%;
+            height: 100%;
+        }
+        #root:empty::before {
+            content: '';
+            display: block;
+            width: 32px;
+            height: 32px;
+            margin: 80px auto;
+            border: 2px solid #333333;
+            border-top-color: #39FF14;
+            animation: loading-spin 0.8s linear infinite;
+        }
+        @keyframes loading-spin {
+            to { transform: rotate(360deg); }
+        }
     </style>
-  </head>
-  <body>
+</head>
+<body>
     <div id="root"></div>
     <script src="popup.js"></script>
-  </body>
+</body>
 </html>

@@ -1,18 +1,20 @@
 {
     "manifest_version": 3,
-    "name": "PHANTOM TABS",
+    "name": "TabEater",
     "version": "1.0.0",
-    "description": "Tactical Tab Intelligence System",
+    "description": "AI tab manager with Local AI. Smart grouping, duplicate detection, Auto-Pilot. 100% private—runs on your device.",
     "permissions": [
         "tabs",
         "tabGroups",
         "storage",
         "sidePanel",
         "scripting",
-        "activeTab"
+        "activeTab",
+        "system.memory",
+        "offscreen"
     ],
-    "host_permissions": [
-        "<all_urls>"
+    "optional_permissions": [
+        "processes"
     ],
     "background": {
         "service_worker": "background.js",
@@ -20,7 +22,7 @@
     },
     "action": {
         "default_popup": "popup.html",
-        "default_title": "PHANTOM TABS"
+        "default_title": "TabEater"
     },
     "side_panel": {
         "default_path": "sidepanel.html"
@@ -31,7 +33,23 @@
         "48": "icon48.png",
         "128": "icon128.png"
     },
+    "commands": {
+        "_execute_action": {
+            "suggested_key": {
+                "default": "Ctrl+Shift+T",
+                "mac": "Command+Shift+T"
+            },
+            "description": "Open TabEater popup"
+        },
+        "open_sidepanel": {
+            "suggested_key": {
+                "default": "Ctrl+Shift+E",
+                "mac": "Command+Shift+E"
+            },
+            "description": "Open Command Center"
+        }
+    },
     "content_security_policy": {
-        "extension_pages": "script-src 'self'; object-src 'self'"
+        "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
     }
 }
