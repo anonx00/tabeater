@@ -2,19 +2,14 @@
     "manifest_version": 3,
     "name": "TabEater",
     "version": "1.0.0",
-    "description": "AI tab manager with Local AI. Smart grouping, duplicate detection, Auto-Pilot. 100% private—runs on your device.",
+    "description": "AI-powered tab manager. Smart grouping, duplicate detection with cloud AI providers.",
     "permissions": [
         "tabs",
         "tabGroups",
         "storage",
         "sidePanel",
         "scripting",
-        "activeTab",
-        "system.memory",
-        "offscreen"
-    ],
-    "optional_permissions": [
-        "processes"
+        "activeTab"
     ],
     "background": {
         "service_worker": "background.js",
@@ -48,8 +43,5 @@
             },
             "description": "Open Command Center"
         }
-    },
-    "content_security_policy": {
-        "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
     }
 }
