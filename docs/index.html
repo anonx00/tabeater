@@ -12,12 +12,74 @@
     <meta charset="UTF-8">
     <meta name="google-site-verification" content="yhRyISPn3LazheWF4hgVgO8LeWerv_vxFuUdZ24GRlE" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TabEater - Tame Your Browser Chaos</title>
-    <meta name="description" content="AI-powered tab intelligence for Chrome. Organize, analyze, and manage your tabs instantly with cloud AI providers like OpenAI, Gemini, and Claude.">
-    <meta property="og:title" content="TabEater - AI Tab Intelligence">
-    <meta property="og:description" content="Tame your browser chaos with AI-powered tab management">
+
+    <!-- Primary Meta Tags -->
+    <title>TabEater - AI Tab Manager for Chrome | Organize Browser Tabs Instantly</title>
+    <meta name="title" content="TabEater - AI Tab Manager for Chrome | Organize Browser Tabs Instantly">
+    <meta name="description" content="Free AI-powered Chrome extension to organize, group, and manage browser tabs. Auto-close duplicates, smart tab grouping, and AI chat. Works with OpenAI, Gemini, Claude.">
+    <meta name="keywords" content="tab manager, chrome extension, browser tabs, tab organizer, duplicate tabs, tab groups, AI tab manager, chrome tab manager, browser productivity, tab management, organize tabs, close duplicate tabs, tab declutter">
+    <meta name="author" content="TabEater">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://anonx00.github.io/tabeater/">
+
+    <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website">
+    <meta property="og:url" content="https://anonx00.github.io/tabeater/">
+    <meta property="og:title" content="TabEater - AI Tab Manager for Chrome">
+    <meta property="og:description" content="Free AI-powered Chrome extension to organize, group, and manage browser tabs instantly. Auto-close duplicates and smart tab grouping.">
+    <meta property="og:image" content="https://anonx00.github.io/tabeater/og-image.png">
+    <meta property="og:site_name" content="TabEater">
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:url" content="https://anonx00.github.io/tabeater/">
+    <meta name="twitter:title" content="TabEater - AI Tab Manager for Chrome">
+    <meta name="twitter:description" content="Free AI-powered Chrome extension to organize, group, and manage browser tabs instantly.">
+    <meta name="twitter:image" content="https://anonx00.github.io/tabeater/og-image.png">
+
+    <!-- Additional SEO -->
     <meta name="theme-color" content="#0a0a0a">
+    <meta name="application-name" content="TabEater">
+    <meta name="apple-mobile-web-app-title" content="TabEater">
+
+    <!-- JSON-LD Structured Data -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "TabEater",
+        "applicationCategory": "BrowserApplication",
+        "operatingSystem": "Chrome",
+        "description": "AI-powered Chrome extension to organize, group, and manage browser tabs. Features include duplicate detection, smart tab grouping, auto-pilot mode, and AI chat.",
+        "url": "https://anonx00.github.io/tabeater/",
+        "downloadUrl": "https://chromewebstore.google.com/detail/tabeater/khehjgmppbfpmibjcjeffbndjcnbogfj",
+        "screenshot": "https://anonx00.github.io/tabeater/og-image.png",
+        "softwareVersion": "1.0",
+        "author": {
+            "@type": "Organization",
+            "name": "TabEater"
+        },
+        "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "USD"
+        },
+        "aggregateRating": {
+            "@type": "AggregateRating",
+            "ratingValue": "5",
+            "ratingCount": "1"
+        },
+        "featureList": [
+            "AI-powered tab organization",
+            "Duplicate tab detection",
+            "Smart tab grouping by domain and topic",
+            "Auto-pilot mode for automatic organization",
+            "Tab chat with AI insights",
+            "Chrome side panel support",
+            "Multiple AI providers (OpenAI, Gemini, Claude)"
+        ]
+    }
+    </script>
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%230a0a0a' rx='4'/%3E%3Cpath d='M4 8.5V26C4 27 5 28 6 28H26C27 28 28 27 28 26V11C28 10 27 9 26 9H16L13 5H6C5 5 4 6 4 7V8.5Z' fill='none' stroke='%2300FF88' stroke-width='2'/%3E%3Crect x='8' y='13' width='6' height='6' fill='%2300FF88'/%3E%3C/svg%3E">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -510,6 +572,63 @@
             font-size: 0.85rem;
         }
 
+        /* How It Works */
+        .how-it-works {
+            padding: 5rem 2rem;
+        }
+
+        .steps-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1.5rem;
+            max-width: 880px;
+            margin: 0 auto;
+        }
+
+        .step-card {
+            padding: 1.5rem;
+            background: rgba(0, 15, 35, 0.4);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(0, 255, 255, 0.15);
+            border-radius: 16px;
+            text-align: center;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .step-card:hover {
+            border-color: rgba(0, 255, 255, 0.4);
+            transform: translateY(-4px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4), 0 0 40px rgba(0, 255, 255, 0.15);
+        }
+
+        .step-number {
+            width: 48px;
+            height: 48px;
+            margin: 0 auto 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, var(--accent) 0%, var(--cyan) 100%);
+            border-radius: 50%;
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #000;
+        }
+
+        .step-card h3 {
+            font-size: 0.95rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: var(--text);
+        }
+
+        .step-card p {
+            font-size: 0.78rem;
+            color: var(--text-dim);
+            line-height: 1.5;
+        }
+
         /* Footer */
         .footer {
             padding: 1.25rem 2rem;
@@ -595,7 +714,7 @@
                     </svg>
                 </div>
                 <h1 class="headline">Tame Your<br><span class="headline-accent">Browser Chaos</span></h1>
-                <p class="subheadline">AI-powered tab intelligence for Chrome. Organize, analyze, and manage your tabs instantly.</p>
+                <p class="subheadline">The AI-powered Chrome tab manager that organizes, groups, and declutters your browser automatically.</p>
                 <div class="cta-group">
                     <a href="https://chromewebstore.google.com/detail/tabeater/khehjgmppbfpmibjcjeffbndjcnbogfj" class="btn btn-primary cta-track" target="_blank">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/><line x1="21.17" y1="8" x2="12" y2="8"/><line x1="3.95" y1="6.06" x2="8.54" y2="14"/><line x1="10.88" y1="21.94" x2="15.46" y2="14"/></svg>
@@ -613,7 +732,7 @@
         <section class="features section-backdrop" id="features">
             <div class="section-header">
                 <div class="section-label">// Features</div>
-                <h2 class="section-title">Everything you need to stay organized</h2>
+                <h2 class="section-title">Powerful Tab Management Features</h2>
             </div>
             <div class="features-grid">
                 <div class="feature-card">
@@ -678,9 +797,33 @@
             </div>
         </section>
 
+        <section class="how-it-works section-backdrop" id="how-it-works">
+            <div class="section-header">
+                <div class="section-label">// How It Works</div>
+                <h2 class="section-title">Get organized in 3 simple steps</h2>
+            </div>
+            <div class="steps-grid">
+                <div class="step-card">
+                    <div class="step-number">1</div>
+                    <h3>Install the Extension</h3>
+                    <p>Add TabEater to Chrome from the Web Store. No account required — just install and go.</p>
+                </div>
+                <div class="step-card">
+                    <div class="step-number">2</div>
+                    <h3>Connect Your AI</h3>
+                    <p>Add your API key from OpenAI, Google Gemini, or Anthropic Claude. Your key stays local.</p>
+                </div>
+                <div class="step-card">
+                    <div class="step-number">3</div>
+                    <h3>Organize Your Tabs</h3>
+                    <p>Click to organize, enable auto-pilot, or chat with AI about your open tabs. It's that simple.</p>
+                </div>
+            </div>
+        </section>
+
         <section class="cta-section section-backdrop">
-            <h2>Ready to take control?</h2>
-            <p>Start organizing your tabs with AI-powered intelligence today.</p>
+            <h2>Ready to take control of your browser tabs?</h2>
+            <p>Join thousands of users who've tamed their tab chaos. Free forever, no account needed.</p>
             <a href="https://chromewebstore.google.com/detail/tabeater/khehjgmppbfpmibjcjeffbndjcnbogfj" class="btn btn-primary cta-track" target="_blank">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/><line x1="21.17" y1="8" x2="12" y2="8"/><line x1="3.95" y1="6.06" x2="8.54" y2="14"/><line x1="10.88" y1="21.94" x2="15.46" y2="14"/></svg>
                 Add to Chrome — Free
