@@ -13,7 +13,7 @@
     <meta name="google-site-verification" content="yhRyISPn3LazheWF4hgVgO8LeWerv_vxFuUdZ24GRlE" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TabEater - Tame Your Browser Chaos</title>
-    <meta name="description" content="AI-powered tab intelligence for Chrome. Organize, analyze, and manage your tabs instantly with privacy-first local AI.">
+    <meta name="description" content="AI-powered tab intelligence for Chrome. Organize, analyze, and manage your tabs instantly with cloud AI providers like OpenAI, Gemini, and Claude.">
     <meta property="og:title" content="TabEater - AI Tab Intelligence">
     <meta property="og:description" content="Tame your browser chaos with AI-powered tab management">
     <meta property="og:type" content="website">
@@ -26,23 +26,24 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
         :root {
-            --accent: #00FF88;
-            --accent-dim: rgba(0, 255, 136, 0.15);
-            --accent-glow: rgba(0, 255, 136, 0.6);
+            --accent: #00FFCC;
+            --accent-dim: rgba(0, 255, 204, 0.15);
+            --accent-glow: rgba(0, 255, 204, 0.7);
             --cyan: #00FFFF;
-            --magenta: #FF00FF;
-            --orange: #FF6B35;
+            --purple: #BF00FF;
+            --magenta: #FF00AA;
+            --orange: #FF6600;
             --gold: #FFD700;
             --red: #FF3366;
-            --blue: #0088FF;
-            --bg-dark: #030308;
-            --bg-card: rgba(0, 5, 15, 0.4);
-            --bg-section: rgba(0, 5, 15, 0.5);
-            --border: rgba(0, 212, 255, 0.15);
-            --border-glow: rgba(0, 255, 136, 0.3);
+            --blue: #00BFFF;
+            --bg-dark: #020206;
+            --bg-card: rgba(0, 8, 20, 0.5);
+            --bg-section: rgba(0, 8, 20, 0.6);
+            --border: rgba(0, 255, 255, 0.2);
+            --border-glow: rgba(0, 255, 204, 0.4);
             --text: #ffffff;
-            --text-dim: #a0a0a0;
-            --text-muted: #505050;
+            --text-dim: #b0b0b0;
+            --text-muted: #606060;
         }
 
         html { scroll-behavior: smooth; }
@@ -108,17 +109,18 @@
         }
 
         .hero-content {
-            background: rgba(0, 8, 20, 0.45);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
+            background: rgba(0, 10, 25, 0.55);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
             padding: 3.5rem;
             border-radius: 24px;
-            border: 1px solid rgba(0, 212, 255, 0.2);
+            border: 1px solid rgba(0, 255, 255, 0.25);
             box-shadow:
-                0 0 80px rgba(0, 212, 255, 0.1),
-                0 0 160px rgba(0, 255, 136, 0.05),
-                inset 0 1px 0 rgba(0, 212, 255, 0.1),
-                inset 0 0 40px rgba(0, 212, 255, 0.03);
+                0 0 60px rgba(0, 255, 255, 0.15),
+                0 0 120px rgba(0, 255, 204, 0.1),
+                0 0 200px rgba(191, 0, 255, 0.05),
+                inset 0 1px 0 rgba(0, 255, 255, 0.15),
+                inset 0 0 60px rgba(0, 255, 255, 0.05);
             max-width: 520px;
         }
 
@@ -209,14 +211,18 @@
         }
 
         .btn-primary {
-            background: linear-gradient(135deg, var(--accent) 0%, #00cc6a 100%);
+            background: linear-gradient(135deg, var(--accent) 0%, #00CC99 100%);
             color: #000;
-            box-shadow: 0 4px 24px rgba(0, 255, 136, 0.25);
+            box-shadow:
+                0 4px 24px rgba(0, 255, 204, 0.3),
+                0 0 40px rgba(0, 255, 204, 0.15);
         }
 
         .btn-primary:hover {
             transform: translateY(-3px);
-            box-shadow: 0 8px 40px rgba(0, 255, 136, 0.4);
+            box-shadow:
+                0 8px 40px rgba(0, 255, 204, 0.5),
+                0 0 60px rgba(0, 255, 204, 0.25);
         }
 
         .btn-primary svg { width: 16px; height: 16px; }
@@ -263,25 +269,26 @@
             display: flex;
             align-items: center;
             gap: 8px;
-            background: rgba(0, 0, 0, 0.9);
+            background: rgba(0, 5, 15, 0.9);
             backdrop-filter: blur(20px);
             padding: 8px 14px;
             border-radius: 10px;
-            border: 1px solid rgba(0, 255, 136, 0.15);
+            border: 1px solid rgba(0, 255, 255, 0.2);
             z-index: 100;
             font-family: 'JetBrains Mono', monospace;
             font-size: 0.65rem;
-            color: var(--text-muted);
+            color: var(--cyan);
             text-transform: uppercase;
-            letter-spacing: 0.05em;
+            letter-spacing: 0.08em;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.1);
         }
 
         .status-dot {
-            width: 6px;
-            height: 6px;
+            width: 8px;
+            height: 8px;
             border-radius: 50%;
-            background: var(--accent);
-            box-shadow: 0 0 10px var(--accent);
+            background: var(--cyan);
+            box-shadow: 0 0 15px var(--cyan), 0 0 30px var(--cyan);
             animation: blink 2s infinite;
         }
 
@@ -292,10 +299,10 @@
 
         /* Sections */
         .section-backdrop {
-            background: rgba(0, 3, 8, 0.85);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border-top: 1px solid rgba(0, 212, 255, 0.15);
+            background: rgba(0, 5, 12, 0.9);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border-top: 1px solid rgba(0, 255, 255, 0.2);
         }
 
         .features {
@@ -335,35 +342,40 @@
 
         .feature-card {
             padding: 1.5rem;
-            background: rgba(0, 15, 30, 0.3);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border: 1px solid rgba(0, 212, 255, 0.15);
+            background: rgba(0, 15, 35, 0.4);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(0, 255, 255, 0.15);
             border-radius: 16px;
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            box-shadow: inset 0 1px 0 rgba(0, 212, 255, 0.1);
+            box-shadow:
+                inset 0 1px 0 rgba(0, 255, 255, 0.1),
+                0 0 20px rgba(0, 0, 0, 0.3);
         }
 
         .feature-card:hover {
-            border-color: rgba(0, 212, 255, 0.4);
+            border-color: rgba(0, 255, 255, 0.4);
             transform: translateY(-4px);
             box-shadow:
-                0 20px 40px rgba(0, 0, 0, 0.3),
-                0 0 30px rgba(0, 212, 255, 0.1),
-                inset 0 1px 0 rgba(0, 212, 255, 0.2);
-            background: rgba(0, 20, 40, 0.4);
+                0 20px 40px rgba(0, 0, 0, 0.4),
+                0 0 40px rgba(0, 255, 255, 0.15),
+                0 0 80px rgba(191, 0, 255, 0.05),
+                inset 0 1px 0 rgba(0, 255, 255, 0.2);
+            background: rgba(0, 20, 45, 0.5);
         }
 
         .feature-icon {
-            width: 38px;
-            height: 38px;
+            width: 42px;
+            height: 42px;
             margin-bottom: 0.875rem;
             display: flex;
             align-items: center;
             justify-content: center;
-            background: rgba(0, 255, 136, 0.08);
-            border-radius: 10px;
+            background: rgba(0, 255, 204, 0.1);
+            border: 1px solid rgba(0, 255, 204, 0.2);
+            border-radius: 12px;
             color: var(--accent);
+            box-shadow: 0 0 20px rgba(0, 255, 204, 0.1);
         }
 
         .feature-icon svg { width: 18px; height: 18px; }
@@ -399,8 +411,8 @@
         .shield-icon {
             width: 80px;
             height: 80px;
-            color: var(--accent);
-            filter: drop-shadow(0 0 30px rgba(0, 255, 136, 0.3));
+            color: var(--cyan);
+            filter: drop-shadow(0 0 30px rgba(0, 255, 255, 0.4));
         }
 
         .privacy-content h2 {
@@ -502,10 +514,10 @@
         .footer {
             padding: 1.25rem 2rem;
             text-align: center;
-            border-top: 1px solid rgba(0, 212, 255, 0.15);
-            background: rgba(0, 3, 8, 0.9);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
+            border-top: 1px solid rgba(0, 255, 255, 0.2);
+            background: rgba(0, 5, 12, 0.95);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
         }
 
         .footer-links {
@@ -632,7 +644,7 @@
                 <div class="feature-card">
                     <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v6M12 17v6M4.22 4.22l4.24 4.24M15.54 15.54l4.24 4.24M1 12h6M17 12h6M4.22 19.78l4.24-4.24M15.54 8.46l4.24-4.24"/></svg></div>
                     <h3>Multiple AI Providers</h3>
-                    <p>Choose Local AI for privacy, or cloud providers like OpenAI, Gemini, and Claude.</p>
+                    <p>Bring your own API key. Works with OpenAI, Google Gemini, and Anthropic Claude.</p>
                 </div>
             </div>
         </section>
@@ -733,13 +745,16 @@
     const isMobile = window.innerWidth < 768;
     const QUALITY = isMobile ? 'medium' : 'high';
 
-    // TRON LEGACY authentic colors
+    // TRON LEGACY authentic colors - Enhanced vibrancy
     const TRON = {
-        cyan: 0x6FFFE9,      // The iconic TRON cyan
-        cyanBright: 0x9FFFFF,
-        cyanDark: 0x00B4D8,
-        orange: 0xFF4500,     // Rinzler/enemy orange
-        orangeBright: 0xFF6B35,
+        cyan: 0x00FFFF,       // Pure TRON cyan - maximum vibrancy
+        cyanBright: 0x80FFFF,
+        cyanDark: 0x00CCCC,
+        blue: 0x00BFFF,       // Electric blue accent
+        purple: 0xBF00FF,     // Neon purple for variety
+        orange: 0xFF6600,     // Rinzler/enemy orange - warmer
+        orangeBright: 0xFF9933,
+        magenta: 0xFF00AA,    // Hot magenta accent
         white: 0xFFFFFF,
         black: 0x000000
     };
@@ -774,18 +789,18 @@
     // ============================================
     const gridGroup = new THREE.Group();
 
-    // Main grid lines - bold and visible
+    // Main grid lines - bold and glowing
     const gridMaterial = new THREE.LineBasicMaterial({
         color: TRON.cyan,
         transparent: true,
-        opacity: 0.6
+        opacity: 0.8
     });
 
     const gridSize = 600;
     const gridDivisions = 40;
     const step = gridSize / gridDivisions;
 
-    // Create grid lines
+    // Create grid lines with enhanced glow
     for (let i = -gridDivisions / 2; i <= gridDivisions / 2; i++) {
         // Horizontal lines (going into distance)
         const hPoints = [
@@ -794,8 +809,8 @@
         ];
         const hGeo = new THREE.BufferGeometry().setFromPoints(hPoints);
         const hLine = new THREE.Line(hGeo, gridMaterial.clone());
-        // Fade lines based on distance
-        hLine.material.opacity = Math.max(0.1, 0.6 - Math.abs(i) * 0.02);
+        // Fade lines based on distance - brighter near camera
+        hLine.material.opacity = Math.max(0.15, 0.9 - Math.abs(i) * 0.025);
         gridGroup.add(hLine);
 
         // Vertical lines
@@ -805,7 +820,7 @@
         ];
         const vGeo = new THREE.BufferGeometry().setFromPoints(vPoints);
         const vLine = new THREE.Line(vGeo, gridMaterial.clone());
-        vLine.material.opacity = Math.max(0.1, 0.6 - Math.abs(i) * 0.02);
+        vLine.material.opacity = Math.max(0.15, 0.9 - Math.abs(i) * 0.025);
         gridGroup.add(vLine);
     }
 
@@ -871,10 +886,19 @@
     const cycleGroup = new THREE.Group();
     const lightCycles = [];
 
-    for (let i = 0; i < 6; i++) {
-        const isOrange = i >= 5;
-        const color = isOrange ? TRON.orange : TRON.cyan;
-        const brightColor = isOrange ? TRON.orangeBright : TRON.cyanBright;
+    for (let i = 0; i < 8; i++) {
+        // More variety: cyan, purple, orange
+        let color, brightColor;
+        if (i >= 6) {
+            color = TRON.orange;
+            brightColor = TRON.orangeBright;
+        } else if (i >= 4) {
+            color = TRON.purple;
+            brightColor = TRON.magenta;
+        } else {
+            color = TRON.cyan;
+            brightColor = TRON.cyanBright;
+        }
 
         const trailLength = 150 + Math.random() * 100;
         const x = (Math.random() - 0.5) * 200;
@@ -921,13 +945,20 @@
         () => new THREE.TetrahedronGeometry(1.2, 0)
     ];
 
-    for (let i = 0; i < 12; i++) {
+    for (let i = 0; i < 15; i++) {
         const geo = geoTypes[i % 3]();
         const edges = new THREE.EdgesGeometry(geo);
+        // Color variety: cyan, purple, blue, orange
+        let shapeColor;
+        if (i >= 13) shapeColor = TRON.orange;
+        else if (i >= 10) shapeColor = TRON.purple;
+        else if (i >= 7) shapeColor = TRON.blue;
+        else shapeColor = TRON.cyan;
+
         const mat = new THREE.LineBasicMaterial({
-            color: i === 11 ? TRON.orange : TRON.cyan,
+            color: shapeColor,
             transparent: true,
-            opacity: 0.8
+            opacity: 0.9
         });
         const shape = new THREE.LineSegments(edges, mat);
 
@@ -1049,16 +1080,27 @@
     const colors = new Float32Array(particleCount * 3);
 
     const cyanColor = new THREE.Color(TRON.cyan);
+    const blueColor = new THREE.Color(TRON.blue);
+    const purpleColor = new THREE.Color(TRON.purple);
     const orangeColor = new THREE.Color(TRON.orange);
+    const magentaColor = new THREE.Color(TRON.magenta);
 
     for (let i = 0; i < particleCount; i++) {
         positions[i * 3] = (Math.random() - 0.5) * 400;
         positions[i * 3 + 1] = Math.random() * 100 - 20;
         positions[i * 3 + 2] = (Math.random() - 0.5) * 600 - 100;
 
-        velocities[i * 3 + 2] = 0.2 + Math.random() * 0.3;
+        velocities[i * 3 + 2] = 0.2 + Math.random() * 0.4;
 
-        const color = Math.random() > 0.95 ? orangeColor : cyanColor;
+        // More color variety in particles
+        const rand = Math.random();
+        let color;
+        if (rand > 0.95) color = orangeColor;
+        else if (rand > 0.90) color = magentaColor;
+        else if (rand > 0.80) color = purpleColor;
+        else if (rand > 0.60) color = blueColor;
+        else color = cyanColor;
+
         colors[i * 3] = color.r;
         colors[i * 3 + 1] = color.g;
         colors[i * 3 + 2] = color.b;
@@ -1068,11 +1110,12 @@
     particleGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
 
     const particleMat = new THREE.PointsMaterial({
-        size: 0.8,
+        size: 1.2,
         vertexColors: true,
         transparent: true,
-        opacity: 0.8,
-        blending: THREE.AdditiveBlending
+        opacity: 0.9,
+        blending: THREE.AdditiveBlending,
+        sizeAttenuation: true
     });
 
     const particles = new THREE.Points(particleGeo, particleMat);
@@ -1086,9 +1129,9 @@
 
     const bloomPass = new UnrealBloomPass(
         new THREE.Vector2(window.innerWidth, window.innerHeight),
-        1.8,    // Strong bloom
-        0.4,    // Radius
-        0.3     // Threshold
+        2.2,    // Intense bloom for TRON glow
+        0.5,    // Wider radius
+        0.2     // Lower threshold for more glow
     );
     composer.addPass(bloomPass);
 
