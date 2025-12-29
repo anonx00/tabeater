@@ -1,0 +1,11 @@
+# TabEater - AI Tab Manager for Chrome
+# https://anonx00.github.io/tabeater/
+
+User-agent: *
+Allow: /
+
+# Sitemap location
+Sitemap: https://anonx00.github.io/tabeater/sitemap.xml
+
+# Crawl-delay (optional, be nice to servers)
+Crawl-delay: 1
