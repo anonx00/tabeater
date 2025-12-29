@@ -248,6 +248,8 @@
             height: 100vh;
             z-index: -1;
             pointer-events: none;
+            /* Fallback background while Three.js loads */
+            background: radial-gradient(ellipse at center bottom, #001a33 0%, #000508 50%, #000 100%);
         }
 
         /* CRT Scanline Overlay */
@@ -1151,9 +1153,8 @@
             const isLowPower = navigator.hardwareConcurrency <= 4;
             const canvas = document.getElementById('bg-canvas');
 
-            // Skip heavy animation on very low-end devices
+            // Skip heavy animation on very low-end devices - CSS fallback background will show
             if (isLowPower && isMobile) {
-                canvas.style.background = 'radial-gradient(ellipse at center bottom, #001a33 0%, #000 70%)';
                 return;
             }
 
