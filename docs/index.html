@@ -1150,13 +1150,7 @@
     const initThreeJS = () => {
         import('three').then(async (THREE) => {
             const isMobile = window.innerWidth < 768;
-            const isLowPower = navigator.hardwareConcurrency <= 4;
             const canvas = document.getElementById('bg-canvas');
-
-            // Skip heavy animation on very low-end devices - CSS fallback background will show
-            if (isLowPower && isMobile) {
-                return;
-            }
 
             // TRON colors
             const TRON = {
