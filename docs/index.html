@@ -887,6 +887,113 @@
         }
 
         /* ========================================
+           LIVE STATS BAR
+           ======================================== */
+        .stats-bar {
+            padding: 2rem 1.5rem;
+            border-top: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
+            background: rgba(0, 8, 20, 0.6);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+
+        .stats-container {
+            max-width: 900px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: center;
+            gap: 3rem;
+            flex-wrap: wrap;
+        }
+
+        .stat-item {
+            text-align: center;
+            position: relative;
+            padding: 0 1.5rem;
+        }
+
+        .stat-item:not(:last-child)::after {
+            content: '';
+            position: absolute;
+            right: -1.5rem;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 1px;
+            height: 40px;
+            background: linear-gradient(180deg, transparent, var(--cyan), transparent);
+            opacity: 0.3;
+        }
+
+        .stat-value {
+            font-size: 1.8rem;
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+            background: linear-gradient(135deg, var(--cyan) 0%, var(--accent) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            line-height: 1.2;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.3rem;
+        }
+
+        .stat-value .live-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--accent);
+            border-radius: 50%;
+            animation: livePulse 2s ease-in-out infinite;
+            box-shadow: 0 0 10px var(--accent);
+        }
+
+        @keyframes livePulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.8); }
+        }
+
+        .stat-label {
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-top: 0.3rem;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .stat-trend {
+            font-size: 0.6rem;
+            color: var(--accent);
+            margin-top: 0.2rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.2rem;
+        }
+
+        .stat-trend svg {
+            width: 10px;
+            height: 10px;
+        }
+
+        @media (max-width: 768px) {
+            .stats-container {
+                gap: 1.5rem;
+            }
+            .stat-item {
+                padding: 0 1rem;
+            }
+            .stat-item:not(:last-child)::after {
+                display: none;
+            }
+            .stat-value {
+                font-size: 1.4rem;
+            }
+        }
+
+        /* ========================================
            UI/UX IMPROVEMENTS
            ======================================== */
 
@@ -1255,6 +1362,41 @@
             <div class="scroll-indicator">
                 <span>Scroll</span>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M19 12l-7 7-7-7"/></svg>
+            </div>
+        </section>
+
+        <!-- Live Stats Bar -->
+        <section class="stats-bar">
+            <div class="stats-container">
+                <div class="stat-item">
+                    <div class="stat-value">
+                        <span class="live-dot"></span>
+                        <span id="live-visitors">21</span>
+                    </div>
+                    <div class="stat-label">Active Users</div>
+                    <div class="stat-trend">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+                        +75% this week
+                    </div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">81</div>
+                    <div class="stat-label">Page Views</div>
+                    <div class="stat-trend">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+                        +80% this week
+                    </div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">5.0★</div>
+                    <div class="stat-label">Chrome Store</div>
+                    <div class="stat-trend">10 reviews</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">6</div>
+                    <div class="stat-label">Countries</div>
+                    <div class="stat-trend">Global reach</div>
+                </div>
             </div>
         </section>
 
