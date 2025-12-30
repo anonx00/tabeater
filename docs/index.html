@@ -861,9 +861,299 @@
                 transition-duration: 0.01ms !important;
             }
         }
+
+        /* ========================================
+           UI/UX IMPROVEMENTS
+           ======================================== */
+
+        /* Scroll Progress Bar */
+        .scroll-progress {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 0%;
+            height: 3px;
+            background: linear-gradient(90deg, var(--accent) 0%, var(--cyan) 50%, var(--purple) 100%);
+            z-index: 1000;
+            transition: width 0.1s linear;
+            box-shadow: 0 0 10px var(--accent), 0 0 20px var(--cyan);
+        }
+
+        /* Enhanced Primary Button */
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent) 0%, #00CC99 100%);
+            color: #000;
+            font-size: 1rem;
+            padding: 1rem 2rem;
+            box-shadow:
+                0 4px 24px rgba(0, 255, 204, 0.4),
+                0 0 40px rgba(0, 255, 204, 0.2),
+                0 0 60px rgba(0, 255, 204, 0.1);
+            animation: btnPulse 2s ease-in-out infinite;
+        }
+
+        @keyframes btnPulse {
+            0%, 100% { box-shadow: 0 4px 24px rgba(0, 255, 204, 0.4), 0 0 40px rgba(0, 255, 204, 0.2); }
+            50% { box-shadow: 0 4px 32px rgba(0, 255, 204, 0.6), 0 0 60px rgba(0, 255, 204, 0.3); }
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-4px) scale(1.02);
+            box-shadow:
+                0 8px 40px rgba(0, 255, 204, 0.6),
+                0 0 80px rgba(0, 255, 204, 0.4);
+        }
+
+        .btn-primary:active {
+            transform: translateY(-2px) scale(0.98);
+        }
+
+        /* Secondary button improvements */
+        .btn-secondary {
+            padding: 0.75rem 1.5rem;
+            font-size: 0.85rem;
+        }
+
+        .btn-secondary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 20px rgba(0, 255, 204, 0.15);
+        }
+
+        /* Trust Badge */
+        .trust-badge {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-top: 1.5rem;
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .trust-badge svg {
+            width: 14px;
+            height: 14px;
+            color: var(--accent);
+        }
+
+        .trust-badge span {
+            opacity: 0.7;
+        }
+
+        /* Chrome Badge */
+        .chrome-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: rgba(0, 255, 204, 0.1);
+            border: 1px solid rgba(0, 255, 204, 0.2);
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.65rem;
+            color: var(--accent);
+            margin-top: 1rem;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .chrome-badge svg {
+            width: 12px;
+            height: 12px;
+        }
+
+        /* Back to Top Button */
+        .back-to-top {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            width: 48px;
+            height: 48px;
+            background: rgba(0, 10, 25, 0.9);
+            border: 1px solid rgba(0, 255, 255, 0.3);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 100;
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(20px);
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+
+        .back-to-top.visible {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+        }
+
+        .back-to-top:hover {
+            background: rgba(0, 255, 204, 0.15);
+            border-color: var(--accent);
+            transform: translateY(-4px);
+            box-shadow: 0 4px 20px rgba(0, 255, 204, 0.3);
+        }
+
+        .back-to-top svg {
+            width: 20px;
+            height: 20px;
+            color: var(--accent);
+        }
+
+        /* Improved FAQ Toggle */
+        .faq-toggle {
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 255, 204, 0.1);
+            border-radius: 50%;
+            transition: all 0.3s ease;
+        }
+
+        .faq-toggle svg {
+            width: 14px;
+            height: 14px;
+            color: var(--accent);
+            transition: transform 0.3s ease;
+        }
+
+        .faq-item.active .faq-toggle {
+            background: var(--accent);
+            transform: none;
+        }
+
+        .faq-item.active .faq-toggle svg {
+            color: #000;
+            transform: rotate(180deg);
+        }
+
+        .faq-item.active {
+            border-color: rgba(0, 255, 204, 0.4);
+            background: rgba(0, 20, 40, 0.5);
+        }
+
+        /* Step Connectors */
+        .steps-grid {
+            position: relative;
+        }
+
+        .step-card {
+            position: relative;
+        }
+
+        .step-connector {
+            display: none;
+        }
+
+        @media (min-width: 769px) {
+            .step-connector {
+                display: block;
+                position: absolute;
+                top: 50%;
+                right: -1.5rem;
+                width: 1.5rem;
+                height: 2px;
+                background: linear-gradient(90deg, var(--accent) 0%, transparent 100%);
+            }
+
+            .step-connector::after {
+                content: '';
+                position: absolute;
+                right: 0;
+                top: 50%;
+                transform: translateY(-50%);
+                border: 6px solid transparent;
+                border-left-color: var(--accent);
+            }
+
+            .step-card:last-child .step-connector {
+                display: none;
+            }
+        }
+
+        /* Feature Card Stagger Animation */
+        .feature-card {
+            opacity: 0;
+            transform: translateY(30px);
+            animation: fadeInUp 0.6s ease forwards;
+        }
+
+        .feature-card:nth-child(1) { animation-delay: 0.1s; }
+        .feature-card:nth-child(2) { animation-delay: 0.2s; }
+        .feature-card:nth-child(3) { animation-delay: 0.3s; }
+        .feature-card:nth-child(4) { animation-delay: 0.4s; }
+        .feature-card:nth-child(5) { animation-delay: 0.5s; }
+        .feature-card:nth-child(6) { animation-delay: 0.6s; }
+
+        @keyframes fadeInUp {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Icon hover scale */
+        .feature-icon {
+            transition: all 0.3s ease;
+        }
+
+        .feature-card:hover .feature-icon {
+            transform: scale(1.1);
+            box-shadow: 0 0 30px rgba(0, 255, 204, 0.3);
+        }
+
+        /* Step number animation */
+        .step-number {
+            transition: all 0.3s ease;
+        }
+
+        .step-card:hover .step-number {
+            transform: scale(1.1);
+            box-shadow: 0 0 30px rgba(0, 255, 204, 0.4);
+        }
+
+        /* Privacy shield glow */
+        .shield-icon {
+            animation: shieldGlow 3s ease-in-out infinite;
+        }
+
+        @keyframes shieldGlow {
+            0%, 100% { filter: drop-shadow(0 0 30px rgba(0, 255, 255, 0.4)); }
+            50% { filter: drop-shadow(0 0 50px rgba(0, 255, 255, 0.7)); }
+        }
+
+        /* Mobile touch targets */
+        @media (max-width: 768px) {
+            .btn {
+                min-height: 48px;
+                padding: 0.875rem 1.5rem;
+            }
+
+            .btn-primary {
+                font-size: 0.95rem;
+                padding: 1rem 1.75rem;
+            }
+
+            .faq-question {
+                min-height: 56px;
+                padding: 1rem 1.25rem;
+            }
+
+            .back-to-top {
+                bottom: 1.5rem;
+                right: 1.5rem;
+            }
+        }
     </style>
 </head>
 <body>
+    <!-- Scroll Progress Bar -->
+    <div class="scroll-progress" id="scrollProgress"></div>
+
     <!-- Canvas - First child of body -->
     <canvas id="bg-canvas"></canvas>
 
@@ -875,6 +1165,13 @@
         <div class="status-dot"></div>
         <span>Core Active</span>
     </div>
+
+    <!-- Back to Top Button -->
+    <button class="back-to-top" id="backToTop" aria-label="Back to top">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="18 15 12 9 6 15"></polyline>
+        </svg>
+    </button>
 
 
     <div class="content">
@@ -899,13 +1196,25 @@
                     </svg>
                 </div>
                 <h1 class="headline">Tame Your<br><span class="headline-accent">Browser Chaos</span></h1>
-                <p class="subheadline">The AI-powered Chrome tab manager that organizes, groups, and declutters your browser automatically.</p>
+                <p class="subheadline">Stop wasting hours on tab overload. AI organizes 100+ tabs in seconds, so you can focus on what matters.</p>
                 <div class="cta-group">
                     <a href="https://chromewebstore.google.com/detail/tabeater/khehjgmppbfpmibjcjeffbndjcnbogfj" class="btn btn-primary cta-track" target="_blank">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/><line x1="21.17" y1="8" x2="12" y2="8"/><line x1="3.95" y1="6.06" x2="8.54" y2="14"/><line x1="10.88" y1="21.94" x2="15.46" y2="14"/></svg>
-                        Add to Chrome
+                        Install Free
                     </a>
-                    <a href="#features" class="btn btn-secondary">Learn More</a>
+                    <a href="#features" class="btn btn-secondary">See Features</a>
+                </div>
+                <!-- Trust Badge -->
+                <div class="trust-badge">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                    <span>No signup required</span>
+                    <span>•</span>
+                    <span>Your data stays local</span>
+                </div>
+                <!-- Chrome Badge -->
+                <div class="chrome-badge">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/></svg>
+                    Chrome Extension
                 </div>
             </div>
             <div class="scroll-indicator">
@@ -992,11 +1301,13 @@
                     <div class="step-number">1</div>
                     <h3>Install the Extension</h3>
                     <p>Add TabEater to Chrome from the Web Store. No account required — just install and go.</p>
+                    <div class="step-connector"></div>
                 </div>
                 <div class="step-card">
                     <div class="step-number">2</div>
                     <h3>Connect Your AI</h3>
                     <p>Add your API key from OpenAI, Google Gemini, or Anthropic Claude. Your key stays local.</p>
+                    <div class="step-connector"></div>
                 </div>
                 <div class="step-card">
                     <div class="step-number">3</div>
@@ -1015,7 +1326,7 @@
                 <div class="faq-item">
                     <div class="faq-question">
                         <span>What is the best Chrome extension for managing too many tabs?</span>
-                        <span class="faq-toggle">+</span>
+                        <span class="faq-toggle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg></span>
                     </div>
                     <div class="faq-answer">
                         <p>TabEater is an AI-powered Chrome extension that helps you manage hundreds of tabs effortlessly. It automatically groups tabs by topic, detects and closes duplicates, and lets you chat with AI about your open pages. Unlike other tab managers, TabEater uses AI to intelligently organize your tabs based on content, not just domain.</p>
@@ -1024,7 +1335,7 @@
                 <div class="faq-item">
                     <div class="faq-question">
                         <span>How do I organize my Chrome tabs automatically?</span>
-                        <span class="faq-toggle">+</span>
+                        <span class="faq-toggle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg></span>
                     </div>
                     <div class="faq-answer">
                         <p>Install TabEater from the Chrome Web Store and enable Auto-Pilot mode. TabEater will automatically organize new tabs in the background, group them by topic, and close duplicates. You can also click the extension icon to manually organize all tabs with one click.</p>
@@ -1033,7 +1344,7 @@
                 <div class="faq-item">
                     <div class="faq-question">
                         <span>Is TabEater free to use?</span>
-                        <span class="faq-toggle">+</span>
+                        <span class="faq-toggle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg></span>
                     </div>
                     <div class="faq-answer">
                         <p>TabEater offers a free tier with 20 AI calls per day. For unlimited access, you can get lifetime PRO access for just $6 AUD (one-time payment). You bring your own API key from OpenAI, Google Gemini, or Anthropic Claude.</p>
@@ -1042,7 +1353,7 @@
                 <div class="faq-item">
                     <div class="faq-question">
                         <span>How do I close duplicate tabs in Chrome?</span>
-                        <span class="faq-toggle">+</span>
+                        <span class="faq-toggle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg></span>
                     </div>
                     <div class="faq-answer">
                         <p>With TabEater, click the extension icon and select 'Find Duplicates'. TabEater will instantly scan all your open tabs and identify exact duplicates. You can then close them with one click, freeing up memory and reducing browser clutter.</p>
@@ -1051,7 +1362,7 @@
                 <div class="faq-item">
                     <div class="faq-question">
                         <span>Does TabEater collect my browsing data?</span>
-                        <span class="faq-toggle">+</span>
+                        <span class="faq-toggle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg></span>
                     </div>
                     <div class="faq-answer">
                         <p>No, TabEater does not collect any browsing data. Your API keys and preferences are stored locally in your browser. AI requests go directly from your browser to your chosen provider (OpenAI, Gemini, or Claude). TabEater is also open source so you can audit the code yourself.</p>
@@ -1060,7 +1371,7 @@
                 <div class="faq-item">
                     <div class="faq-question">
                         <span>What AI providers does TabEater support?</span>
-                        <span class="faq-toggle">+</span>
+                        <span class="faq-toggle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg></span>
                     </div>
                     <div class="faq-answer">
                         <p>TabEater supports multiple AI providers: OpenAI (GPT-4, GPT-3.5), Google Gemini, and Anthropic Claude. You can choose your preferred provider in the settings and switch between them anytime.</p>
@@ -1088,7 +1399,7 @@
         </footer>
     </div>
 
-    <!-- Google Analytics Click Tracking -->
+    <!-- Google Analytics Click Tracking & UI Interactions -->
     <script>
         // Track CTA button clicks with GA4
         document.querySelectorAll('.cta-track').forEach((btn, index) => {
@@ -1128,6 +1439,71 @@
                 }
             });
         });
+
+        // Scroll Progress Bar
+        const scrollProgress = document.getElementById('scrollProgress');
+        const backToTop = document.getElementById('backToTop');
+
+        window.addEventListener('scroll', () => {
+            const scrollTop = window.scrollY;
+            const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+            const scrollPercent = (scrollTop / docHeight) * 100;
+
+            // Update progress bar
+            scrollProgress.style.width = scrollPercent + '%';
+
+            // Show/hide back to top button (after 30% scroll)
+            if (scrollPercent > 30) {
+                backToTop.classList.add('visible');
+            } else {
+                backToTop.classList.remove('visible');
+            }
+        }, { passive: true });
+
+        // Back to Top button click
+        backToTop.addEventListener('click', () => {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+
+        // Button ripple effect
+        document.querySelectorAll('.btn').forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                const rect = this.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+
+                const ripple = document.createElement('span');
+                ripple.style.cssText = `
+                    position: absolute;
+                    background: rgba(255,255,255,0.3);
+                    border-radius: 50%;
+                    width: 100px;
+                    height: 100px;
+                    left: ${x - 50}px;
+                    top: ${y - 50}px;
+                    transform: scale(0);
+                    animation: ripple 0.6s ease-out;
+                    pointer-events: none;
+                `;
+                this.style.position = 'relative';
+                this.style.overflow = 'hidden';
+                this.appendChild(ripple);
+
+                setTimeout(() => ripple.remove(), 600);
+            });
+        });
+
+        // Add ripple animation keyframes dynamically
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes ripple {
+                to {
+                    transform: scale(4);
+                    opacity: 0;
+                }
+            }
+        `;
+        document.head.appendChild(style);
     </script>
 
     <!-- Three.js - Deferred Loading for Performance -->
