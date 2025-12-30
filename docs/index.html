@@ -1367,20 +1367,20 @@
             </div>
         </section>
 
-        <!-- Live Stats Script -->
+        <!-- Live Stats Script - Using Abacus API -->
         <script>
         (function() {
             const ns = 'tabeater-landing';
             const today = new Date().toISOString().split('T')[0].replace(/-/g, '');
 
-            // Total visitors
-            fetch(`https://api.countapi.xyz/hit/${ns}/visits`)
+            // Total visitors (Abacus API)
+            fetch(`https://abacus.jasoncameron.dev/hit/${ns}/visits`)
                 .then(r => r.json())
                 .then(d => document.getElementById('page-views').textContent = d.value.toLocaleString())
                 .catch(() => document.getElementById('page-views').textContent = '--');
 
             // Today's visitors
-            fetch(`https://api.countapi.xyz/hit/${ns}/daily-${today}`)
+            fetch(`https://abacus.jasoncameron.dev/hit/${ns}/daily-${today}`)
                 .then(r => r.json())
                 .then(d => document.getElementById('today-visits').textContent = d.value)
                 .catch(() => document.getElementById('today-visits').textContent = '--');
