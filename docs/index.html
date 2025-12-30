@@ -1588,15 +1588,21 @@
             const isMobile = window.innerWidth < 768;
             const canvas = document.getElementById('bg-canvas');
 
-            // TRON colors
+            // TRON colors - HD vibrant palette
             const TRON = {
                 cyan: 0x00FFFF,
-                cyanBright: 0x80FFFF,
-                blue: 0x00BFFF,
-                purple: 0xBF00FF,
-                orange: 0xFF6600,
-                orangeBright: 0xFF9933,
-                magenta: 0xFF00AA
+                cyanBright: 0x66FFFF,
+                cyanGlow: 0x00E5FF,
+                blue: 0x00D4FF,
+                blueBright: 0x40E0FF,
+                purple: 0xCC00FF,
+                purpleBright: 0xE040FF,
+                orange: 0xFF6B00,
+                orangeBright: 0xFFAA33,
+                orangeGlow: 0xFF8800,
+                magenta: 0xFF00CC,
+                white: 0xFFFFFF,
+                gridCyan: 0x00FFEE
             };
 
             // ============================================
@@ -1616,48 +1622,80 @@
             // SCENE & CAMERA
             // ============================================
             const scene = new THREE.Scene();
-            // Add fog for depth perception
-            scene.fog = new THREE.FogExp2(0x000510, 0.0015);
+            // Add fog for depth perception - deeper blue TRON aesthetic
+            scene.fog = new THREE.FogExp2(0x000815, 0.0012);
 
             const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
             camera.position.set(0, 30, 60);
             camera.lookAt(0, 0, -100);
 
             // ============================================
-            // THE GRID - Reduced complexity on mobile
+            // THE GRID - Scrolling racing effect
             // ============================================
             const gridGroup = new THREE.Group();
-            const gridMaterial = new THREE.LineBasicMaterial({
-                color: TRON.cyan,
-                transparent: true,
-                opacity: 0.8
-            });
 
-            const gridSize = 600;
-            const gridDivisions = isMobile ? 20 : 40; // Half divisions on mobile
-            const step = gridSize / gridDivisions;
+            // Grid parameters
+            const gridWidth = 500;
+            const gridDepth = 800;
+            const gridDivX = isMobile ? 25 : 50;
+            const gridDivZ = isMobile ? 40 : 80;
+            const stepX = gridWidth / gridDivX;
+            const stepZ = gridDepth / gridDivZ;
 
-            for (let i = -gridDivisions / 2; i <= gridDivisions / 2; i++) {
-                const hPoints = [
-                    new THREE.Vector3(-gridSize / 2, 0, i * step),
-                    new THREE.Vector3(gridSize / 2, 0, i * step)
+            // Horizontal lines (perpendicular to camera) - these will scroll
+            const hLines = [];
+            for (let i = 0; i <= gridDivZ; i++) {
+                const z = -gridDepth / 2 + i * stepZ;
+                const points = [
+                    new THREE.Vector3(-gridWidth / 2, 0, z),
+                    new THREE.Vector3(gridWidth / 2, 0, z)
                 ];
-                const hGeo = new THREE.BufferGeometry().setFromPoints(hPoints);
-                const hLine = new THREE.Line(hGeo, gridMaterial.clone());
-                hLine.material.opacity = Math.max(0.15, 0.9 - Math.abs(i) * 0.025);
-                gridGroup.add(hLine);
-
-                const vPoints = [
-                    new THREE.Vector3(i * step, 0, -gridSize / 2),
-                    new THREE.Vector3(i * step, 0, gridSize / 4)
-                ];
-                const vGeo = new THREE.BufferGeometry().setFromPoints(vPoints);
-                const vLine = new THREE.Line(vGeo, gridMaterial.clone());
-                vLine.material.opacity = Math.max(0.15, 0.9 - Math.abs(i) * 0.025);
-                gridGroup.add(vLine);
+                const geo = new THREE.BufferGeometry().setFromPoints(points);
+                const mat = new THREE.LineBasicMaterial({
+                    color: TRON.gridCyan,
+                    transparent: true,
+                    opacity: 0.7
+                });
+                const line = new THREE.Line(geo, mat);
+                hLines.push({ mesh: line, baseZ: z });
+                gridGroup.add(line);
             }
+
+            // Vertical lines (parallel to camera direction) - static
+            for (let i = 0; i <= gridDivX; i++) {
+                const x = -gridWidth / 2 + i * stepX;
+                const distFromCenter = Math.abs(x) / (gridWidth / 2);
+                const points = [
+                    new THREE.Vector3(x, 0, -gridDepth / 2),
+                    new THREE.Vector3(x, 0, gridDepth / 4)
+                ];
+                const geo = new THREE.BufferGeometry().setFromPoints(points);
+                const mat = new THREE.LineBasicMaterial({
+                    color: TRON.gridCyan,
+                    transparent: true,
+                    opacity: Math.max(0.2, 0.8 - distFromCenter * 0.5)
+                });
+                const line = new THREE.Line(geo, mat);
+                gridGroup.add(line);
+            }
+
+            // Add glowing center line
+            const centerLineGeo = new THREE.BufferGeometry().setFromPoints([
+                new THREE.Vector3(0, 0.1, -gridDepth / 2),
+                new THREE.Vector3(0, 0.1, gridDepth / 4)
+            ]);
+            const centerLineMat = new THREE.LineBasicMaterial({
+                color: TRON.cyanBright,
+                transparent: true,
+                opacity: 1
+            });
+            gridGroup.add(new THREE.Line(centerLineGeo, centerLineMat));
+
             gridGroup.position.y = -10;
             scene.add(gridGroup);
+
+            // Grid scroll speed
+            const gridScrollSpeed = isMobile ? 1.5 : 2.5;
 
             // ============================================
             // TRON SUN - Simplified on mobile
@@ -1714,53 +1752,81 @@
             scene.add(sunGroup);
 
             // ============================================
-            // LIGHT CYCLES - Fewer on mobile
+            // LIGHT CYCLES - Racing with glowing trails
             // ============================================
             const cycleGroup = new THREE.Group();
             const lightCycles = [];
-            const cycleCount = isMobile ? 3 : 8;
+            const cycleCount = isMobile ? 4 : 10;
+
+            // Define lanes for more organized racing
+            const lanes = [-120, -80, -40, 0, 40, 80, 120];
 
             for (let i = 0; i < cycleCount; i++) {
-                let color, brightColor;
-                if (i >= cycleCount - 1) {
+                // Color variety - cyan dominant, with orange and purple
+                let color, brightColor, glowColor;
+                if (i === 0) {
                     color = TRON.orange;
                     brightColor = TRON.orangeBright;
-                } else if (i >= cycleCount - 2) {
+                    glowColor = TRON.orangeGlow;
+                } else if (i === 1) {
                     color = TRON.purple;
-                    brightColor = TRON.magenta;
+                    brightColor = TRON.purpleBright;
+                    glowColor = TRON.magenta;
                 } else {
                     color = TRON.cyan;
                     brightColor = TRON.cyanBright;
+                    glowColor = TRON.cyanGlow;
                 }
 
-                const trailLength = 150 + Math.random() * 100;
-                const x = (Math.random() - 0.5) * 200;
-                const z = -300 + Math.random() * 150;
+                const trailLength = 80 + Math.random() * 120;
+                const x = lanes[i % lanes.length] + (Math.random() - 0.5) * 20;
+                const startZ = -400 - Math.random() * 200;
 
-                const trailGeo = new THREE.BoxGeometry(0.5, 3, trailLength);
+                // Main trail (glowing box)
+                const trailGeo = new THREE.BoxGeometry(1.2, 4, trailLength);
                 const trailMat = new THREE.MeshBasicMaterial({
                     color: color,
                     transparent: true,
-                    opacity: 0.9
+                    opacity: 0.95
                 });
                 const trail = new THREE.Mesh(trailGeo, trailMat);
-                trail.position.set(x, -8.5, z + trailLength / 2);
 
-                const headGeo = new THREE.SphereGeometry(1.5, isMobile ? 8 : 16, isMobile ? 8 : 16);
+                // Outer glow trail
+                const glowGeo = new THREE.BoxGeometry(3, 6, trailLength);
+                const glowMat = new THREE.MeshBasicMaterial({
+                    color: glowColor,
+                    transparent: true,
+                    opacity: 0.3
+                });
+                const glow = new THREE.Mesh(glowGeo, glowMat);
+
+                // Head light (bright sphere)
+                const headGeo = new THREE.SphereGeometry(2.5, isMobile ? 8 : 16, isMobile ? 8 : 16);
                 const headMat = new THREE.MeshBasicMaterial({ color: brightColor });
                 const head = new THREE.Mesh(headGeo, headMat);
 
+                // Head glow
+                const headGlowGeo = new THREE.SphereGeometry(5, 8, 8);
+                const headGlowMat = new THREE.MeshBasicMaterial({
+                    color: glowColor,
+                    transparent: true,
+                    opacity: 0.4
+                });
+                const headGlow = new THREE.Mesh(headGlowGeo, headGlowMat);
+
                 lightCycles.push({
-                    trail, head,
-                    speed: 1.5 + Math.random(),
-                    startZ: z,
+                    trail, glow, head, headGlow,
+                    speed: 3 + Math.random() * 2,  // Much faster
+                    startZ: startZ,
                     length: trailLength,
                     x: x,
-                    progress: Math.random()
+                    z: startZ
                 });
 
                 cycleGroup.add(trail);
+                cycleGroup.add(glow);
                 cycleGroup.add(head);
+                cycleGroup.add(headGlow);
             }
             scene.add(cycleGroup);
 
@@ -1970,9 +2036,9 @@
 
                 const bloomPass = new UnrealBloomPass(
                     new THREE.Vector2(window.innerWidth, window.innerHeight),
-                    2.2,  // Enhanced bloom for premium glow
-                    0.5,  // Wider radius
-                    0.2   // Lower threshold for more glow
+                    2.5,  // Stronger bloom for HD TRON glow
+                    0.6,  // Wider radius for softer glow
+                    0.15  // Lower threshold for maximum glow effect
                 );
                 composer.addPass(bloomPass);
             }
@@ -2022,21 +2088,44 @@
                 mouse.x += (mouse.targetX - mouse.x) * 0.02;
                 mouse.y += (mouse.targetY - mouse.y) * 0.02;
 
-                // Grid subtle wave motion
-                gridGroup.position.y = -10 + Math.sin(time * 0.3) * 0.5;
-                gridGroup.rotation.x = Math.sin(time * 0.2) * 0.01;
+                // Grid scrolling animation (racing forward effect)
+                hLines.forEach(line => {
+                    line.mesh.position.z += gridScrollSpeed;
+                    // Reset when line goes past camera
+                    if (line.mesh.position.z > gridDepth / 4) {
+                        line.mesh.position.z = -gridDepth / 2;
+                    }
+                    // Fade opacity based on distance
+                    const dist = Math.abs(line.mesh.position.z);
+                    line.mesh.material.opacity = Math.max(0.1, 0.8 - dist * 0.001);
+                });
+                gridGroup.position.y = -10 + Math.sin(time * 0.5) * 0.3;
 
                 // Sun pulse
                 const sunPulse = 1 + Math.sin(time) * 0.02;
                 sunGroup.scale.setScalar(sunPulse);
 
-                // Light cycles
+                // Light cycles - racing forward
                 lightCycles.forEach(c => {
-                    c.progress += c.speed * 0.005;
-                    if (c.progress > 1) c.progress = 0;
-                    const z = c.startZ + c.progress * c.length;
-                    c.head.position.set(c.x, -7, z + c.length);
-                    c.head.scale.setScalar(1 + Math.sin(time * 8) * 0.2);
+                    c.z += c.speed;
+
+                    // Reset when cycle goes past camera
+                    if (c.z > 200) {
+                        c.z = -500 - Math.random() * 100;
+                        c.x = lanes[Math.floor(Math.random() * lanes.length)] + (Math.random() - 0.5) * 20;
+                    }
+
+                    // Update positions
+                    const trailZ = c.z - c.length / 2;
+                    c.trail.position.set(c.x, -8, trailZ);
+                    c.glow.position.set(c.x, -8, trailZ);
+                    c.head.position.set(c.x, -8, c.z);
+                    c.headGlow.position.set(c.x, -8, c.z);
+
+                    // Pulsing head
+                    const pulse = 1 + Math.sin(time * 10 + c.x) * 0.15;
+                    c.head.scale.setScalar(pulse);
+                    c.headGlow.scale.setScalar(pulse * 1.5);
                 });
 
                 // Shapes
