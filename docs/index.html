@@ -963,35 +963,6 @@
             font-family: 'JetBrains Mono', monospace;
         }
 
-        .stat-trend {
-            font-size: 0.6rem;
-            color: var(--accent);
-            margin-top: 0.2rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.2rem;
-        }
-
-        .stat-trend svg {
-            width: 10px;
-            height: 10px;
-        }
-
-        .stat-trend a {
-            color: var(--accent);
-            text-decoration: none;
-        }
-
-        .stat-item a {
-            text-decoration: none;
-            color: inherit;
-        }
-
-        .stat-item a .stat-value {
-            color: var(--cyan);
-        }
-
         @media (max-width: 768px) {
             .stats-container {
                 gap: 1.5rem;
@@ -1379,7 +1350,7 @@
             </div>
         </section>
 
-        <!-- Live Stats Bar -->
+        <!-- Live Stats Bar - Minimalist -->
         <section class="stats-bar">
             <div class="stats-container">
                 <div class="stat-item">
@@ -1387,25 +1358,11 @@
                         <span class="live-dot"></span>
                         <span id="page-views">--</span>
                     </div>
-                    <div class="stat-label">Page Views</div>
-                    <div class="stat-trend" id="views-trend">Loading...</div>
+                    <div class="stat-label">Visitors</div>
                 </div>
                 <div class="stat-item">
                     <div class="stat-value" id="today-visits">--</div>
                     <div class="stat-label">Today</div>
-                    <div class="stat-trend">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
-                        <span id="today-trend">Live</span>
-                    </div>
-                </div>
-                <div class="stat-item">
-                    <a href="https://chromewebstore.google.com/detail/tabeater/khehjgmppbfpmibjcjeffbndjcnbogfj" target="_blank">
-                        <div class="stat-value">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/></svg>
-                        </div>
-                        <div class="stat-label">Chrome Store</div>
-                        <div class="stat-trend">View on store →</div>
-                    </a>
                 </div>
             </div>
         </section>
@@ -1413,37 +1370,20 @@
         <!-- Live Stats Script -->
         <script>
         (function() {
-            const namespace = 'tabeater-landing';
-
-            // Increment and get total page views
-            fetch(`https://api.countapi.xyz/hit/${namespace}/visits`)
-                .then(res => res.json())
-                .then(data => {
-                    document.getElementById('page-views').textContent = data.value.toLocaleString();
-                    document.getElementById('views-trend').innerHTML = `
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
-                        All time
-                    `;
-                })
-                .catch(() => {
-                    document.getElementById('page-views').textContent = '100+';
-                    document.getElementById('views-trend').textContent = 'All time';
-                });
-
-            // Get today's date key for daily counter
+            const ns = 'tabeater-landing';
             const today = new Date().toISOString().split('T')[0].replace(/-/g, '');
 
-            // Increment and get today's visits
-            fetch(`https://api.countapi.xyz/hit/${namespace}/daily-${today}`)
-                .then(res => res.json())
-                .then(data => {
-                    document.getElementById('today-visits').textContent = data.value;
-                    document.getElementById('today-trend').textContent = 'Live counter';
-                })
-                .catch(() => {
-                    document.getElementById('today-visits').textContent = '1+';
-                    document.getElementById('today-trend').textContent = 'Today';
-                });
+            // Total visitors
+            fetch(`https://api.countapi.xyz/hit/${ns}/visits`)
+                .then(r => r.json())
+                .then(d => document.getElementById('page-views').textContent = d.value.toLocaleString())
+                .catch(() => document.getElementById('page-views').textContent = '--');
+
+            // Today's visitors
+            fetch(`https://api.countapi.xyz/hit/${ns}/daily-${today}`)
+                .then(r => r.json())
+                .then(d => document.getElementById('today-visits').textContent = d.value)
+                .catch(() => document.getElementById('today-visits').textContent = '--');
         })();
         </script>
 
