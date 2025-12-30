@@ -1752,17 +1752,17 @@
             scene.add(sunGroup);
 
             // ============================================
-            // LIGHT CYCLES - Racing with glowing trails
+            // LIGHT CYCLES - Long extending trails like TRON
             // ============================================
             const cycleGroup = new THREE.Group();
             const lightCycles = [];
-            const cycleCount = isMobile ? 4 : 10;
+            const cycleCount = isMobile ? 4 : 8;
 
-            // Define lanes for more organized racing
-            const lanes = [-120, -80, -40, 0, 40, 80, 120];
+            // Define lanes for organized racing
+            const lanes = [-100, -60, -20, 20, 60, 100];
 
             for (let i = 0; i < cycleCount; i++) {
-                // Color variety - cyan dominant, with orange and purple
+                // Color variety
                 let color, brightColor, glowColor;
                 if (i === 0) {
                     color = TRON.orange;
@@ -1778,49 +1778,50 @@
                     glowColor = TRON.cyanGlow;
                 }
 
-                const trailLength = 80 + Math.random() * 120;
-                const x = lanes[i % lanes.length] + (Math.random() - 0.5) * 20;
-                const startZ = -400 - Math.random() * 200;
+                const x = lanes[i % lanes.length] + (Math.random() - 0.5) * 15;
+                const trailStartZ = -600;  // Trail starts far back
+                const headZ = trailStartZ + Math.random() * 300;  // Head position
 
-                // Main trail (glowing box)
-                const trailGeo = new THREE.BoxGeometry(1.2, 4, trailLength);
+                // Create trail as a line with thickness using BufferGeometry
+                // Trail extends from trailStartZ to headZ
+                const trailGeo = new THREE.BoxGeometry(1.5, 3, 1);  // Will be scaled
                 const trailMat = new THREE.MeshBasicMaterial({
                     color: color,
                     transparent: true,
-                    opacity: 0.95
+                    opacity: 0.9
                 });
                 const trail = new THREE.Mesh(trailGeo, trailMat);
 
                 // Outer glow trail
-                const glowGeo = new THREE.BoxGeometry(3, 6, trailLength);
+                const glowGeo = new THREE.BoxGeometry(4, 5, 1);  // Will be scaled
                 const glowMat = new THREE.MeshBasicMaterial({
                     color: glowColor,
                     transparent: true,
-                    opacity: 0.3
+                    opacity: 0.25
                 });
                 const glow = new THREE.Mesh(glowGeo, glowMat);
 
-                // Head light (bright sphere)
-                const headGeo = new THREE.SphereGeometry(2.5, isMobile ? 8 : 16, isMobile ? 8 : 16);
+                // Head light (the cycle itself)
+                const headGeo = new THREE.SphereGeometry(3, isMobile ? 8 : 16, isMobile ? 8 : 16);
                 const headMat = new THREE.MeshBasicMaterial({ color: brightColor });
                 const head = new THREE.Mesh(headGeo, headMat);
 
                 // Head glow
-                const headGlowGeo = new THREE.SphereGeometry(5, 8, 8);
+                const headGlowGeo = new THREE.SphereGeometry(6, 8, 8);
                 const headGlowMat = new THREE.MeshBasicMaterial({
                     color: glowColor,
                     transparent: true,
-                    opacity: 0.4
+                    opacity: 0.35
                 });
                 const headGlow = new THREE.Mesh(headGlowGeo, headGlowMat);
 
                 lightCycles.push({
                     trail, glow, head, headGlow,
-                    speed: 3 + Math.random() * 2,  // Much faster
-                    startZ: startZ,
-                    length: trailLength,
+                    speed: 2.5 + Math.random() * 1.5,
+                    trailStartZ: trailStartZ,
+                    headZ: headZ,
                     x: x,
-                    z: startZ
+                    color, glowColor
                 });
 
                 cycleGroup.add(trail);
@@ -2105,27 +2106,35 @@
                 const sunPulse = 1 + Math.sin(time) * 0.02;
                 sunGroup.scale.setScalar(sunPulse);
 
-                // Light cycles - racing forward
+                // Light cycles - racing with long extending trails
                 lightCycles.forEach(c => {
-                    c.z += c.speed;
+                    c.headZ += c.speed;
 
-                    // Reset when cycle goes past camera
-                    if (c.z > 200) {
-                        c.z = -500 - Math.random() * 100;
-                        c.x = lanes[Math.floor(Math.random() * lanes.length)] + (Math.random() - 0.5) * 20;
+                    // Reset when cycle goes past camera - restart from back
+                    if (c.headZ > 150) {
+                        c.trailStartZ = -600;
+                        c.headZ = -600 + Math.random() * 50;
+                        c.x = lanes[Math.floor(Math.random() * lanes.length)] + (Math.random() - 0.5) * 15;
                     }
 
-                    // Update positions
-                    const trailZ = c.z - c.length / 2;
-                    c.trail.position.set(c.x, -8, trailZ);
-                    c.glow.position.set(c.x, -8, trailZ);
-                    c.head.position.set(c.x, -8, c.z);
-                    c.headGlow.position.set(c.x, -8, c.z);
+                    // Calculate trail length (extends from start to head)
+                    const trailLength = c.headZ - c.trailStartZ;
+                    const trailMidZ = c.trailStartZ + trailLength / 2;
 
-                    // Pulsing head
-                    const pulse = 1 + Math.sin(time * 10 + c.x) * 0.15;
+                    // Update trail - scale Z to match length, position at midpoint
+                    c.trail.scale.set(1, 1, Math.max(1, trailLength));
+                    c.trail.position.set(c.x, -8, trailMidZ);
+                    c.glow.scale.set(1, 1, Math.max(1, trailLength));
+                    c.glow.position.set(c.x, -8, trailMidZ);
+
+                    // Head at front of trail
+                    c.head.position.set(c.x, -8, c.headZ);
+                    c.headGlow.position.set(c.x, -8, c.headZ);
+
+                    // Pulsing head glow
+                    const pulse = 1 + Math.sin(time * 8 + c.x) * 0.2;
                     c.head.scale.setScalar(pulse);
-                    c.headGlow.scale.setScalar(pulse * 1.5);
+                    c.headGlow.scale.setScalar(pulse * 1.3);
                 });
 
                 // Shapes
