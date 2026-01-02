@@ -1744,12 +1744,13 @@
             };
 
             // Bike configurations - TRON race formation with wide lane spread
+            // Bikes closer together for racing/collision feel
             const bikeConfigs = [
-                { color: TRON.cyan, bright: TRON.cyanBright, x: 0, z: 10, speed: 1.0, lane: 0 },      // Lead bike center
-                { color: TRON.orange, bright: TRON.orangeBright, x: -35, z: -20, speed: 0.92, lane: -2 }, // Far left, behind
-                { color: TRON.yellow, bright: TRON.yellowBright, x: 18, z: -8, speed: 0.97, lane: 1 },    // Right, close behind
-                { color: TRON.purple, bright: TRON.purpleBright, x: -18, z: -35, speed: 0.88, lane: -1 }, // Left, far back
-                { color: TRON.red, bright: TRON.redBright, x: 35, z: -45, speed: 0.85, lane: 2 }          // Far right, trailing
+                { color: TRON.cyan, bright: TRON.cyanBright, x: 0, z: 5, speed: 1.0, lane: 0 },
+                { color: TRON.orange, bright: TRON.orangeBright, x: -12, z: -5, speed: 0.95, lane: -1 },
+                { color: TRON.yellow, bright: TRON.yellowBright, x: 12, z: -3, speed: 0.97, lane: 1 },
+                { color: TRON.purple, bright: TRON.purpleBright, x: -6, z: -12, speed: 0.92, lane: 0 },
+                { color: TRON.red, bright: TRON.redBright, x: 18, z: -15, speed: 0.90, lane: 2 }
             ];
 
             // ============================================
@@ -1885,27 +1886,27 @@
             scene.add(redLight);
 
             // ============================================
-            // THE GRID - TRON style with movement
+            // THE GRID - TRON style racing grid
             // ============================================
             const gridSize = 200;
-            const gridDivisions = isMobile ? 50 : 100;
+            const gridDivisions = isMobile ? 40 : 80;
 
-            // Create two grids for seamless scrolling effect - darker for cinematic look
+            // Create two grids for seamless scrolling - visible for race feel
             const gridHelper1 = new THREE.GridHelper(gridSize, gridDivisions, TRON.gridColor, TRON.gridDark);
-            gridHelper1.material.opacity = 0.25;
+            gridHelper1.material.opacity = 0.5;
             gridHelper1.material.transparent = true;
             gridHelper1.position.z = 0;
             scene.add(gridHelper1);
 
             // Second grid for seamless loop
             const gridHelper2 = new THREE.GridHelper(gridSize, gridDivisions, TRON.gridColor, TRON.gridDark);
-            gridHelper2.material.opacity = 0.25;
+            gridHelper2.material.opacity = 0.5;
             gridHelper2.material.transparent = true;
             gridHelper2.position.z = -gridSize;
             scene.add(gridHelper2);
 
             // Grid speed for movement illusion - faster for racing feel
-            const gridSpeed = 22;
+            const gridSpeed = 40; // Fast for race feel
 
             // ============================================
             // REFLECTIVE GROUND PLANE
@@ -1973,53 +1974,53 @@
                     bike.add(headLight);
 
                     // ============================================
-                    // TRON-STYLE WALL TRAIL - short, attached to bike
+                    // TRON-STYLE WALL TRAIL - long racing trail
                     // ============================================
-                    const trailLength = 18;
-                    const trailHeight = 1.0;
+                    const trailLength = 45;
+                    const trailHeight = 1.2;
 
-                    // Main vertical wall trail - starts right at bike
+                    // Main vertical wall trail - attached right at bike
                     const trailGeo = new THREE.PlaneGeometry(trailLength, trailHeight);
                     const trailMat = new THREE.MeshBasicMaterial({
                         color: config.bright,
                         transparent: true,
-                        opacity: 0.7,
+                        opacity: 0.75,
                         side: THREE.DoubleSide
                     });
                     const trail = new THREE.Mesh(trailGeo, trailMat);
                     trail.rotation.y = Math.PI / 2;
-                    trail.position.set(0, trailHeight / 2 + 0.15, -trailLength / 2 - 0.3);
+                    trail.position.set(0, trailHeight / 2 + 0.1, -trailLength / 2);
                     bike.add(trail);
 
                     // Trail glow layer
-                    const glowGeo = new THREE.PlaneGeometry(trailLength, trailHeight * 1.2);
+                    const glowGeo = new THREE.PlaneGeometry(trailLength, trailHeight * 1.4);
                     const glowMat = new THREE.MeshBasicMaterial({
+                        color: config.color,
+                        transparent: true,
+                        opacity: 0.2,
+                        side: THREE.DoubleSide
+                    });
+                    const glow = new THREE.Mesh(glowGeo, glowMat);
+                    glow.rotation.y = Math.PI / 2;
+                    glow.position.set(0, trailHeight / 2 + 0.1, -trailLength / 2);
+                    bike.add(glow);
+
+                    // Ground light strip - reflection of trail
+                    const groundGlowGeo = new THREE.PlaneGeometry(trailLength, 2.5);
+                    const groundGlowMat = new THREE.MeshBasicMaterial({
                         color: config.color,
                         transparent: true,
                         opacity: 0.15,
                         side: THREE.DoubleSide
                     });
-                    const glow = new THREE.Mesh(glowGeo, glowMat);
-                    glow.rotation.y = Math.PI / 2;
-                    glow.position.set(0, trailHeight / 2 + 0.15, -trailLength / 2 - 0.3);
-                    bike.add(glow);
-
-                    // Ground light strip
-                    const groundGlowGeo = new THREE.PlaneGeometry(trailLength, 1.5);
-                    const groundGlowMat = new THREE.MeshBasicMaterial({
-                        color: config.color,
-                        transparent: true,
-                        opacity: 0.12,
-                        side: THREE.DoubleSide
-                    });
                     const groundGlow = new THREE.Mesh(groundGlowGeo, groundGlowMat);
                     groundGlow.rotation.x = -Math.PI / 2;
-                    groundGlow.position.set(0, 0.05, -trailLength / 2 - 0.3);
+                    groundGlow.position.set(0, 0.02, -trailLength / 2);
                     bike.add(groundGlow);
 
-                    // Trail point light
-                    const trailLight = new THREE.PointLight(config.color, 1.5, 12);
-                    trailLight.position.set(0, 0.6, -5);
+                    // Trail point light for glow effect
+                    const trailLight = new THREE.PointLight(config.color, 2, 20);
+                    trailLight.position.set(0, 0.8, -10);
                     bike.add(trailLight);
 
                     scene.add(bike);
@@ -2265,19 +2266,19 @@
                         bike.groundGlow.material.opacity = 0.1 + Math.sin(bike.time * 3) * 0.04;
                     }
 
-                    // Check for near-collisions with other bikes
+                    // Check for near-collisions with other bikes - trails clash!
                     bikes.forEach((other, j) => {
-                        if (i >= j) return; // Avoid duplicate checks
+                        if (i >= j) return;
                         const dx = bike.mesh.position.x - other.mesh.position.x;
                         const dz = bike.mesh.position.z - other.mesh.position.z;
                         const dist = Math.sqrt(dx * dx + dz * dz);
 
-                        // Near collision - spawn sparks!
-                        if (dist < 12 && Math.random() < 0.15) {
+                        // Near collision - spawn sparks when close!
+                        if (dist < 18 && Math.random() < 0.25) {
                             const midX = (bike.mesh.position.x + other.mesh.position.x) / 2;
                             const midZ = (bike.mesh.position.z + other.mesh.position.z) / 2;
-                            const sparkColor = Math.random() < 0.5 ? bike.config.color : other.config.color;
-                            spawnSparks(midX, 1.5, midZ, sparkColor, 5);
+                            const sparkColor = Math.random() < 0.5 ? bike.config.bright : other.config.bright;
+                            spawnSparks(midX, 1.2, midZ, sparkColor, 8);
                         }
                     });
                 });
