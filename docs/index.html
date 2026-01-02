@@ -1827,6 +1827,34 @@
             const gridSpeed = 22;
 
             // ============================================
+            // REFLECTIVE GROUND PLANE
+            // ============================================
+            const groundGeo = new THREE.PlaneGeometry(400, 400);
+            const groundMat = new THREE.MeshStandardMaterial({
+                color: 0x000008,
+                metalness: 0.9,
+                roughness: 0.3,
+                transparent: true,
+                opacity: 0.6
+            });
+            const ground = new THREE.Mesh(groundGeo, groundMat);
+            ground.rotation.x = -Math.PI / 2;
+            ground.position.y = -0.1;
+            scene.add(ground);
+
+            // Horizon glow effect
+            const horizonGeo = new THREE.PlaneGeometry(400, 50);
+            const horizonMat = new THREE.MeshBasicMaterial({
+                color: TRON.gridColor,
+                transparent: true,
+                opacity: 0.08,
+                side: THREE.DoubleSide
+            });
+            const horizon = new THREE.Mesh(horizonGeo, horizonMat);
+            horizon.position.set(0, 25, -180);
+            scene.add(horizon);
+
+            // ============================================
             // LOAD MULTIPLE BIKES
             // ============================================
             const loader = new GLTFLoader();
@@ -1839,51 +1867,79 @@
                     const config = bikeConfigs[i];
                     const bike = gltf.scene.clone();
 
-                    // Scale bikes larger for visibility
-                    bike.scale.set(3, 3, 3);
-                    bike.position.set(config.x, 0.5, config.z);
+                    // Scale bikes LARGER for visibility
+                    bike.scale.set(4.5, 4.5, 4.5);
+                    bike.position.set(config.x, 0.8, config.z);
                     bike.rotation.y = Math.PI / 2; // Face forward
 
-                    // Keep original bike materials - only add subtle glow
+                    // Enhanced bike glow - headlights and engine
                     bike.traverse((child) => {
                         if (child.isMesh && child.material) {
                             child.material = child.material.clone();
                             child.material.emissive = new THREE.Color(config.color);
-                            child.material.emissiveIntensity = 0.15; // Subtle, not overpowering
+                            child.material.emissiveIntensity = 0.35; // Stronger glow
                         }
                     });
 
-                    // Add point light matching trail color
-                    const bikeLight = new THREE.PointLight(config.color, 2, 20);
-                    bikeLight.position.set(0, 1, -2);
+                    // Stronger bike light for light bleeding effect
+                    const bikeLight = new THREE.PointLight(config.color, 4, 35);
+                    bikeLight.position.set(0, 1.5, -3);
                     bike.add(bikeLight);
 
-                    // Create LONG dramatic light trail BEHIND the bike (attached to bike)
-                    const trailLength = 80;
-                    const trailGeo = new THREE.PlaneGeometry(0.3, trailLength);
+                    // Front headlight glow
+                    const headLight = new THREE.PointLight(config.bright, 2, 15);
+                    headLight.position.set(0, 1, 3);
+                    bike.add(headLight);
+
+                    // ============================================
+                    // TRON-STYLE WALL TRAIL (vertical, not flat)
+                    // ============================================
+                    const trailLength = 100;
+                    const trailHeight = 3.5;
+
+                    // Main vertical wall trail
+                    const trailGeo = new THREE.PlaneGeometry(trailLength, trailHeight);
                     const trailMat = new THREE.MeshBasicMaterial({
                         color: config.bright,
                         transparent: true,
-                        opacity: 0.9,
+                        opacity: 0.95,
                         side: THREE.DoubleSide
                     });
                     const trail = new THREE.Mesh(trailGeo, trailMat);
-                    trail.rotation.x = -Math.PI / 2;
-                    trail.position.set(0, 0.35, -trailLength / 2 - 2);
-                    bike.add(trail); // Attach to bike
+                    trail.rotation.y = Math.PI / 2; // Vertical wall behind bike
+                    trail.position.set(0, trailHeight / 2, -trailLength / 2 - 3);
+                    bike.add(trail);
 
-                    // Wide glow trail for dramatic effect
-                    const glowGeo = new THREE.PlaneGeometry(2.5, trailLength);
+                    // Trail glow layer (wider, softer)
+                    const glowGeo = new THREE.PlaneGeometry(trailLength, trailHeight * 1.8);
                     const glowMat = new THREE.MeshBasicMaterial({
                         color: config.color,
                         transparent: true,
-                        opacity: 0.18,
+                        opacity: 0.25,
                         side: THREE.DoubleSide
                     });
                     const glow = new THREE.Mesh(glowGeo, glowMat);
-                    glow.rotation.x = -Math.PI / 2;
-                    glow.position.set(0, 0.25, -trailLength / 2 - 2);
-                    bike.add(glow); // Attach to bike
+                    glow.rotation.y = Math.PI / 2;
+                    glow.position.set(0, trailHeight / 2, -trailLength / 2 - 3);
+                    bike.add(glow);
+
+                    // Ground light strip (reflection effect)
+                    const groundGlowGeo = new THREE.PlaneGeometry(trailLength, 4);
+                    const groundGlowMat = new THREE.MeshBasicMaterial({
+                        color: config.color,
+                        transparent: true,
+                        opacity: 0.15,
+                        side: THREE.DoubleSide
+                    });
+                    const groundGlow = new THREE.Mesh(groundGlowGeo, groundGlowMat);
+                    groundGlow.rotation.x = -Math.PI / 2;
+                    groundGlow.position.set(0, 0.1, -trailLength / 2 - 3);
+                    bike.add(groundGlow);
+
+                    // Trail point light for light bleeding onto ground
+                    const trailLight = new THREE.PointLight(config.color, 3, 25);
+                    trailLight.position.set(0, 1.5, -15);
+                    bike.add(trailLight);
 
                     scene.add(bike);
 
@@ -1891,10 +1947,13 @@
                         mesh: bike,
                         trail: trail,
                         glow: glow,
+                        groundGlow: groundGlow,
                         config: config,
                         baseX: config.x,
                         baseZ: config.z,
-                        time: Math.random() * Math.PI * 2
+                        time: Math.random() * Math.PI * 2,
+                        targetRotZ: 0,
+                        currentRotZ: 0
                     });
                 }
             }, undefined, (error) => {
@@ -1902,12 +1961,13 @@
             });
 
             // ============================================
-            // PARTICLES - Multi-colored
+            // PARTICLES - Enhanced with varied sizes and streaks
             // ============================================
-            const particleCount = isMobile ? 150 : 400;
+            const particleCount = isMobile ? 250 : 800;
             const particleGeo = new THREE.BufferGeometry();
             const positions = new Float32Array(particleCount * 3);
             const colors = new Float32Array(particleCount * 3);
+            const sizes = new Float32Array(particleCount);
             const velocities = new Float32Array(particleCount * 3);
 
             const particleColors = [
@@ -1919,33 +1979,68 @@
             ];
 
             for (let i = 0; i < particleCount; i++) {
-                positions[i * 3] = (Math.random() - 0.5) * 120;
-                positions[i * 3 + 1] = Math.random() * 30;
-                positions[i * 3 + 2] = (Math.random() - 0.5) * 120;
+                positions[i * 3] = (Math.random() - 0.5) * 200;
+                positions[i * 3 + 1] = Math.random() * 50;
+                positions[i * 3 + 2] = (Math.random() - 0.5) * 200;
 
                 const color = particleColors[Math.floor(Math.random() * particleColors.length)];
                 colors[i * 3] = color.r;
                 colors[i * 3 + 1] = color.g;
                 colors[i * 3 + 2] = color.b;
 
-                velocities[i * 3] = (Math.random() - 0.5) * 0.03;
+                // Varied sizes - some larger bright stars, some small dust
+                sizes[i] = Math.random() < 0.1 ? 0.5 + Math.random() * 0.5 : 0.08 + Math.random() * 0.15;
+
+                velocities[i * 3] = (Math.random() - 0.5) * 0.04;
                 velocities[i * 3 + 1] = (Math.random() - 0.5) * 0.02;
-                velocities[i * 3 + 2] = (Math.random() - 0.5) * 0.03;
+                velocities[i * 3 + 2] = (Math.random() - 0.5) * 0.04;
             }
 
             particleGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
             particleGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+            particleGeo.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
 
             const particleMat = new THREE.PointsMaterial({
-                size: isMobile ? 0.2 : 0.15,
+                size: isMobile ? 0.25 : 0.2,
                 transparent: true,
-                opacity: 0.8,
+                opacity: 0.9,
                 vertexColors: true,
-                blending: THREE.AdditiveBlending
+                blending: THREE.AdditiveBlending,
+                sizeAttenuation: true
             });
 
             const particles = new THREE.Points(particleGeo, particleMat);
             scene.add(particles);
+
+            // ============================================
+            // STREAK PARTICLES - Shooting star effects
+            // ============================================
+            const streakCount = isMobile ? 5 : 15;
+            const streaks = [];
+            for (let i = 0; i < streakCount; i++) {
+                const streakGeo = new THREE.BufferGeometry();
+                const streakPositions = new Float32Array(6); // 2 points per streak
+                streakGeo.setAttribute('position', new THREE.BufferAttribute(streakPositions, 3));
+
+                const streakMat = new THREE.LineBasicMaterial({
+                    color: particleColors[Math.floor(Math.random() * particleColors.length)],
+                    transparent: true,
+                    opacity: 0,
+                    blending: THREE.AdditiveBlending
+                });
+
+                const streak = new THREE.Line(streakGeo, streakMat);
+                scene.add(streak);
+
+                streaks.push({
+                    mesh: streak,
+                    active: false,
+                    life: 0,
+                    speed: 2 + Math.random() * 3,
+                    x: 0, y: 0, z: 0,
+                    dx: 0, dy: 0, dz: 0
+                });
+            }
 
             // ============================================
             // POST-PROCESSING (Desktop only)
@@ -1959,9 +2054,12 @@
                 composer = new EffectComposer(renderer);
                 composer.addPass(new RenderPass(scene, camera));
 
+                // Intense TRON neon bloom effect
                 const bloomPass = new UnrealBloomPass(
                     new THREE.Vector2(window.innerWidth, window.innerHeight),
-                    2.5, 0.6, 0.05  // Higher strength, wider radius, lower threshold for cinematic glow
+                    3.0,   // strength - intense glow
+                    0.8,   // radius - wide glow spread
+                    0.02   // threshold - catch more bright areas
                 );
                 composer.addPass(bloomPass);
             }
@@ -2015,30 +2113,73 @@
                     gridHelper2.position.z = gridHelper1.position.z - gridSize;
                 }
 
-                // Animate bikes - racing dynamics with position jockeying
+                // Animate bikes - racing dynamics with smooth orientation
                 bikes.forEach((bike, i) => {
                     bike.time += 0.025 * bike.config.speed;
 
                     // Subtle hover effect
-                    bike.mesh.position.y = 0.5 + Math.sin(bike.time * 1.5) * 0.08;
+                    bike.mesh.position.y = 0.8 + Math.sin(bike.time * 1.5) * 0.12;
 
                     // Racing movement - bikes jockey for position (forward/back)
-                    const raceOscillation = Math.sin(bike.time * 0.4 + i * 1.5) * 8;
+                    const raceOscillation = Math.sin(bike.time * 0.4 + i * 1.5) * 10;
                     bike.mesh.position.z = bike.baseZ + raceOscillation;
 
                     // Lane weaving - bikes shift between lanes during race
-                    const laneShift = Math.sin(bike.time * 0.2 + i * 2) * 4;
+                    const laneShift = Math.sin(bike.time * 0.2 + i * 2) * 5;
                     bike.mesh.position.x = bike.baseX + laneShift;
 
-                    // Slight lean into turns when changing lanes
-                    bike.mesh.rotation.z = -laneShift * 0.015;
+                    // Smooth orientation - bikes lean into turns gradually
+                    bike.targetRotZ = -laneShift * 0.025;
+                    bike.currentRotZ += (bike.targetRotZ - bike.currentRotZ) * 0.08;
+                    bike.mesh.rotation.z = bike.currentRotZ;
 
                     // Pulse trail opacity with racing intensity
-                    bike.trail.material.opacity = 0.8 + Math.sin(bike.time * 2.5) * 0.15;
-                    bike.glow.material.opacity = 0.22 + Math.sin(bike.time * 2) * 0.1;
+                    bike.trail.material.opacity = 0.85 + Math.sin(bike.time * 2.5) * 0.1;
+                    bike.glow.material.opacity = 0.28 + Math.sin(bike.time * 2) * 0.12;
+                    if (bike.groundGlow) {
+                        bike.groundGlow.material.opacity = 0.12 + Math.sin(bike.time * 3) * 0.05;
+                    }
                 });
 
-                // Animate particles (using typed array)
+                // Animate streaks - shooting star effects
+                streaks.forEach((streak, i) => {
+                    if (!streak.active && Math.random() < 0.003) {
+                        // Spawn new streak
+                        streak.active = true;
+                        streak.life = 1.0;
+                        streak.x = (Math.random() - 0.5) * 150;
+                        streak.y = 10 + Math.random() * 40;
+                        streak.z = (Math.random() - 0.5) * 150;
+                        streak.dx = (Math.random() - 0.5) * 2;
+                        streak.dy = -0.5 - Math.random();
+                        streak.dz = (Math.random() - 0.5) * 2;
+                    }
+
+                    if (streak.active) {
+                        streak.life -= 0.02;
+                        streak.x += streak.dx * streak.speed;
+                        streak.y += streak.dy * streak.speed;
+                        streak.z += streak.dz * streak.speed;
+
+                        const positions = streak.mesh.geometry.attributes.position.array;
+                        positions[0] = streak.x;
+                        positions[1] = streak.y;
+                        positions[2] = streak.z;
+                        positions[3] = streak.x - streak.dx * 3;
+                        positions[4] = streak.y - streak.dy * 3;
+                        positions[5] = streak.z - streak.dz * 3;
+                        streak.mesh.geometry.attributes.position.needsUpdate = true;
+
+                        streak.mesh.material.opacity = streak.life * 0.8;
+
+                        if (streak.life <= 0) {
+                            streak.active = false;
+                            streak.mesh.material.opacity = 0;
+                        }
+                    }
+                });
+
+                // Animate particles (using typed array) - larger bounds
                 const pos = particles.geometry.attributes.position.array;
                 for (let i = 0; i < particleCount; i++) {
                     const idx = i * 3;
@@ -2046,10 +2187,10 @@
                     pos[idx + 1] += velocities[idx + 1];
                     pos[idx + 2] += velocities[idx + 2];
 
-                    // Reset if out of bounds
-                    if (Math.abs(pos[idx]) > 60) velocities[idx] *= -1;
-                    if (pos[idx + 1] > 30 || pos[idx + 1] < 0) velocities[idx + 1] *= -1;
-                    if (Math.abs(pos[idx + 2]) > 60) velocities[idx + 2] *= -1;
+                    // Reset if out of bounds - larger area
+                    if (Math.abs(pos[idx]) > 100) velocities[idx] *= -1;
+                    if (pos[idx + 1] > 50 || pos[idx + 1] < 0) velocities[idx + 1] *= -1;
+                    if (Math.abs(pos[idx + 2]) > 100) velocities[idx + 2] *= -1;
                 }
                 particles.geometry.attributes.position.needsUpdate = true;
 
