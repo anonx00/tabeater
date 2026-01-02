@@ -1800,20 +1800,27 @@
             scene.add(purpleLight);
 
             // ============================================
-            // THE GRID - TRON style
+            // THE GRID - TRON style with movement
             // ============================================
-            const gridGroup = new THREE.Group();
-            const gridSize = 150;
-            const gridDivisions = isMobile ? 40 : 75;
+            const gridSize = 200;
+            const gridDivisions = isMobile ? 50 : 100;
 
-            // Main grid with red/dark color
-            const gridHelper = new THREE.GridHelper(gridSize, gridDivisions, TRON.gridColor, TRON.gridDark);
-            gridHelper.material.opacity = 0.4;
-            gridHelper.material.transparent = true;
-            gridGroup.add(gridHelper);
+            // Create two grids for seamless scrolling effect
+            const gridHelper1 = new THREE.GridHelper(gridSize, gridDivisions, TRON.gridColor, TRON.gridDark);
+            gridHelper1.material.opacity = 0.4;
+            gridHelper1.material.transparent = true;
+            gridHelper1.position.z = 0;
+            scene.add(gridHelper1);
 
-            gridGroup.position.y = 0;
-            scene.add(gridGroup);
+            // Second grid for seamless loop
+            const gridHelper2 = new THREE.GridHelper(gridSize, gridDivisions, TRON.gridColor, TRON.gridDark);
+            gridHelper2.material.opacity = 0.4;
+            gridHelper2.material.transparent = true;
+            gridHelper2.position.z = -gridSize;
+            scene.add(gridHelper2);
+
+            // Grid speed for movement illusion
+            const gridSpeed = 15;
 
             // ============================================
             // LOAD MULTIPLE BIKES
@@ -1823,59 +1830,58 @@
             const bikeCount = isMobile ? 3 : 5;
 
             loader.load('bike.glb', (gltf) => {
-                // Create multiple bikes with different colors
+                // Create multiple bikes - keep original model colors
                 for (let i = 0; i < bikeCount; i++) {
                     const config = bikeConfigs[i];
                     const bike = gltf.scene.clone();
 
-                    // Scale bikes to be prominent
-                    bike.scale.set(2.5, 2.5, 2.5);
-                    bike.position.set(config.x, 0, config.z);
+                    // Scale bikes larger for visibility
+                    bike.scale.set(3, 3, 3);
+                    bike.position.set(config.x, 0.5, config.z);
                     bike.rotation.y = Math.PI / 2; // Face forward
 
-                    // Apply color to bike materials
+                    // Keep original bike materials - only add subtle glow
                     bike.traverse((child) => {
                         if (child.isMesh && child.material) {
                             child.material = child.material.clone();
                             child.material.emissive = new THREE.Color(config.color);
-                            child.material.emissiveIntensity = 0.5;
-                            child.material.color = new THREE.Color(0x111111);
+                            child.material.emissiveIntensity = 0.15; // Subtle, not overpowering
                         }
                     });
 
-                    // Add point light to each bike
-                    const bikeLight = new THREE.PointLight(config.color, 3, 25);
-                    bikeLight.position.set(0, 1, 0);
+                    // Add point light matching trail color
+                    const bikeLight = new THREE.PointLight(config.color, 2, 20);
+                    bikeLight.position.set(0, 1, -2);
                     bike.add(bikeLight);
 
-                    // Create light trail for each bike
-                    const trailLength = 25;
-                    const trailGeo = new THREE.PlaneGeometry(0.3, trailLength);
+                    // Create light trail BEHIND the bike (attached to bike)
+                    const trailLength = 30;
+                    const trailGeo = new THREE.PlaneGeometry(0.25, trailLength);
                     const trailMat = new THREE.MeshBasicMaterial({
                         color: config.bright,
                         transparent: true,
-                        opacity: 0.9,
+                        opacity: 0.85,
                         side: THREE.DoubleSide
                     });
                     const trail = new THREE.Mesh(trailGeo, trailMat);
                     trail.rotation.x = -Math.PI / 2;
-                    trail.position.set(config.x, 0.3, config.z - trailLength / 2 - 3);
+                    trail.position.set(0, 0.3, -trailLength / 2 - 2);
+                    bike.add(trail); // Attach to bike
 
                     // Trail glow
-                    const glowGeo = new THREE.PlaneGeometry(1.5, trailLength);
+                    const glowGeo = new THREE.PlaneGeometry(1.2, trailLength);
                     const glowMat = new THREE.MeshBasicMaterial({
                         color: config.color,
                         transparent: true,
-                        opacity: 0.3,
+                        opacity: 0.25,
                         side: THREE.DoubleSide
                     });
                     const glow = new THREE.Mesh(glowGeo, glowMat);
                     glow.rotation.x = -Math.PI / 2;
-                    glow.position.set(config.x, 0.2, config.z - trailLength / 2 - 3);
+                    glow.position.set(0, 0.2, -trailLength / 2 - 2);
+                    bike.add(glow); // Attach to bike
 
                     scene.add(bike);
-                    scene.add(trail);
-                    scene.add(glow);
 
                     bikes.push({
                         mesh: bike,
@@ -1993,25 +1999,31 @@
                 camera.position.y = cameraOrbit.height + Math.sin(time * 0.25) * 3;
                 camera.lookAt(0, cameraOrbit.lookAtHeight, 0);
 
-                // Animate bikes - subtle hovering motion
+                // Animate grid - scrolling to create movement illusion
+                gridHelper1.position.z += gridSpeed * 0.016;
+                gridHelper2.position.z += gridSpeed * 0.016;
+
+                // Reset grids for seamless loop
+                if (gridHelper1.position.z > gridSize) {
+                    gridHelper1.position.z = gridHelper2.position.z - gridSize;
+                }
+                if (gridHelper2.position.z > gridSize) {
+                    gridHelper2.position.z = gridHelper1.position.z - gridSize;
+                }
+
+                // Animate bikes - subtle hovering and sway (trails attached)
                 bikes.forEach((bike, i) => {
                     bike.time += 0.02 * bike.config.speed;
 
                     // Subtle hover
-                    bike.mesh.position.y = 0.2 + Math.sin(bike.time) * 0.15;
+                    bike.mesh.position.y = 0.5 + Math.sin(bike.time) * 0.1;
 
-                    // Slight forward/back oscillation
-                    const zOffset = Math.sin(bike.time * 0.5) * 2;
-                    bike.mesh.position.z = bike.baseZ + zOffset;
-
-                    // Update trail position
-                    const trailLength = 25;
-                    bike.trail.position.z = bike.mesh.position.z - trailLength / 2 - 3;
-                    bike.glow.position.z = bike.mesh.position.z - trailLength / 2 - 3;
+                    // Slight lateral sway
+                    bike.mesh.position.x = bike.baseX + Math.sin(bike.time * 0.3) * 0.5;
 
                     // Pulse trail opacity
-                    bike.trail.material.opacity = 0.7 + Math.sin(bike.time * 2) * 0.2;
-                    bike.glow.material.opacity = 0.2 + Math.sin(bike.time * 1.5) * 0.1;
+                    bike.trail.material.opacity = 0.7 + Math.sin(bike.time * 2) * 0.15;
+                    bike.glow.material.opacity = 0.2 + Math.sin(bike.time * 1.5) * 0.08;
                 });
 
                 // Animate particles (using typed array)
