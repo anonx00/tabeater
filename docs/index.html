@@ -1772,13 +1772,89 @@
             camera.position.set(0, 6, 70);
             camera.lookAt(0, 0, -20);
 
-            // Camera parameters - cinematic sweep following the race
+            // Camera parameters - cinematic sweep + user controls
             const cameraOrbit = {
                 radius: 75,
                 height: 7,
-                speed: 0.035,
+                speed: 0.025,
                 lookAtHeight: 0
             };
+
+            // User camera control state
+            const userCamera = {
+                angleOffset: 0,
+                heightOffset: 0,
+                zoom: 1,
+                isDragging: false,
+                lastX: 0,
+                lastY: 0,
+                autoRotate: true
+            };
+
+            // Mouse/touch drag for camera rotation
+            canvas.addEventListener('mousedown', (e) => {
+                userCamera.isDragging = true;
+                userCamera.lastX = e.clientX;
+                userCamera.lastY = e.clientY;
+                userCamera.autoRotate = false;
+                canvas.style.cursor = 'grabbing';
+            });
+
+            canvas.addEventListener('mousemove', (e) => {
+                if (!userCamera.isDragging) return;
+                const deltaX = e.clientX - userCamera.lastX;
+                const deltaY = e.clientY - userCamera.lastY;
+                userCamera.angleOffset += deltaX * 0.005;
+                userCamera.heightOffset += deltaY * 0.1;
+                userCamera.heightOffset = Math.max(-20, Math.min(30, userCamera.heightOffset));
+                userCamera.lastX = e.clientX;
+                userCamera.lastY = e.clientY;
+            });
+
+            canvas.addEventListener('mouseup', () => {
+                userCamera.isDragging = false;
+                canvas.style.cursor = 'grab';
+                // Resume auto-rotate after 3 seconds of no interaction
+                setTimeout(() => { if (!userCamera.isDragging) userCamera.autoRotate = true; }, 3000);
+            });
+
+            canvas.addEventListener('mouseleave', () => {
+                userCamera.isDragging = false;
+                canvas.style.cursor = 'grab';
+            });
+
+            // Touch support
+            canvas.addEventListener('touchstart', (e) => {
+                userCamera.isDragging = true;
+                userCamera.lastX = e.touches[0].clientX;
+                userCamera.lastY = e.touches[0].clientY;
+                userCamera.autoRotate = false;
+            }, { passive: true });
+
+            canvas.addEventListener('touchmove', (e) => {
+                if (!userCamera.isDragging) return;
+                const deltaX = e.touches[0].clientX - userCamera.lastX;
+                const deltaY = e.touches[0].clientY - userCamera.lastY;
+                userCamera.angleOffset += deltaX * 0.005;
+                userCamera.heightOffset += deltaY * 0.1;
+                userCamera.heightOffset = Math.max(-20, Math.min(30, userCamera.heightOffset));
+                userCamera.lastX = e.touches[0].clientX;
+                userCamera.lastY = e.touches[0].clientY;
+            }, { passive: true });
+
+            canvas.addEventListener('touchend', () => {
+                userCamera.isDragging = false;
+                setTimeout(() => { if (!userCamera.isDragging) userCamera.autoRotate = true; }, 3000);
+            });
+
+            // Scroll/pinch for zoom
+            canvas.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                userCamera.zoom += e.deltaY * 0.001;
+                userCamera.zoom = Math.max(0.5, Math.min(2.5, userCamera.zoom));
+            }, { passive: false });
+
+            canvas.style.cursor = 'grab';
 
             // ============================================
             // LIGHTING - Dramatic and minimal
@@ -1892,53 +1968,53 @@
                     bike.add(headLight);
 
                     // ============================================
-                    // TRON-STYLE WALL TRAIL (vertical, not flat)
+                    // TRON-STYLE WALL TRAIL - compact, attached to bike
                     // ============================================
-                    const trailLength = 60;
-                    const trailHeight = 2.0;
+                    const trailLength = 35;
+                    const trailHeight = 1.2;
 
-                    // Main vertical wall trail - balanced opacity
+                    // Main vertical wall trail - starts right at bike
                     const trailGeo = new THREE.PlaneGeometry(trailLength, trailHeight);
                     const trailMat = new THREE.MeshBasicMaterial({
                         color: config.bright,
                         transparent: true,
-                        opacity: 0.7,
+                        opacity: 0.65,
                         side: THREE.DoubleSide
                     });
                     const trail = new THREE.Mesh(trailGeo, trailMat);
-                    trail.rotation.y = Math.PI / 2; // Vertical wall behind bike
-                    trail.position.set(0, trailHeight / 2 + 0.3, -trailLength / 2 - 3);
+                    trail.rotation.y = Math.PI / 2;
+                    trail.position.set(0, trailHeight / 2 + 0.2, -trailLength / 2 - 0.5); // Close to bike
                     bike.add(trail);
 
                     // Trail glow layer (wider, softer)
-                    const glowGeo = new THREE.PlaneGeometry(trailLength, trailHeight * 1.5);
+                    const glowGeo = new THREE.PlaneGeometry(trailLength, trailHeight * 1.3);
                     const glowMat = new THREE.MeshBasicMaterial({
                         color: config.color,
                         transparent: true,
-                        opacity: 0.15,
+                        opacity: 0.12,
                         side: THREE.DoubleSide
                     });
                     const glow = new THREE.Mesh(glowGeo, glowMat);
                     glow.rotation.y = Math.PI / 2;
-                    glow.position.set(0, trailHeight / 2 + 0.3, -trailLength / 2 - 3);
+                    glow.position.set(0, trailHeight / 2 + 0.2, -trailLength / 2 - 0.5);
                     bike.add(glow);
 
                     // Ground light strip (reflection effect)
-                    const groundGlowGeo = new THREE.PlaneGeometry(trailLength, 4);
+                    const groundGlowGeo = new THREE.PlaneGeometry(trailLength, 2);
                     const groundGlowMat = new THREE.MeshBasicMaterial({
                         color: config.color,
                         transparent: true,
-                        opacity: 0.15,
+                        opacity: 0.1,
                         side: THREE.DoubleSide
                     });
                     const groundGlow = new THREE.Mesh(groundGlowGeo, groundGlowMat);
                     groundGlow.rotation.x = -Math.PI / 2;
-                    groundGlow.position.set(0, 0.1, -trailLength / 2 - 3);
+                    groundGlow.position.set(0, 0.05, -trailLength / 2 - 0.5);
                     bike.add(groundGlow);
 
-                    // Trail point light for light bleeding onto ground
-                    const trailLight = new THREE.PointLight(config.color, 3, 25);
-                    trailLight.position.set(0, 1.5, -15);
+                    // Trail point light - closer to bike
+                    const trailLight = new THREE.PointLight(config.color, 2, 15);
+                    trailLight.position.set(0, 0.8, -8);
                     bike.add(trailLight);
 
                     scene.add(bike);
@@ -2094,11 +2170,14 @@
 
                 time += 0.016;
 
-                // Auto-rotate camera around the scene - cinematic low sweep
-                const angle = time * cameraOrbit.speed;
-                camera.position.x = Math.sin(angle) * cameraOrbit.radius;
-                camera.position.z = Math.cos(angle) * cameraOrbit.radius;
-                camera.position.y = cameraOrbit.height + Math.sin(time * 0.15) * 1.5; // Subtle vertical movement
+                // Camera movement: auto-rotate + user controls
+                const autoAngle = userCamera.autoRotate ? time * cameraOrbit.speed : 0;
+                const totalAngle = autoAngle + userCamera.angleOffset;
+                const effectiveRadius = cameraOrbit.radius * userCamera.zoom;
+
+                camera.position.x = Math.sin(totalAngle) * effectiveRadius;
+                camera.position.z = Math.cos(totalAngle) * effectiveRadius;
+                camera.position.y = cameraOrbit.height + userCamera.heightOffset + (userCamera.autoRotate ? Math.sin(time * 0.15) * 1.5 : 0);
                 camera.lookAt(0, cameraOrbit.lookAtHeight, -15);
 
                 // Animate grid - scrolling to create movement illusion
