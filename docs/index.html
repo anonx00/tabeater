@@ -1760,7 +1760,7 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.setClearColor(0x000000, 1);
             renderer.toneMapping = THREE.ACESFilmicToneMapping;
-            renderer.toneMappingExposure = 0.5; // Darker for cinematic look
+            renderer.toneMappingExposure = 0.7; // Balanced exposure
 
             // ============================================
             // SCENE & CAMERA - Low dramatic angle
@@ -1894,33 +1894,33 @@
                     // ============================================
                     // TRON-STYLE WALL TRAIL (vertical, not flat)
                     // ============================================
-                    const trailLength = 100;
-                    const trailHeight = 3.5;
+                    const trailLength = 60;
+                    const trailHeight = 2.0;
 
-                    // Main vertical wall trail
+                    // Main vertical wall trail - balanced opacity
                     const trailGeo = new THREE.PlaneGeometry(trailLength, trailHeight);
                     const trailMat = new THREE.MeshBasicMaterial({
                         color: config.bright,
                         transparent: true,
-                        opacity: 0.95,
+                        opacity: 0.7,
                         side: THREE.DoubleSide
                     });
                     const trail = new THREE.Mesh(trailGeo, trailMat);
                     trail.rotation.y = Math.PI / 2; // Vertical wall behind bike
-                    trail.position.set(0, trailHeight / 2, -trailLength / 2 - 3);
+                    trail.position.set(0, trailHeight / 2 + 0.3, -trailLength / 2 - 3);
                     bike.add(trail);
 
                     // Trail glow layer (wider, softer)
-                    const glowGeo = new THREE.PlaneGeometry(trailLength, trailHeight * 1.8);
+                    const glowGeo = new THREE.PlaneGeometry(trailLength, trailHeight * 1.5);
                     const glowMat = new THREE.MeshBasicMaterial({
                         color: config.color,
                         transparent: true,
-                        opacity: 0.25,
+                        opacity: 0.15,
                         side: THREE.DoubleSide
                     });
                     const glow = new THREE.Mesh(glowGeo, glowMat);
                     glow.rotation.y = Math.PI / 2;
-                    glow.position.set(0, trailHeight / 2, -trailLength / 2 - 3);
+                    glow.position.set(0, trailHeight / 2 + 0.3, -trailLength / 2 - 3);
                     bike.add(glow);
 
                     // Ground light strip (reflection effect)
@@ -2054,12 +2054,12 @@
                 composer = new EffectComposer(renderer);
                 composer.addPass(new RenderPass(scene, camera));
 
-                // Intense TRON neon bloom effect
+                // Balanced TRON neon bloom effect
                 const bloomPass = new UnrealBloomPass(
                     new THREE.Vector2(window.innerWidth, window.innerHeight),
-                    3.0,   // strength - intense glow
-                    0.8,   // radius - wide glow spread
-                    0.02   // threshold - catch more bright areas
+                    1.6,   // strength - balanced glow (not blown out)
+                    0.4,   // radius - moderate spread
+                    0.2    // threshold - only bright areas
                 );
                 composer.addPass(bloomPass);
             }
