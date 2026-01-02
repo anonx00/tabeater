@@ -282,88 +282,6 @@
             opacity: 0.4;
         }
 
-        /* Speed HUD */
-        .speed-hud {
-            position: fixed;
-            bottom: 40px;
-            right: 40px;
-            z-index: 100;
-            font-family: 'JetBrains Mono', monospace;
-            text-align: right;
-            pointer-events: none;
-        }
-
-        .speed-value {
-            font-size: 4rem;
-            font-weight: 700;
-            color: #ff2a2a;
-            text-shadow:
-                0 0 20px rgba(255, 42, 42, 0.8),
-                0 0 40px rgba(255, 42, 42, 0.6),
-                0 0 60px rgba(255, 42, 42, 0.4);
-            line-height: 1;
-        }
-
-        .speed-unit {
-            font-size: 1rem;
-            color: rgba(255, 42, 42, 0.7);
-            letter-spacing: 0.3em;
-            margin-top: 0.25rem;
-        }
-
-        .speed-bar {
-            width: 150px;
-            height: 4px;
-            background: rgba(255, 42, 42, 0.2);
-            border-radius: 2px;
-            margin-top: 0.75rem;
-            margin-left: auto;
-            overflow: hidden;
-        }
-
-        .speed-bar-fill {
-            height: 100%;
-            width: 0%;
-            background: linear-gradient(90deg, #ff2a2a, #ff6b6b);
-            box-shadow: 0 0 10px #ff2a2a;
-            transition: width 0.1s ease;
-        }
-
-        /* Controls Hint */
-        .controls-hint {
-            position: fixed;
-            bottom: 40px;
-            left: 40px;
-            z-index: 100;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.75rem;
-            color: rgba(255, 255, 255, 0.4);
-            letter-spacing: 0.05em;
-            pointer-events: none;
-            opacity: 1;
-            transition: opacity 2s ease;
-        }
-
-        .controls-hint.hidden {
-            opacity: 0;
-        }
-
-        @media (max-width: 768px) {
-            .speed-hud {
-                bottom: 20px;
-                right: 20px;
-            }
-            .speed-value {
-                font-size: 2.5rem;
-            }
-            .speed-bar {
-                width: 100px;
-            }
-            .controls-hint {
-                display: none;
-            }
-        }
-
         .content {
             position: relative;
             z-index: 10;
@@ -1370,19 +1288,6 @@
     <!-- CRT Scanline Overlay -->
     <div class="scanline-overlay"></div>
 
-    <!-- Speed Counter HUD -->
-    <div class="speed-hud">
-        <div class="speed-value"><span id="speed-number">0</span></div>
-        <div class="speed-unit">KM/H</div>
-        <div class="speed-bar">
-            <div class="speed-bar-fill" id="speed-bar-fill"></div>
-        </div>
-    </div>
-
-    <!-- 3D Controls Hint -->
-    <div class="controls-hint" id="controls-hint">
-        <span>🖱️ Drag to rotate • Scroll to zoom</span>
-    </div>
 
     <!-- Status indicator -->
     <div class="status-indicator">
@@ -1816,18 +1721,33 @@
             const isMobile = window.innerWidth < 768;
             const canvas = document.getElementById('bg-canvas');
 
-            // RED TRON color palette
+            // TRON color palette - multiple bike colors
             const TRON = {
+                // Grid colors
+                gridColor: 0xff1a1a,
+                gridDark: 0x330000,
+                // Bike colors (classic TRON)
+                cyan: 0x00ffff,
+                cyanBright: 0x66ffff,
+                orange: 0xff6600,
+                orangeBright: 0xffaa44,
+                yellow: 0xffff00,
+                yellowBright: 0xffff66,
+                purple: 0xcc00ff,
+                purpleBright: 0xdd66ff,
                 red: 0xff2a2a,
-                redBright: 0xff5555,
-                redGlow: 0xff0000,
-                redDark: 0x990000,
-                orange: 0xff4400,
-                pink: 0xff0066,
-                white: 0xffffff,
-                black: 0x000000,
-                gridRed: 0xff1a1a
+                redBright: 0xff6666,
+                white: 0xffffff
             };
+
+            // Bike configurations
+            const bikeConfigs = [
+                { color: TRON.cyan, bright: TRON.cyanBright, x: 0, z: 0, speed: 0.8 },
+                { color: TRON.orange, bright: TRON.orangeBright, x: -8, z: -5, speed: 0.6 },
+                { color: TRON.yellow, bright: TRON.yellowBright, x: 8, z: -8, speed: 0.7 },
+                { color: TRON.purple, bright: TRON.purpleBright, x: -4, z: 5, speed: 0.5 },
+                { color: TRON.red, bright: TRON.redBright, x: 12, z: 3, speed: 0.65 }
+            ];
 
             // ============================================
             // RENDERER
@@ -1848,10 +1768,10 @@
             // SCENE & CAMERA
             // ============================================
             const scene = new THREE.Scene();
-            scene.fog = new THREE.FogExp2(0x0a0000, 0.008);
+            scene.fog = new THREE.FogExp2(0x050008, 0.015);
 
-            const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-            camera.position.set(8, 4, 12);
+            const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 500);
+            camera.position.set(0, 25, 45);
 
             // ============================================
             // ORBIT CONTROLS
@@ -1859,179 +1779,171 @@
             const controls = new OrbitControls(camera, canvas);
             controls.enableDamping = true;
             controls.dampingFactor = 0.05;
-            controls.minDistance = 5;
-            controls.maxDistance = 30;
-            controls.maxPolarAngle = Math.PI / 2;
+            controls.minDistance = 15;
+            controls.maxDistance = 80;
+            controls.maxPolarAngle = Math.PI / 2.2;
             controls.autoRotate = true;
-            controls.autoRotateSpeed = 0.5;
-            controls.target.set(0, 1, 0);
-
-            // Hide controls hint after interaction
-            let hasInteracted = false;
-            controls.addEventListener('start', () => {
-                if (!hasInteracted) {
-                    hasInteracted = true;
-                    document.getElementById('controls-hint')?.classList.add('hidden');
-                }
-                controls.autoRotate = false;
-            });
+            controls.autoRotateSpeed = 0.3;
+            controls.target.set(0, 2, 0);
 
             // ============================================
             // LIGHTING
             // ============================================
-            const ambientLight = new THREE.AmbientLight(0x111111, 0.5);
+            const ambientLight = new THREE.AmbientLight(0x222233, 1);
             scene.add(ambientLight);
 
-            const redLight = new THREE.PointLight(TRON.red, 3, 50);
-            redLight.position.set(5, 5, 5);
-            scene.add(redLight);
+            // Colored lights for atmosphere
+            const cyanLight = new THREE.PointLight(TRON.cyan, 2, 60);
+            cyanLight.position.set(-20, 15, -20);
+            scene.add(cyanLight);
 
-            const redLight2 = new THREE.PointLight(TRON.redGlow, 2, 40);
-            redLight2.position.set(-5, 3, -5);
-            scene.add(redLight2);
+            const orangeLight = new THREE.PointLight(TRON.orange, 2, 60);
+            orangeLight.position.set(20, 15, 20);
+            scene.add(orangeLight);
+
+            const purpleLight = new THREE.PointLight(TRON.purple, 1.5, 50);
+            purpleLight.position.set(0, 20, 0);
+            scene.add(purpleLight);
 
             // ============================================
-            // THE GRID - Red racing lines
+            // THE GRID - TRON style
             // ============================================
             const gridGroup = new THREE.Group();
-            const gridSize = 100;
-            const gridDivisions = isMobile ? 30 : 50;
+            const gridSize = 150;
+            const gridDivisions = isMobile ? 40 : 75;
 
-            // Main grid
-            const gridHelper = new THREE.GridHelper(gridSize, gridDivisions, TRON.redDark, TRON.redDark);
-            gridHelper.material.opacity = 0.3;
+            // Main grid with red/dark color
+            const gridHelper = new THREE.GridHelper(gridSize, gridDivisions, TRON.gridColor, TRON.gridDark);
+            gridHelper.material.opacity = 0.4;
             gridHelper.material.transparent = true;
             gridGroup.add(gridHelper);
 
-            // Racing lines (animated)
-            const racingLines = [];
-            for (let i = 0; i < 8; i++) {
-                const lineGeo = new THREE.PlaneGeometry(0.1, gridSize);
-                const lineMat = new THREE.MeshBasicMaterial({
-                    color: TRON.red,
-                    transparent: true,
-                    opacity: 0.6,
-                    side: THREE.DoubleSide
-                });
-                const line = new THREE.Mesh(lineGeo, lineMat);
-                line.rotation.x = -Math.PI / 2;
-                line.position.x = (i - 3.5) * 8;
-                line.position.y = 0.01;
-                racingLines.push({ mesh: line, speed: 0.5 + Math.random() * 0.5, offset: Math.random() * gridSize });
-                gridGroup.add(line);
-            }
-
-            gridGroup.position.y = -0.5;
+            gridGroup.position.y = 0;
             scene.add(gridGroup);
 
             // ============================================
-            // LOAD BIKE MODEL
+            // LOAD MULTIPLE BIKES
             // ============================================
             const loader = new GLTFLoader();
-            let bikeModel = null;
-            let bikeMixer = null;
+            const bikes = [];
+            const bikeCount = isMobile ? 3 : 5;
 
             loader.load('bike.glb', (gltf) => {
-                bikeModel = gltf.scene;
-                bikeModel.scale.set(1, 1, 1);
-                bikeModel.position.set(0, 0, 0);
+                // Create multiple bikes with different colors
+                for (let i = 0; i < bikeCount; i++) {
+                    const config = bikeConfigs[i];
+                    const bike = gltf.scene.clone();
 
-                // Add emissive glow to bike materials
-                bikeModel.traverse((child) => {
-                    if (child.isMesh) {
-                        if (child.material) {
-                            child.material.emissive = new THREE.Color(TRON.red);
-                            child.material.emissiveIntensity = 0.3;
+                    // Scale bikes to be prominent
+                    bike.scale.set(2.5, 2.5, 2.5);
+                    bike.position.set(config.x, 0, config.z);
+                    bike.rotation.y = Math.PI / 2; // Face forward
+
+                    // Apply color to bike materials
+                    bike.traverse((child) => {
+                        if (child.isMesh && child.material) {
+                            child.material = child.material.clone();
+                            child.material.emissive = new THREE.Color(config.color);
+                            child.material.emissiveIntensity = 0.5;
+                            child.material.color = new THREE.Color(0x111111);
                         }
-                    }
-                });
+                    });
 
-                scene.add(bikeModel);
+                    // Add point light to each bike
+                    const bikeLight = new THREE.PointLight(config.color, 3, 25);
+                    bikeLight.position.set(0, 1, 0);
+                    bike.add(bikeLight);
 
-                // Add point light following bike
-                const bikeLight = new THREE.PointLight(TRON.redGlow, 2, 15);
-                bikeLight.position.set(0, 2, 0);
-                bikeModel.add(bikeLight);
+                    // Create light trail for each bike
+                    const trailLength = 25;
+                    const trailGeo = new THREE.PlaneGeometry(0.3, trailLength);
+                    const trailMat = new THREE.MeshBasicMaterial({
+                        color: config.bright,
+                        transparent: true,
+                        opacity: 0.9,
+                        side: THREE.DoubleSide
+                    });
+                    const trail = new THREE.Mesh(trailGeo, trailMat);
+                    trail.rotation.x = -Math.PI / 2;
+                    trail.position.set(config.x, 0.3, config.z - trailLength / 2 - 3);
 
+                    // Trail glow
+                    const glowGeo = new THREE.PlaneGeometry(1.5, trailLength);
+                    const glowMat = new THREE.MeshBasicMaterial({
+                        color: config.color,
+                        transparent: true,
+                        opacity: 0.3,
+                        side: THREE.DoubleSide
+                    });
+                    const glow = new THREE.Mesh(glowGeo, glowMat);
+                    glow.rotation.x = -Math.PI / 2;
+                    glow.position.set(config.x, 0.2, config.z - trailLength / 2 - 3);
+
+                    scene.add(bike);
+                    scene.add(trail);
+                    scene.add(glow);
+
+                    bikes.push({
+                        mesh: bike,
+                        trail: trail,
+                        glow: glow,
+                        config: config,
+                        baseX: config.x,
+                        baseZ: config.z,
+                        time: Math.random() * Math.PI * 2
+                    });
+                }
             }, undefined, (error) => {
                 console.error('Error loading bike model:', error);
             });
 
             // ============================================
-            // LIGHT TRAIL behind bike
+            // PARTICLES - Multi-colored
             // ============================================
-            const trailGeo = new THREE.PlaneGeometry(0.15, 20);
-            const trailMat = new THREE.MeshBasicMaterial({
-                color: TRON.redBright,
-                transparent: true,
-                opacity: 0.8,
-                side: THREE.DoubleSide
-            });
-            const trail = new THREE.Mesh(trailGeo, trailMat);
-            trail.rotation.x = -Math.PI / 2;
-            trail.position.set(0, 0.5, -10);
-            scene.add(trail);
-
-            // Trail glow
-            const trailGlowGeo = new THREE.PlaneGeometry(0.5, 20);
-            const trailGlowMat = new THREE.MeshBasicMaterial({
-                color: TRON.red,
-                transparent: true,
-                opacity: 0.3,
-                side: THREE.DoubleSide
-            });
-            const trailGlow = new THREE.Mesh(trailGlowGeo, trailGlowMat);
-            trailGlow.rotation.x = -Math.PI / 2;
-            trailGlow.position.set(0, 0.4, -10);
-            scene.add(trailGlow);
-
-            // ============================================
-            // PARTICLES
-            // ============================================
-            const particleCount = isMobile ? 100 : 300;
+            const particleCount = isMobile ? 150 : 400;
             const particleGeo = new THREE.BufferGeometry();
             const positions = new Float32Array(particleCount * 3);
+            const colors = new Float32Array(particleCount * 3);
             const velocities = [];
 
+            const particleColors = [
+                new THREE.Color(TRON.cyan),
+                new THREE.Color(TRON.orange),
+                new THREE.Color(TRON.purple),
+                new THREE.Color(TRON.yellow),
+                new THREE.Color(TRON.red)
+            ];
+
             for (let i = 0; i < particleCount; i++) {
-                positions[i * 3] = (Math.random() - 0.5) * 80;
-                positions[i * 3 + 1] = Math.random() * 20;
-                positions[i * 3 + 2] = (Math.random() - 0.5) * 80;
+                positions[i * 3] = (Math.random() - 0.5) * 120;
+                positions[i * 3 + 1] = Math.random() * 30;
+                positions[i * 3 + 2] = (Math.random() - 0.5) * 120;
+
+                const color = particleColors[Math.floor(Math.random() * particleColors.length)];
+                colors[i * 3] = color.r;
+                colors[i * 3 + 1] = color.g;
+                colors[i * 3 + 2] = color.b;
+
                 velocities.push({
-                    x: (Math.random() - 0.5) * 0.02,
-                    y: (Math.random() - 0.5) * 0.01,
-                    z: (Math.random() - 0.5) * 0.02
+                    x: (Math.random() - 0.5) * 0.03,
+                    y: (Math.random() - 0.5) * 0.02,
+                    z: (Math.random() - 0.5) * 0.03
                 });
             }
 
             particleGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            particleGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
 
             const particleMat = new THREE.PointsMaterial({
-                color: TRON.red,
-                size: isMobile ? 0.15 : 0.1,
+                size: isMobile ? 0.2 : 0.15,
                 transparent: true,
-                opacity: 0.6,
+                opacity: 0.8,
+                vertexColors: true,
                 blending: THREE.AdditiveBlending
             });
 
             const particles = new THREE.Points(particleGeo, particleMat);
             scene.add(particles);
-
-            // ============================================
-            // SPEED COUNTER
-            // ============================================
-            const speedEl = document.getElementById('speed-number');
-            const speedBarEl = document.getElementById('speed-bar-fill');
-            let targetSpeed = 280;
-            let currentSpeed = 0;
-
-            function updateSpeed() {
-                // Fluctuate target around 280
-                targetSpeed = 275 + Math.sin(Date.now() * 0.001) * 15 + Math.random() * 10;
-                currentSpeed += (targetSpeed - currentSpeed) * 0.1;
-                if (speedEl) speedEl.textContent = Math.round(currentSpeed);
-                if (speedBarEl) speedBarEl.style.width = Math.min(100, (currentSpeed / 320) * 100) + '%';
-            }
 
             // ============================================
             // POST-PROCESSING (Desktop only)
@@ -2047,7 +1959,7 @@
 
                 const bloomPass = new UnrealBloomPass(
                     new THREE.Vector2(window.innerWidth, window.innerHeight),
-                    1.5, 0.4, 0.85
+                    2.0, 0.5, 0.1
                 );
                 composer.addPass(bloomPass);
             }
@@ -2062,12 +1974,26 @@
                 time += 0.016;
 
                 controls.update();
-                updateSpeed();
 
-                // Animate racing lines
-                racingLines.forEach(line => {
-                    line.mesh.position.z = ((time * line.speed * 20 + line.offset) % gridSize) - gridSize / 2;
-                    line.mesh.material.opacity = 0.3 + Math.sin(time * 2 + line.offset) * 0.2;
+                // Animate bikes - subtle hovering motion
+                bikes.forEach((bike, i) => {
+                    bike.time += 0.02 * bike.config.speed;
+
+                    // Subtle hover
+                    bike.mesh.position.y = 0.2 + Math.sin(bike.time) * 0.15;
+
+                    // Slight forward/back oscillation
+                    const zOffset = Math.sin(bike.time * 0.5) * 2;
+                    bike.mesh.position.z = bike.baseZ + zOffset;
+
+                    // Update trail position
+                    const trailLength = 25;
+                    bike.trail.position.z = bike.mesh.position.z - trailLength / 2 - 3;
+                    bike.glow.position.z = bike.mesh.position.z - trailLength / 2 - 3;
+
+                    // Pulse trail opacity
+                    bike.trail.material.opacity = 0.7 + Math.sin(bike.time * 2) * 0.2;
+                    bike.glow.material.opacity = 0.2 + Math.sin(bike.time * 1.5) * 0.1;
                 });
 
                 // Animate particles
@@ -2078,19 +2004,16 @@
                     pos[i * 3 + 2] += velocities[i].z;
 
                     // Reset if out of bounds
-                    if (Math.abs(pos[i * 3]) > 40) pos[i * 3] *= -0.9;
-                    if (pos[i * 3 + 1] > 20 || pos[i * 3 + 1] < 0) velocities[i].y *= -1;
-                    if (Math.abs(pos[i * 3 + 2]) > 40) pos[i * 3 + 2] *= -0.9;
+                    if (Math.abs(pos[i * 3]) > 60) pos[i * 3] *= -0.9;
+                    if (pos[i * 3 + 1] > 30 || pos[i * 3 + 1] < 0) velocities[i].y *= -1;
+                    if (Math.abs(pos[i * 3 + 2]) > 60) pos[i * 3 + 2] *= -0.9;
                 }
                 particles.geometry.attributes.position.needsUpdate = true;
 
-                // Pulse lights
-                redLight.intensity = 3 + Math.sin(time * 2) * 0.5;
-                redLight2.intensity = 2 + Math.cos(time * 1.5) * 0.3;
-
-                // Animate trail
-                trail.material.opacity = 0.6 + Math.sin(time * 5) * 0.2;
-                trailGlow.material.opacity = 0.2 + Math.sin(time * 3) * 0.1;
+                // Pulse atmosphere lights
+                cyanLight.intensity = 2 + Math.sin(time * 1.5) * 0.5;
+                orangeLight.intensity = 2 + Math.cos(time * 1.2) * 0.5;
+                purpleLight.intensity = 1.5 + Math.sin(time * 0.8) * 0.3;
 
                 // Render
                 if (composer) {
