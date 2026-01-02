@@ -2004,9 +2004,9 @@
                     pos[i * 3 + 2] += velocities[i].z;
 
                     // Reset if out of bounds
-                    if (Math.abs(pos[i * 3]) > 60) pos[i * 3] *= -0.9;
+                    if (Math.abs(pos[i * 3]) > 60) velocities[i].x *= -1;
                     if (pos[i * 3 + 1] > 30 || pos[i * 3 + 1] < 0) velocities[i].y *= -1;
-                    if (Math.abs(pos[i * 3 + 2]) > 60) pos[i * 3 + 2] *= -0.9;
+                    if (Math.abs(pos[i * 3 + 2]) > 60) velocities[i].z *= -1;
                 }
                 particles.geometry.attributes.position.needsUpdate = true;
 
