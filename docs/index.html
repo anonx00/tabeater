@@ -1898,7 +1898,7 @@
             const particleGeo = new THREE.BufferGeometry();
             const positions = new Float32Array(particleCount * 3);
             const colors = new Float32Array(particleCount * 3);
-            const velocities = [];
+            const velocities = new Float32Array(particleCount * 3);
 
             const particleColors = [
                 new THREE.Color(TRON.cyan),
@@ -1918,11 +1918,9 @@
                 colors[i * 3 + 1] = color.g;
                 colors[i * 3 + 2] = color.b;
 
-                velocities.push({
-                    x: (Math.random() - 0.5) * 0.03,
-                    y: (Math.random() - 0.5) * 0.02,
-                    z: (Math.random() - 0.5) * 0.03
-                });
+                velocities[i * 3] = (Math.random() - 0.5) * 0.03;
+                velocities[i * 3 + 1] = (Math.random() - 0.5) * 0.02;
+                velocities[i * 3 + 2] = (Math.random() - 0.5) * 0.03;
             }
 
             particleGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
@@ -1959,12 +1957,33 @@
             }
 
             // ============================================
-            // ANIMATION LOOP
+            // ANIMATION LOOP with Performance Optimizations
             // ============================================
             let time = 0;
+            let isVisible = true;
+            let lastFrameTime = 0;
+            const targetFPS = isMobile ? 30 : 60;
+            const frameInterval = 1000 / targetFPS;
 
-            function animate() {
+            // Visibility check - pause animation when off-screen
+            const observer = new IntersectionObserver((entries) => {
+                isVisible = entries[0].isIntersecting;
+            }, { threshold: 0.1 });
+            observer.observe(canvas);
+
+            function animate(currentTime) {
                 requestAnimationFrame(animate);
+
+                // Skip if not visible (saves CPU/GPU)
+                if (!isVisible) return;
+
+                // FPS throttling for mobile
+                if (isMobile) {
+                    const elapsed = currentTime - lastFrameTime;
+                    if (elapsed < frameInterval) return;
+                    lastFrameTime = currentTime - (elapsed % frameInterval);
+                }
+
                 time += 0.016;
 
                 // Auto-rotate camera around the scene
@@ -1995,17 +2014,18 @@
                     bike.glow.material.opacity = 0.2 + Math.sin(bike.time * 1.5) * 0.1;
                 });
 
-                // Animate particles
+                // Animate particles (using typed array)
                 const pos = particles.geometry.attributes.position.array;
                 for (let i = 0; i < particleCount; i++) {
-                    pos[i * 3] += velocities[i].x;
-                    pos[i * 3 + 1] += velocities[i].y;
-                    pos[i * 3 + 2] += velocities[i].z;
+                    const idx = i * 3;
+                    pos[idx] += velocities[idx];
+                    pos[idx + 1] += velocities[idx + 1];
+                    pos[idx + 2] += velocities[idx + 2];
 
                     // Reset if out of bounds
-                    if (Math.abs(pos[i * 3]) > 60) velocities[i].x *= -1;
-                    if (pos[i * 3 + 1] > 30 || pos[i * 3 + 1] < 0) velocities[i].y *= -1;
-                    if (Math.abs(pos[i * 3 + 2]) > 60) velocities[i].z *= -1;
+                    if (Math.abs(pos[idx]) > 60) velocities[idx] *= -1;
+                    if (pos[idx + 1] > 30 || pos[idx + 1] < 0) velocities[idx + 1] *= -1;
+                    if (Math.abs(pos[idx + 2]) > 60) velocities[idx + 2] *= -1;
                 }
                 particles.geometry.attributes.position.needsUpdate = true;
 
@@ -2022,7 +2042,7 @@
                 }
             }
 
-            animate();
+            animate(0);
 
             // Resize handler
             window.addEventListener('resize', () => {
