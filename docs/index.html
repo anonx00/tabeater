@@ -1738,17 +1738,17 @@
                 white: 0xffffff
             };
 
-            // Bike configurations
+            // Bike configurations - racing formation spread across the grid
             const bikeConfigs = [
-                { color: TRON.cyan, bright: TRON.cyanBright, x: 0, z: 0, speed: 0.8 },
-                { color: TRON.orange, bright: TRON.orangeBright, x: -8, z: -5, speed: 0.6 },
-                { color: TRON.yellow, bright: TRON.yellowBright, x: 8, z: -8, speed: 0.7 },
-                { color: TRON.purple, bright: TRON.purpleBright, x: -4, z: 5, speed: 0.5 },
-                { color: TRON.red, bright: TRON.redBright, x: 12, z: 3, speed: 0.65 }
+                { color: TRON.cyan, bright: TRON.cyanBright, x: 0, z: 0, speed: 1.0 },
+                { color: TRON.orange, bright: TRON.orangeBright, x: -15, z: -15, speed: 0.85 },
+                { color: TRON.yellow, bright: TRON.yellowBright, x: 20, z: -25, speed: 0.9 },
+                { color: TRON.purple, bright: TRON.purpleBright, x: -25, z: -35, speed: 0.75 },
+                { color: TRON.red, bright: TRON.redBright, x: 30, z: -10, speed: 0.95 }
             ];
 
             // ============================================
-            // RENDERER
+            // RENDERER - Cinematic dark style
             // ============================================
             const renderer = new THREE.WebGLRenderer({
                 canvas,
@@ -1758,46 +1758,50 @@
             });
             renderer.setPixelRatio(isMobile ? 1 : Math.min(window.devicePixelRatio, 2));
             renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setClearColor(0x050505, 1);
+            renderer.setClearColor(0x000000, 1);
             renderer.toneMapping = THREE.ACESFilmicToneMapping;
-            renderer.toneMappingExposure = 1.2;
+            renderer.toneMappingExposure = 0.5; // Darker for cinematic look
 
             // ============================================
-            // SCENE & CAMERA
+            // SCENE & CAMERA - Low dramatic angle
             // ============================================
             const scene = new THREE.Scene();
-            scene.fog = new THREE.FogExp2(0x050008, 0.015);
+            scene.fog = new THREE.FogExp2(0x000005, 0.006); // Denser fog for cinematic depth
 
-            const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 500);
-            camera.position.set(0, 28, 50);
-            camera.lookAt(0, 2, 0);
+            const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 4, 55);
+            camera.lookAt(0, 0, -40);
 
-            // Camera orbit parameters (auto-rotate without user control)
+            // Camera parameters - slow cinematic sweep at low angle
             const cameraOrbit = {
-                radius: 50,
-                height: 28,
-                speed: 0.12,
-                lookAtHeight: 2
+                radius: 65,
+                height: 5,
+                speed: 0.04,
+                lookAtHeight: 0
             };
 
             // ============================================
-            // LIGHTING
+            // LIGHTING - Dramatic and minimal
             // ============================================
-            const ambientLight = new THREE.AmbientLight(0x222233, 1);
+            const ambientLight = new THREE.AmbientLight(0x030308, 0.3);
             scene.add(ambientLight);
 
-            // Colored lights for atmosphere
-            const cyanLight = new THREE.PointLight(TRON.cyan, 2, 60);
-            cyanLight.position.set(-20, 15, -20);
+            // Subtle colored rim lights for atmosphere
+            const cyanLight = new THREE.PointLight(TRON.cyan, 2, 120);
+            cyanLight.position.set(-50, 15, -50);
             scene.add(cyanLight);
 
-            const orangeLight = new THREE.PointLight(TRON.orange, 2, 60);
-            orangeLight.position.set(20, 15, 20);
+            const orangeLight = new THREE.PointLight(TRON.orange, 2, 120);
+            orangeLight.position.set(50, 15, -50);
             scene.add(orangeLight);
 
-            const purpleLight = new THREE.PointLight(TRON.purple, 1.5, 50);
-            purpleLight.position.set(0, 20, 0);
+            const purpleLight = new THREE.PointLight(TRON.purple, 1.5, 100);
+            purpleLight.position.set(0, 20, -80);
             scene.add(purpleLight);
+
+            const redLight = new THREE.PointLight(TRON.red, 0.8, 60);
+            redLight.position.set(0, 3, 30);
+            scene.add(redLight);
 
             // ============================================
             // THE GRID - TRON style with movement
@@ -1805,16 +1809,16 @@
             const gridSize = 200;
             const gridDivisions = isMobile ? 50 : 100;
 
-            // Create two grids for seamless scrolling effect
+            // Create two grids for seamless scrolling effect - darker for cinematic look
             const gridHelper1 = new THREE.GridHelper(gridSize, gridDivisions, TRON.gridColor, TRON.gridDark);
-            gridHelper1.material.opacity = 0.4;
+            gridHelper1.material.opacity = 0.25;
             gridHelper1.material.transparent = true;
             gridHelper1.position.z = 0;
             scene.add(gridHelper1);
 
             // Second grid for seamless loop
             const gridHelper2 = new THREE.GridHelper(gridSize, gridDivisions, TRON.gridColor, TRON.gridDark);
-            gridHelper2.material.opacity = 0.4;
+            gridHelper2.material.opacity = 0.25;
             gridHelper2.material.transparent = true;
             gridHelper2.position.z = -gridSize;
             scene.add(gridHelper2);
@@ -1854,31 +1858,31 @@
                     bikeLight.position.set(0, 1, -2);
                     bike.add(bikeLight);
 
-                    // Create light trail BEHIND the bike (attached to bike)
-                    const trailLength = 30;
-                    const trailGeo = new THREE.PlaneGeometry(0.25, trailLength);
+                    // Create LONG dramatic light trail BEHIND the bike (attached to bike)
+                    const trailLength = 80;
+                    const trailGeo = new THREE.PlaneGeometry(0.3, trailLength);
                     const trailMat = new THREE.MeshBasicMaterial({
                         color: config.bright,
                         transparent: true,
-                        opacity: 0.85,
+                        opacity: 0.9,
                         side: THREE.DoubleSide
                     });
                     const trail = new THREE.Mesh(trailGeo, trailMat);
                     trail.rotation.x = -Math.PI / 2;
-                    trail.position.set(0, 0.3, -trailLength / 2 - 2);
+                    trail.position.set(0, 0.35, -trailLength / 2 - 2);
                     bike.add(trail); // Attach to bike
 
-                    // Trail glow
-                    const glowGeo = new THREE.PlaneGeometry(1.2, trailLength);
+                    // Wide glow trail for dramatic effect
+                    const glowGeo = new THREE.PlaneGeometry(2.5, trailLength);
                     const glowMat = new THREE.MeshBasicMaterial({
                         color: config.color,
                         transparent: true,
-                        opacity: 0.25,
+                        opacity: 0.18,
                         side: THREE.DoubleSide
                     });
                     const glow = new THREE.Mesh(glowGeo, glowMat);
                     glow.rotation.x = -Math.PI / 2;
-                    glow.position.set(0, 0.2, -trailLength / 2 - 2);
+                    glow.position.set(0, 0.25, -trailLength / 2 - 2);
                     bike.add(glow); // Attach to bike
 
                     scene.add(bike);
@@ -1957,7 +1961,7 @@
 
                 const bloomPass = new UnrealBloomPass(
                     new THREE.Vector2(window.innerWidth, window.innerHeight),
-                    2.0, 0.5, 0.1
+                    2.5, 0.6, 0.05  // Higher strength, wider radius, lower threshold for cinematic glow
                 );
                 composer.addPass(bloomPass);
             }
@@ -1992,12 +1996,12 @@
 
                 time += 0.016;
 
-                // Auto-rotate camera around the scene
+                // Auto-rotate camera around the scene - cinematic low sweep
                 const angle = time * cameraOrbit.speed;
                 camera.position.x = Math.sin(angle) * cameraOrbit.radius;
                 camera.position.z = Math.cos(angle) * cameraOrbit.radius;
-                camera.position.y = cameraOrbit.height + Math.sin(time * 0.25) * 3;
-                camera.lookAt(0, cameraOrbit.lookAtHeight, 0);
+                camera.position.y = cameraOrbit.height + Math.sin(time * 0.15) * 1.5; // Subtle vertical movement
+                camera.lookAt(0, cameraOrbit.lookAtHeight, -15);
 
                 // Animate grid - scrolling to create movement illusion
                 gridHelper1.position.z += gridSpeed * 0.016;
