@@ -15,533 +15,139 @@
     <title>TabEater - AI-Powered Tab Management for Chrome</title>
     <meta name="description" content="Tame your browser chaos with TabEater. AI-powered tab intelligence that organizes, analyzes, and manages your Chrome tabs instantly. Privacy-first with local AI support.">
 
-    <!-- Open Graph / Facebook -->
+    <!-- Open Graph -->
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://anonx00.github.io/tabeater/">
     <meta property="og:title" content="TabEater - AI-Powered Tab Management for Chrome">
-    <meta property="og:description" content="Tame your browser chaos with AI-powered tab intelligence. Organize, analyze, and manage tabs instantly.">
+    <meta property="og:description" content="Tame your browser chaos with AI-powered tab intelligence.">
     <meta property="og:image" content="https://anonx00.github.io/tabeater/og-image.png">
-    <meta property="og:site_name" content="TabEater">
 
     <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:url" content="https://anonx00.github.io/tabeater/">
     <meta name="twitter:title" content="TabEater - AI-Powered Tab Management">
     <meta name="twitter:description" content="Tame your browser chaos with AI-powered tab intelligence.">
-    <meta name="twitter:image" content="https://anonx00.github.io/tabeater/og-image.png">
 
-    <!-- Additional SEO -->
+    <!-- SEO -->
     <link rel="canonical" href="https://anonx00.github.io/tabeater/">
     <meta name="theme-color" content="#1a0000">
     <meta name="robots" content="index, follow">
-    <meta name="author" content="TabEater">
-    <meta name="keywords" content="tab manager, chrome extension, AI tab organizer, browser tabs, productivity, tab grouping">
+    <meta name="keywords" content="tab manager, chrome extension, AI tab organizer, browser tabs, productivity">
 
     <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%230a0a0a' rx='4'/%3E%3Cpath d='M4 8.5V26C4 27 5 28 6 28H26C27 28 28 27 28 26V11C28 10 27 9 26 9H16L13 5H6C5 5 4 6 4 7V8.5Z' fill='none' stroke='%23FF3333' stroke-width='2'/%3E%3Crect x='8' y='13' width='6' height='6' fill='%23FF3333'/%3E%3C/svg%3E">
 
-    <!-- Preconnect for performance -->
+    <!-- Preconnect -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preconnect" href="https://unpkg.com">
 
     <!-- Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Orbitron:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-
-    <!-- Structured Data -->
-    <script type="application/ld+json">
-    {
-        "@context": "https://schema.org",
-        "@type": "SoftwareApplication",
-        "name": "TabEater",
-        "applicationCategory": "BrowserApplication",
-        "operatingSystem": "Chrome",
-        "description": "AI-powered tab intelligence for Chrome. Organize, analyze, and manage your tabs instantly with privacy-first local AI.",
-        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
-        "author": { "@type": "Organization", "name": "TabEater" }
-    }
-    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Orbitron:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-
         :root {
             --neon-red: #FF3333;
-            --neon-crimson: #FF1A1A;
-            --neon-orange: #FF6600;
-            --neon-pink: #FF0066;
             --accent: #FF4444;
             --accent-bright: #FF6666;
-            --bg: #000000;
             --text: #ffffff;
             --text-dim: #FFB8B8;
-            --text-muted: #CC8888;
-            --focus-ring: 0 0 0 3px rgba(255, 68, 68, 0.5);
         }
 
         @media (prefers-reduced-motion: reduce) {
-            *, *::before, *::after {
-                animation-duration: 0.01ms !important;
-                animation-iteration-count: 1 !important;
-                transition-duration: 0.01ms !important;
-            }
+            *, *::before, *::after { animation-duration: 0.01ms !important; }
             #bg-canvas { display: none !important; }
-            body::before {
-                content: '';
-                position: fixed;
-                inset: 0;
-                background: linear-gradient(180deg, #0a0000 0%, #1a0505 100%);
-                z-index: 0;
-            }
+            body::before { content: ''; position: fixed; inset: 0; background: linear-gradient(180deg, #0a0000 0%, #1a0505 100%); z-index: 0; }
         }
 
-        .skip-link {
-            position: absolute;
-            top: -100%;
-            left: 50%;
-            transform: translateX(-50%);
-            padding: 1rem 2rem;
-            background: var(--accent);
-            color: #000;
-            font-family: 'Orbitron', sans-serif;
-            font-weight: 600;
-            text-decoration: none;
-            border-radius: 0 0 8px 8px;
-            z-index: 9999;
-            transition: top 0.3s ease;
-        }
-        .skip-link:focus { top: 0; outline: none; }
+        .skip-link { position: absolute; top: -100%; left: 50%; transform: translateX(-50%); padding: 1rem 2rem; background: var(--accent); color: #000; font-family: 'Orbitron', sans-serif; font-weight: 600; text-decoration: none; border-radius: 0 0 8px 8px; z-index: 9999; }
+        .skip-link:focus { top: 0; }
 
-        html { scroll-behavior: smooth; }
+        body { font-family: 'Inter', sans-serif; background: #000; color: var(--text); min-height: 100vh; overflow-x: hidden; line-height: 1.6; }
 
-        body {
-            font-family: 'Inter', sans-serif;
-            background: #000000;
-            color: var(--text);
-            min-height: 100vh;
-            overflow-x: hidden;
-            line-height: 1.6;
-        }
-
-        .loading-overlay {
-            position: fixed;
-            inset: 0;
-            background: #000;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 10000;
-            transition: opacity 0.5s ease, visibility 0.5s ease;
-        }
+        .loading-overlay { position: fixed; inset: 0; background: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1rem; z-index: 10000; transition: opacity 0.5s; }
         .loading-overlay.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
-        .loading-spinner {
-            width: 60px;
-            height: 60px;
-            border: 3px solid rgba(255, 51, 51, 0.2);
-            border-top-color: var(--accent);
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
+        .loading-spinner { width: 60px; height: 60px; border: 3px solid rgba(255, 51, 51, 0.2); border-top-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite; }
+        .loading-text { font-family: 'Orbitron', sans-serif; color: var(--accent); font-size: 0.75rem; letter-spacing: 0.2em; }
         @keyframes spin { to { transform: rotate(360deg); } }
 
-        #bg-canvas {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100vh;
-            z-index: 0;
-        }
-
+        #bg-canvas { position: fixed; top: 0; left: 0; width: 100%; height: 100vh; z-index: 0; }
         .content { position: relative; z-index: 10; }
 
-        .hero {
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 2rem;
-            text-align: center;
-        }
+        .hero { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 2rem; text-align: center; }
 
-        .hero-content {
-            background: rgba(40, 0, 0, 0.75);
-            backdrop-filter: blur(30px);
-            -webkit-backdrop-filter: blur(30px);
-            padding: 3rem;
-            border-radius: 20px;
-            border: 1px solid rgba(255, 51, 51, 0.3);
-            box-shadow:
-                0 0 60px rgba(255, 51, 51, 0.15),
-                inset 0 0 60px rgba(255, 51, 51, 0.05);
-            max-width: 520px;
-            animation: fadeInUp 0.8s ease-out;
-        }
+        .hero-content { background: rgba(40, 0, 0, 0.75); backdrop-filter: blur(30px); padding: 3rem; border-radius: 20px; border: 1px solid rgba(255, 51, 51, 0.3); box-shadow: 0 0 60px rgba(255, 51, 51, 0.15); max-width: 520px; animation: fadeInUp 0.8s ease-out; }
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
 
-        @keyframes fadeInUp {
-            from { opacity: 0; transform: translateY(30px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
+        .logo { width: 80px; height: 80px; margin-bottom: 1.5rem; filter: drop-shadow(0 0 30px rgba(255, 68, 68, 0.8)); }
 
-        .logo {
-            width: 80px;
-            height: 80px;
-            margin-bottom: 1.5rem;
-            filter: drop-shadow(0 0 30px rgba(255, 68, 68, 0.8));
-        }
+        .headline { font-family: 'Orbitron', sans-serif; font-size: clamp(1.8rem, 5vw, 2.8rem); font-weight: 800; letter-spacing: 0.05em; margin-bottom: 0.5rem; text-transform: uppercase; background: linear-gradient(180deg, #fff 0%, #FF6666 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+        .headline-accent { background: linear-gradient(90deg, #FF3333, #FF6666, #FF3333); background-size: 200% 100%; -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; animation: shimmer 3s linear infinite; }
+        @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 
-        .headline {
-            font-family: 'Orbitron', sans-serif;
-            font-size: clamp(1.8rem, 5vw, 2.8rem);
-            font-weight: 800;
-            letter-spacing: 0.05em;
-            margin-bottom: 0.5rem;
-            text-transform: uppercase;
-            background: linear-gradient(180deg, #fff 0%, #FF6666 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
+        .subheadline { font-size: 1.1rem; color: var(--text-dim); margin-bottom: 2rem; line-height: 1.7; }
 
-        .headline-accent {
-            background: linear-gradient(90deg, #FF3333, #FF6666, #FF3333);
-            background-size: 200% 100%;
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            animation: shimmer 3s linear infinite;
-        }
+        .cta-group { display: flex; gap: 1rem; flex-wrap: wrap; justify-content: center; }
 
-        @keyframes shimmer {
-            0% { background-position: 200% 0; }
-            100% { background-position: -200% 0; }
-        }
-
-        .subheadline {
-            font-size: 1.1rem;
-            color: var(--text-dim);
-            margin-bottom: 2rem;
-            line-height: 1.7;
-        }
-
-        .cta-group {
-            display: flex;
-            gap: 1rem;
-            flex-wrap: wrap;
-            justify-content: center;
-        }
-
-        .btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            padding: 1rem 2rem;
-            border-radius: 8px;
-            font-family: 'Orbitron', sans-serif;
-            font-size: 0.85rem;
-            font-weight: 600;
-            text-decoration: none;
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-            transition: all 0.3s ease;
-            cursor: pointer;
-            border: none;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
-
-        .btn::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
-            transition: left 0.5s ease;
-        }
+        .btn { display: inline-flex; align-items: center; gap: 0.5rem; padding: 1rem 2rem; border-radius: 8px; font-family: 'Orbitron', sans-serif; font-size: 0.85rem; font-weight: 600; text-decoration: none; text-transform: uppercase; letter-spacing: 0.1em; transition: all 0.3s; cursor: pointer; border: none; position: relative; overflow: hidden; }
+        .btn::before { content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent); transition: left 0.5s; }
         .btn:hover::before { left: 100%; }
 
-        .btn-primary {
-            background: linear-gradient(135deg, #FF6666 0%, #FF3333 100%);
-            color: #000;
-            box-shadow: 0 0 30px rgba(255, 68, 68, 0.5);
-        }
-        .btn-primary:hover {
-            transform: translateY(-3px) scale(1.02);
-            box-shadow: 0 0 50px rgba(255, 68, 68, 0.8);
-        }
+        .btn-primary { background: linear-gradient(135deg, #FF6666 0%, #FF3333 100%); color: #000; box-shadow: 0 0 30px rgba(255, 68, 68, 0.5); }
+        .btn-primary:hover { transform: translateY(-3px) scale(1.02); box-shadow: 0 0 50px rgba(255, 68, 68, 0.8); }
 
-        .btn-secondary {
-            background: transparent;
-            color: var(--neon-red);
-            border: 2px solid var(--neon-red);
-        }
-        .btn-secondary:hover {
-            background: rgba(255, 51, 51, 0.15);
-            box-shadow: 0 0 30px rgba(255, 51, 51, 0.3);
-        }
+        .btn-secondary { background: transparent; color: var(--neon-red); border: 2px solid var(--neon-red); }
+        .btn-secondary:hover { background: rgba(255, 51, 51, 0.15); box-shadow: 0 0 30px rgba(255, 51, 51, 0.3); }
 
-        .btn svg { width: 18px; height: 18px; flex-shrink: 0; }
+        .btn svg { width: 18px; height: 18px; }
 
-        .scroll-indicator {
-            position: absolute;
-            bottom: 2rem;
-            color: var(--text-dim);
-            font-family: 'Orbitron', sans-serif;
-            font-size: 0.65rem;
-            letter-spacing: 0.3em;
-            text-transform: uppercase;
-            animation: pulse 2s ease-in-out infinite;
-        }
+        .scroll-indicator { position: absolute; bottom: 2rem; color: var(--text-dim); font-family: 'Orbitron', sans-serif; font-size: 0.65rem; letter-spacing: 0.3em; text-transform: uppercase; animation: pulse 2s ease-in-out infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 0.5; transform: translateY(0); } 50% { opacity: 1; transform: translateY(5px); } }
 
-        @keyframes pulse {
-            0%, 100% { opacity: 0.5; transform: translateY(0); }
-            50% { opacity: 1; transform: translateY(5px); }
-        }
+        .status-indicator { position: fixed; top: 20px; left: 20px; display: flex; align-items: center; gap: 10px; background: rgba(40, 0, 0, 0.85); backdrop-filter: blur(10px); padding: 10px 16px; border-radius: 8px; border: 1px solid rgba(255, 51, 51, 0.2); z-index: 100; font-family: 'Orbitron', sans-serif; font-size: 0.65rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent); }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 15px var(--accent); animation: blink 1.5s ease-in-out infinite; }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
 
-        .status-indicator {
-            position: fixed;
-            top: 20px;
-            left: 20px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            background: rgba(40, 0, 0, 0.85);
-            backdrop-filter: blur(10px);
-            padding: 10px 16px;
-            border-radius: 8px;
-            border: 1px solid rgba(255, 51, 51, 0.2);
-            z-index: 100;
-            font-family: 'Orbitron', sans-serif;
-            font-size: 0.65rem;
-            letter-spacing: 0.1em;
-            text-transform: uppercase;
-            color: var(--accent);
-        }
-
-        .status-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: var(--accent);
-            box-shadow: 0 0 15px var(--accent);
-            animation: blink 1.5s ease-in-out infinite;
-        }
-
-        @keyframes blink {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.3; }
-        }
-
-        .section-backdrop {
-            background: rgba(20, 0, 0, 0.92);
-            backdrop-filter: blur(20px);
-            border-top: 1px solid rgba(255, 51, 51, 0.15);
-        }
+        .section-backdrop { background: rgba(20, 0, 0, 0.92); backdrop-filter: blur(20px); border-top: 1px solid rgba(255, 51, 51, 0.15); }
 
         .features { padding: 6rem 2rem; }
-
         .section-header { text-align: center; margin-bottom: 4rem; }
+        .section-label { font-family: 'Orbitron', sans-serif; font-size: 0.75rem; letter-spacing: 0.3em; text-transform: uppercase; color: var(--accent); margin-bottom: 1rem; }
+        .section-title { font-family: 'Orbitron', sans-serif; font-size: clamp(1.5rem, 4vw, 2rem); font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; }
 
-        .section-label {
-            font-family: 'Orbitron', sans-serif;
-            font-size: 0.75rem;
-            letter-spacing: 0.3em;
-            text-transform: uppercase;
-            color: var(--accent);
-            margin-bottom: 1rem;
-        }
-
-        .section-title {
-            font-family: 'Orbitron', sans-serif;
-            font-size: clamp(1.5rem, 4vw, 2rem);
-            font-weight: 700;
-            letter-spacing: 0.05em;
-            text-transform: uppercase;
-        }
-
-        .features-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 1.5rem;
-            max-width: 1000px;
-            margin: 0 auto;
-        }
-
-        .feature-card {
-            padding: 2rem;
-            background: rgba(60, 0, 0, 0.4);
-            border: 1px solid rgba(255, 51, 51, 0.15);
-            border-radius: 12px;
-            transition: all 0.4s ease;
-        }
-
-        .feature-card:hover {
-            border-color: var(--neon-red);
-            transform: translateY(-5px);
-            box-shadow: 0 20px 60px rgba(255, 51, 51, 0.15);
-        }
-
-        .feature-icon {
-            width: 50px;
-            height: 50px;
-            margin-bottom: 1rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: rgba(255, 51, 51, 0.12);
-            border-radius: 10px;
-            color: var(--accent);
-        }
+        .features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; max-width: 1000px; margin: 0 auto; }
+        .feature-card { padding: 2rem; background: rgba(60, 0, 0, 0.4); border: 1px solid rgba(255, 51, 51, 0.15); border-radius: 12px; transition: all 0.4s; }
+        .feature-card:hover { border-color: var(--neon-red); transform: translateY(-5px); box-shadow: 0 20px 60px rgba(255, 51, 51, 0.15); }
+        .feature-icon { width: 50px; height: 50px; margin-bottom: 1rem; display: flex; align-items: center; justify-content: center; background: rgba(255, 51, 51, 0.12); border-radius: 10px; color: var(--accent); }
         .feature-icon svg { width: 24px; height: 24px; }
-
-        .feature-card h3 {
-            font-family: 'Orbitron', sans-serif;
-            font-size: 1rem;
-            font-weight: 600;
-            margin-bottom: 0.5rem;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
-
-        .feature-card p {
-            font-size: 0.95rem;
-            color: var(--text-dim);
-            line-height: 1.7;
-        }
+        .feature-card h3 { font-family: 'Orbitron', sans-serif; font-size: 1rem; font-weight: 600; margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        .feature-card p { font-size: 0.95rem; color: var(--text-dim); line-height: 1.7; }
 
         .privacy { padding: 6rem 2rem; }
-
-        .privacy-container {
-            max-width: 800px;
-            margin: 0 auto;
-            display: grid;
-            grid-template-columns: auto 1fr;
-            gap: 3rem;
-            align-items: center;
-        }
-
-        .shield-icon {
-            width: 100px;
-            height: 100px;
-            color: var(--accent);
-            filter: drop-shadow(0 0 40px rgba(255, 68, 68, 0.5));
-        }
-
-        .privacy-content h2 {
-            font-family: 'Orbitron', sans-serif;
-            font-size: 1.5rem;
-            margin-bottom: 1rem;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
-
-        .privacy-content > p {
-            color: var(--text-dim);
-            margin-bottom: 1.5rem;
-            font-size: 1.05rem;
-        }
-
+        .privacy-container { max-width: 800px; margin: 0 auto; display: grid; grid-template-columns: auto 1fr; gap: 3rem; align-items: center; }
+        .shield-icon { width: 100px; height: 100px; color: var(--accent); filter: drop-shadow(0 0 40px rgba(255, 68, 68, 0.5)); }
+        .privacy-content h2 { font-family: 'Orbitron', sans-serif; font-size: 1.5rem; margin-bottom: 1rem; text-transform: uppercase; }
+        .privacy-content > p { color: var(--text-dim); margin-bottom: 1.5rem; }
         .privacy-list { list-style: none; }
-
-        .privacy-list li {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            padding: 0.6rem 0;
-            color: var(--text-dim);
-            font-size: 1rem;
-        }
-
-        .privacy-list li svg {
-            width: 18px;
-            height: 18px;
-            color: var(--accent);
-            flex-shrink: 0;
-        }
+        .privacy-list li { display: flex; align-items: center; gap: 0.75rem; padding: 0.6rem 0; color: var(--text-dim); }
+        .privacy-list li svg { width: 18px; height: 18px; color: var(--accent); flex-shrink: 0; }
 
         .providers { padding: 3rem 2rem; }
-
-        .providers-container {
-            max-width: 800px;
-            margin: 0 auto;
-            text-align: center;
-        }
-
-        .providers-label {
-            font-family: 'Orbitron', sans-serif;
-            font-size: 0.7rem;
-            color: var(--text-muted);
-            letter-spacing: 0.2em;
-            text-transform: uppercase;
-            margin-bottom: 1.5rem;
-        }
-
-        .providers-grid {
-            display: flex;
-            justify-content: center;
-            gap: 2.5rem;
-            flex-wrap: wrap;
-        }
-
-        .provider {
-            display: flex;
-            align-items: center;
-            gap: 0.6rem;
-            color: var(--text-dim);
-            font-size: 0.95rem;
-            transition: color 0.3s;
-        }
+        .providers-container { max-width: 800px; margin: 0 auto; text-align: center; }
+        .providers-label { font-family: 'Orbitron', sans-serif; font-size: 0.7rem; color: #CC8888; letter-spacing: 0.2em; text-transform: uppercase; margin-bottom: 1.5rem; }
+        .providers-grid { display: flex; justify-content: center; gap: 2.5rem; flex-wrap: wrap; }
+        .provider { display: flex; align-items: center; gap: 0.6rem; color: var(--text-dim); font-size: 0.95rem; transition: color 0.3s; }
         .provider:hover { color: var(--neon-red); }
         .provider svg { width: 22px; height: 22px; opacity: 0.7; }
 
         .cta-section { padding: 6rem 2rem; text-align: center; }
+        .cta-section h2 { font-family: 'Orbitron', sans-serif; font-size: clamp(1.3rem, 3vw, 1.8rem); margin-bottom: 1rem; text-transform: uppercase; }
+        .cta-section p { color: var(--text-dim); margin-bottom: 2rem; max-width: 420px; margin-left: auto; margin-right: auto; }
 
-        .cta-section h2 {
-            font-family: 'Orbitron', sans-serif;
-            font-size: clamp(1.3rem, 3vw, 1.8rem);
-            margin-bottom: 1rem;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
-
-        .cta-section p {
-            color: var(--text-dim);
-            margin-bottom: 2rem;
-            max-width: 420px;
-            margin-left: auto;
-            margin-right: auto;
-            font-size: 1.05rem;
-        }
-
-        .footer {
-            padding: 2.5rem 2rem;
-            text-align: center;
-            background: rgba(15, 0, 0, 0.95);
-            border-top: 1px solid rgba(255, 51, 51, 0.1);
-        }
-
-        .footer-links {
-            display: flex;
-            justify-content: center;
-            gap: 2rem;
-            margin-bottom: 1.5rem;
-        }
-
-        .footer-links a {
-            color: var(--text-dim);
-            text-decoration: none;
-            font-size: 0.85rem;
-            transition: color 0.3s;
-            padding: 0.25rem;
-        }
+        .footer { padding: 2.5rem 2rem; text-align: center; background: rgba(15, 0, 0, 0.95); border-top: 1px solid rgba(255, 51, 51, 0.1); }
+        .footer-links { display: flex; justify-content: center; gap: 2rem; margin-bottom: 1.5rem; }
+        .footer-links a { color: var(--text-dim); text-decoration: none; font-size: 0.85rem; transition: color 0.3s; }
         .footer-links a:hover { color: var(--neon-red); }
-        .footer-links a:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: 4px; }
-
         .footer-copy { font-size: 0.75rem; color: rgba(255,255,255,0.4); }
 
         @media (max-width: 768px) {
@@ -550,49 +156,31 @@
             .shield-icon { width: 70px; height: 70px; margin: 0 auto; }
             .privacy-list { text-align: left; }
             .cta-group { flex-direction: column; }
-            .btn { width: 100%; justify-content: center; padding: 1.1rem 2rem; }
+            .btn { width: 100%; justify-content: center; }
             .status-indicator { display: none; }
             .features, .privacy, .cta-section { padding: 4rem 1.5rem; }
-            .footer-links { gap: 1.5rem; flex-wrap: wrap; }
-        }
-
-        @media (prefers-contrast: high) {
-            :root { --text-dim: #ffffff; --text-muted: #dddddd; }
-            .btn-secondary { border-width: 3px; }
-        }
-
-        .sr-only {
-            position: absolute;
-            width: 1px;
-            height: 1px;
-            padding: 0;
-            margin: -1px;
-            overflow: hidden;
-            clip: rect(0, 0, 0, 0);
-            white-space: nowrap;
-            border: 0;
         }
     </style>
 </head>
 <body>
     <a href="#main-content" class="skip-link">Skip to main content</a>
 
-    <div class="loading-overlay" id="loading" aria-hidden="true">
+    <div class="loading-overlay" id="loading">
         <div class="loading-spinner"></div>
+        <div class="loading-text">Initializing TRON Grid...</div>
     </div>
 
-    <canvas id="bg-canvas" aria-hidden="true"></canvas>
+    <canvas id="bg-canvas"></canvas>
 
-    <div class="status-indicator" role="status" aria-label="Grid animation active">
-        <div class="status-dot" aria-hidden="true"></div>
+    <div class="status-indicator">
+        <div class="status-dot"></div>
         <span>Grid Active</span>
     </div>
 
     <div class="content" id="main-content">
-        <section class="hero" aria-labelledby="hero-heading">
+        <section class="hero">
             <div class="hero-content">
-                <svg class="logo" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                    <title>TabEater Logo</title>
+                <svg class="logo" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <rect width="128" height="128" fill="#000" rx="20"/>
                     <g filter="url(#glow)">
                         <path d="M20 36V100C20 106 25 111 31 111H97C103 111 108 106 108 100V46C108 40 103 35 97 35H64L54 22H31C25 22 20 27 20 33V36Z" fill="none" stroke="#FF4444" stroke-width="4"/>
@@ -600,826 +188,387 @@
                         <line x1="34" y1="86" x2="94" y2="86" stroke="#FF4444" stroke-width="3" opacity="0.6"/>
                         <line x1="34" y1="96" x2="76" y2="96" stroke="#FF4444" stroke-width="2.5" opacity="0.4"/>
                     </g>
-                    <defs>
-                        <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
-                            <feGaussianBlur stdDeviation="3" result="blur"/>
-                            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-                        </filter>
-                    </defs>
+                    <defs><filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="3" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
                 </svg>
-                <h1 id="hero-heading" class="headline">Tame Your<br><span class="headline-accent">Browser Chaos</span></h1>
+                <h1 class="headline">Tame Your<br><span class="headline-accent">Browser Chaos</span></h1>
                 <p class="subheadline">AI-powered tab intelligence for Chrome. Organize, analyze, and manage your tabs instantly.</p>
-                <div class="cta-group" role="group" aria-label="Call to action buttons">
-                    <a href="https://chromewebstore.google.com/detail/tabeater/khehjgmppbfpmibjcjeffbndjcnbogfj" class="btn btn-primary" target="_blank" rel="noopener noreferrer">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/></svg>
+                <div class="cta-group">
+                    <a href="https://chromewebstore.google.com/detail/tabeater/khehjgmppbfpmibjcjeffbndjcnbogfj" class="btn btn-primary" target="_blank" rel="noopener">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/></svg>
                         Add to Chrome
-                        <span class="sr-only">(opens in new tab)</span>
                     </a>
                     <a href="#features" class="btn btn-secondary">Learn More</a>
                 </div>
             </div>
-            <div class="scroll-indicator" aria-hidden="true">Scroll to Explore</div>
+            <div class="scroll-indicator">Scroll to Explore</div>
         </section>
 
-        <section class="features section-backdrop" id="features" aria-labelledby="features-heading">
+        <section class="features section-backdrop" id="features">
             <div class="section-header">
-                <div class="section-label" aria-hidden="true">// System Features</div>
-                <h2 id="features-heading" class="section-title">Command Your Tabs</h2>
+                <div class="section-label">// System Features</div>
+                <h2 class="section-title">Command Your Tabs</h2>
             </div>
-            <div class="features-grid" role="list">
-                <article class="feature-card" role="listitem">
-                    <div class="feature-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></div>
+            <div class="features-grid">
+                <article class="feature-card">
+                    <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></div>
                     <h3>Smart Organize</h3>
                     <p>Auto-group tabs by domain and topic. Turn chaos into order with one click.</p>
                 </article>
-                <article class="feature-card" role="listitem">
-                    <div class="feature-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M12 12h.01M17 12h.01M7 12h.01"/></svg></div>
+                <article class="feature-card">
+                    <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M12 12h.01M17 12h.01M7 12h.01"/></svg></div>
                     <h3>Duplicate Detection</h3>
                     <p>Instantly find and close duplicate tabs. Free memory and reduce bloat.</p>
                 </article>
-                <article class="feature-card" role="listitem">
-                    <div class="feature-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg></div>
+                <article class="feature-card">
+                    <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg></div>
                     <h3>Auto-Pilot Mode</h3>
                     <p>Set it and forget it. TabEater organizes new tabs automatically in real-time.</p>
                 </article>
-                <article class="feature-card" role="listitem">
-                    <div class="feature-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
+                <article class="feature-card">
+                    <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
                     <h3>Tab Chat</h3>
                     <p>Ask questions about your tabs. Get AI insights without reading every page.</p>
                 </article>
-                <article class="feature-card" role="listitem">
-                    <div class="feature-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/></svg></div>
+                <article class="feature-card">
+                    <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/></svg></div>
                     <h3>Side Panel</h3>
                     <p>Full command center in Chrome's side panel. Manage tabs without leaving your page.</p>
                 </article>
-                <article class="feature-card" role="listitem">
-                    <div class="feature-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v6M12 17v6M4.22 4.22l4.24 4.24M15.54 15.54l4.24 4.24M1 12h6M17 12h6M4.22 19.78l4.24-4.24M15.54 8.46l4.24-4.24"/></svg></div>
+                <article class="feature-card">
+                    <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v6M12 17v6M4.22 4.22l4.24 4.24M15.54 15.54l4.24 4.24M1 12h6M17 12h6M4.22 19.78l4.24-4.24M15.54 8.46l4.24-4.24"/></svg></div>
                     <h3>Multiple AI Providers</h3>
                     <p>Local AI for privacy, or cloud with OpenAI, Gemini, and Claude.</p>
                 </article>
             </div>
         </section>
 
-        <section class="privacy section-backdrop" aria-labelledby="privacy-heading">
+        <section class="privacy section-backdrop">
             <div class="privacy-container">
-                <svg class="shield-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                <svg class="shield-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                     <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
                     <path d="M9 12l2 2 4-4" stroke-width="2"/>
                 </svg>
                 <div class="privacy-content">
-                    <h2 id="privacy-heading">Privacy Focused</h2>
+                    <h2>Privacy Focused</h2>
                     <p>Your API keys and preferences stay on your device. AI calls go directly to providers.</p>
-                    <ul class="privacy-list" role="list">
-                        <li role="listitem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>No data collection by TabEater</li>
-                        <li role="listitem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Direct API calls to your provider</li>
-                        <li role="listitem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>API keys stored locally</li>
-                        <li role="listitem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Open source - audit the code</li>
+                    <ul class="privacy-list">
+                        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>No data collection by TabEater</li>
+                        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>Direct API calls to your provider</li>
+                        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>API keys stored locally</li>
+                        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>Open source - audit the code</li>
                     </ul>
                 </div>
             </div>
         </section>
 
-        <section class="providers section-backdrop" aria-labelledby="providers-heading">
+        <section class="providers section-backdrop">
             <div class="providers-container">
-                <h2 id="providers-heading" class="providers-label">// Powered By</h2>
-                <div class="providers-grid" role="list">
-                    <div class="provider" role="listitem">
-                        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/></svg>
-                        Google Gemini
-                    </div>
-                    <div class="provider" role="listitem">
-                        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="12" r="10"/></svg>
-                        OpenAI GPT
-                    </div>
-                    <div class="provider" role="listitem">
-                        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="12" r="10"/></svg>
-                        Anthropic Claude
-                    </div>
+                <h2 class="providers-label">// Powered By</h2>
+                <div class="providers-grid">
+                    <div class="provider"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/></svg>Google Gemini</div>
+                    <div class="provider"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/></svg>OpenAI GPT</div>
+                    <div class="provider"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/></svg>Anthropic Claude</div>
                 </div>
             </div>
         </section>
 
-        <section class="cta-section section-backdrop" aria-labelledby="cta-heading">
-            <h2 id="cta-heading">Ready to Take Control?</h2>
+        <section class="cta-section section-backdrop">
+            <h2>Ready to Take Control?</h2>
             <p>Enter the grid. Start organizing your tabs with AI-powered intelligence.</p>
-            <a href="https://chromewebstore.google.com/detail/tabeater/khehjgmppbfpmibjcjeffbndjcnbogfj" class="btn btn-primary" target="_blank" rel="noopener noreferrer">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/></svg>
+            <a href="https://chromewebstore.google.com/detail/tabeater/khehjgmppbfpmibjcjeffbndjcnbogfj" class="btn btn-primary" target="_blank" rel="noopener">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/></svg>
                 Add to Chrome — Free
-                <span class="sr-only">(opens in new tab)</span>
             </a>
         </section>
 
-        <footer class="footer" role="contentinfo">
-            <nav class="footer-links" aria-label="Footer navigation">
-                <a href="https://github.com/anonx00/tabeater" target="_blank" rel="noopener noreferrer">GitHub<span class="sr-only"> (opens in new tab)</span></a>
-                <a href="https://github.com/anonx00/tabeater/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">ISC License<span class="sr-only"> (opens in new tab)</span></a>
-                <a href="https://github.com/anonx00/tabeater/blob/main/PRIVACY.md" target="_blank" rel="noopener noreferrer">Privacy Policy<span class="sr-only"> (opens in new tab)</span></a>
-                <a href="https://github.com/anonx00/tabeater/issues" target="_blank" rel="noopener noreferrer">Support<span class="sr-only"> (opens in new tab)</span></a>
+        <footer class="footer">
+            <nav class="footer-links">
+                <a href="https://github.com/anonx00/tabeater" target="_blank" rel="noopener">GitHub</a>
+                <a href="https://github.com/anonx00/tabeater/blob/main/LICENSE" target="_blank" rel="noopener">ISC License</a>
+                <a href="https://github.com/anonx00/tabeater/blob/main/PRIVACY.md" target="_blank" rel="noopener">Privacy Policy</a>
+                <a href="https://github.com/anonx00/tabeater/issues" target="_blank" rel="noopener">Support</a>
             </nav>
             <p class="footer-copy">&copy; 2026 TabEater. Open source under ISC License.</p>
         </footer>
     </div>
 
     <script type="importmap">
-    {
-        "imports": {
-            "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-            "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
-        }
-    }
+    { "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js", "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/" } }
     </script>
-
-    <!-- Physics and animation libraries -->
-    <script src="https://unpkg.com/cannon-es@0.20.0/dist/cannon-es.js"></script>
-    <script src="https://unpkg.com/@tweenjs/tween.js@23.1.2/dist/tween.umd.js"></script>
 
     <script type="module">
     import * as THREE from 'three';
     import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-    import { CSS3DRenderer, CSS3DObject } from 'three/addons/renderers/CSS3DRenderer.js';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
     import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
     import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
     import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 
-    // Check for reduced motion
-    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-    function hideLoading() {
-        const loading = document.getElementById('loading');
-        if (loading) {
-            loading.classList.add('hidden');
-            setTimeout(() => loading.remove(), 500);
-        }
-    }
-
-    if (prefersReducedMotion) {
-        hideLoading();
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        document.getElementById('loading')?.classList.add('hidden');
     } else {
         initScene();
     }
 
     function initScene() {
         const isMobile = window.innerWidth < 768;
-        const isLowPower = navigator.hardwareConcurrency <= 4;
 
-        // RED TRON Colors
-        const RED = 0xFF3333;
-        const RED_BRIGHT = 0xFF6666;
-        const CRIMSON = 0xFF1A1A;
-        const ORANGE = 0xFF6600;
-        const WHITE = 0xFFFFFF;
+        // RED background grid, VARIED bike colors
+        const GRID_RED = 0xFF3333;
+        const GRID_BRIGHT = 0xFF6666;
 
-        // Setup
+        // Bike colors - cyan, orange, green, magenta, yellow, blue
+        const BIKE_CONFIGS = [
+            { main: 0x00FFFF, bright: 0x6FFFE9 },
+            { main: 0xFF6600, bright: 0xFF9944 },
+            { main: 0x00FF00, bright: 0x66FF66 },
+            { main: 0xFF00FF, bright: 0xFF66FF },
+            { main: 0xFFFF00, bright: 0xFFFF66 },
+            { main: 0x0088FF, bright: 0x66BBFF },
+        ];
+
         const canvas = document.getElementById('bg-canvas');
-        if (!canvas) { hideLoading(); return; }
+        if (!canvas) return hideLoading();
 
-        const renderer = new THREE.WebGLRenderer({
-            canvas,
-            alpha: true,
-            antialias: !isMobile,
-            powerPreference: 'high-performance'
-        });
+        const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: !isMobile, powerPreference: 'high-performance' });
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobile ? 1.5 : 2));
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
         renderer.toneMappingExposure = 1.2;
 
-        // CSS3D Renderer for overlays
-        const css3dRenderer = new CSS3DRenderer();
-        css3dRenderer.setSize(window.innerWidth, window.innerHeight);
-        css3dRenderer.domElement.style.position = 'absolute';
-        css3dRenderer.domElement.style.top = '0';
-        css3dRenderer.domElement.style.pointerEvents = 'none';
-        document.body.appendChild(css3dRenderer.domElement);
-
         const scene = new THREE.Scene();
-        scene.fog = new THREE.FogExp2(0x0a0000, 0.002);
+        scene.fog = new THREE.FogExp2(0x0a0000, 0.0012);
 
-        // Lighting
-        const ambientLight = new THREE.AmbientLight(RED_BRIGHT, 0.3);
-        scene.add(ambientLight);
+        scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.7);
+        dirLight.position.set(50, 100, 50);
+        scene.add(dirLight);
 
-        const directionalLight = new THREE.DirectionalLight(RED, 0.5);
-        directionalLight.position.set(50, 100, 50);
-        scene.add(directionalLight);
-
-        // Physics world
-        let world = null;
-        if (typeof CANNON !== 'undefined') {
-            world = new CANNON.World({ gravity: new CANNON.Vec3(0, -2, 0) });
-            world.defaultContactMaterial.friction = 0.3;
-            world.defaultContactMaterial.restitution = 0.6;
-
-            const floorBody = new CANNON.Body({
-                mass: 0,
-                shape: new CANNON.Plane(),
-                position: new CANNON.Vec3(0, -10, 0)
-            });
-            floorBody.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2);
-            world.addBody(floorBody);
-        }
-
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
-        camera.position.set(0, 50, 100);
-        camera.lookAt(0, 0, 0);
+        const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 2000);
+        camera.position.set(0, 35, 140);
+        camera.lookAt(0, 0, -80);
 
         const controls = new OrbitControls(camera, canvas);
         controls.enableDamping = true;
         controls.dampingFactor = 0.05;
-        controls.minDistance = 30;
-        controls.maxDistance = 200;
-        controls.maxPolarAngle = Math.PI / 2.2;
+        controls.minDistance = 40;
+        controls.maxDistance = 300;
+        controls.maxPolarAngle = Math.PI / 2.1;
         controls.autoRotate = true;
-        controls.autoRotateSpeed = 0.3;
+        controls.autoRotateSpeed = 0.15;
 
-        // Shader-based infinite grid (RED)
-        const gridShader = {
+        // RED Grid
+        const gridMat = new THREE.ShaderMaterial({
             uniforms: {
                 uTime: { value: 0 },
-                uColor1: { value: new THREE.Color(RED) },
-                uColor2: { value: new THREE.Color(RED_BRIGHT) },
-                uFogColor: { value: new THREE.Color(0x0a0000) },
-                uFogDensity: { value: 0.015 }
+                uColor1: { value: new THREE.Color(GRID_RED) },
+                uColor2: { value: new THREE.Color(GRID_BRIGHT) },
+                uFog: { value: new THREE.Color(0x0a0000) }
             },
-            vertexShader: `
-                varying vec3 vWorldPosition;
+            vertexShader: `varying vec3 vPos; void main() { vPos = (modelMatrix * vec4(position, 1.0)).xyz; gl_Position = projectionMatrix * viewMatrix * vec4(vPos, 1.0); }`,
+            fragmentShader: `
+                uniform float uTime; uniform vec3 uColor1, uColor2, uFog;
+                varying vec3 vPos;
                 void main() {
-                    vec4 worldPos = modelMatrix * vec4(position, 1.0);
-                    vWorldPosition = worldPos.xyz;
-                    gl_Position = projectionMatrix * viewMatrix * worldPos;
+                    vec2 g = abs(fract(vPos.xz / 10.0 - 0.5) - 0.5);
+                    float line = min(smoothstep(0.04, 0.0, g.x), 1.0) + min(smoothstep(0.04, 0.0, g.y), 1.0);
+                    float d = length(vPos.xz);
+                    float pulse = sin(d * 0.04 - uTime * 2.5) * 0.5 + 0.5;
+                    vec3 col = mix(uColor1, uColor2, pulse);
+                    float i = pow(1.0 - smoothstep(0.0, 700.0, d), 2.0);
+                    col = mix(col, uFog, 1.0 - exp(-0.01 * d));
+                    gl_FragColor = vec4(col, min(line, 1.0) * i * (0.5 + pulse * 0.3));
                 }
             `,
-            fragmentShader: `
-                uniform float uTime;
-                uniform vec3 uColor1;
-                uniform vec3 uColor2;
-                uniform vec3 uFogColor;
-                uniform float uFogDensity;
-                varying vec3 vWorldPosition;
-
-                void main() {
-                    float gridSize = 10.0;
-                    vec2 grid = abs(fract(vWorldPosition.xz / gridSize - 0.5) - 0.5);
-                    float lineWidth = 0.03;
-                    float line = min(smoothstep(lineWidth, 0.0, grid.x), 1.0) + min(smoothstep(lineWidth, 0.0, grid.y), 1.0);
-                    line = min(line, 1.0);
-
-                    float dist = length(vWorldPosition.xz);
-                    float pulse = sin(dist * 0.05 - uTime * 2.0) * 0.5 + 0.5;
-                    vec3 color = mix(uColor1, uColor2, pulse);
-
-                    float intensity = 1.0 - smoothstep(0.0, 500.0, dist);
-                    intensity *= intensity;
-
-                    float fogFactor = 1.0 - exp(-uFogDensity * dist);
-                    color = mix(color, uFogColor, fogFactor);
-
-                    float alpha = line * intensity * (0.6 + pulse * 0.2);
-                    gl_FragColor = vec4(color, alpha);
-                }
-            `
-        };
-
-        const gridGeometry = new THREE.PlaneGeometry(1000, 1000);
-        const gridMaterial = new THREE.ShaderMaterial({
-            ...gridShader,
-            transparent: true,
-            side: THREE.DoubleSide,
-            depthWrite: false
+            transparent: true, side: THREE.DoubleSide, depthWrite: false
         });
-        const grid = new THREE.Mesh(gridGeometry, gridMaterial);
+        const grid = new THREE.Mesh(new THREE.PlaneGeometry(1400, 1400), gridMat);
         grid.rotation.x = -Math.PI / 2;
-        grid.position.y = -10;
         scene.add(grid);
 
-        // TRON Sun (RED)
-        const sunGroup = new THREE.Group();
-        const sunRadius = 100;
-
-        const sunArc = new THREE.Mesh(
-            new THREE.TorusGeometry(sunRadius, 1.5, 32, 256, Math.PI),
-            new THREE.MeshBasicMaterial({ color: RED_BRIGHT })
-        );
-        sunArc.rotation.x = Math.PI / 2;
-        sunArc.rotation.z = Math.PI;
-        sunGroup.add(sunArc);
-
-        const glowCount = isMobile ? 2 : 5;
-        for (let i = 1; i <= glowCount; i++) {
-            const glow = new THREE.Mesh(
-                new THREE.TorusGeometry(sunRadius, i * 3, 8, 128, Math.PI),
-                new THREE.MeshBasicMaterial({
-                    color: RED,
-                    transparent: true,
-                    opacity: 0.08 / i
-                })
-            );
-            glow.rotation.x = Math.PI / 2;
-            glow.rotation.z = Math.PI;
-            sunGroup.add(glow);
+        // RED Sun
+        const sunGrp = new THREE.Group();
+        const sunR = 130;
+        sunGrp.add(new THREE.Mesh(new THREE.TorusGeometry(sunR, 2.5, 32, 256, Math.PI), new THREE.MeshBasicMaterial({ color: GRID_BRIGHT })));
+        for (let i = 1; i <= 4; i++) {
+            const g = new THREE.Mesh(new THREE.TorusGeometry(sunR, i * 5, 8, 128, Math.PI), new THREE.MeshBasicMaterial({ color: GRID_RED, transparent: true, opacity: 0.05 / i }));
+            g.rotation.x = Math.PI / 2; g.rotation.z = Math.PI;
+            sunGrp.add(g);
         }
+        sunGrp.children[0].rotation.x = Math.PI / 2;
+        sunGrp.children[0].rotation.z = Math.PI;
+        for (let i = 0; i < 18; i++) {
+            const y = 12 + i * 5, w = Math.sqrt(sunR * sunR - y * y) * 2;
+            if (w > 0) {
+                const l = new THREE.Mesh(new THREE.PlaneGeometry(w, 1.2), new THREE.MeshBasicMaterial({ color: GRID_RED, transparent: true, opacity: 0.8 - i * 0.04, side: THREE.DoubleSide }));
+                l.position.y = y;
+                sunGrp.add(l);
+            }
+        }
+        sunGrp.position.set(0, 0, -700);
+        scene.add(sunGrp);
 
-        const lineCount = isMobile ? 12 : 25;
-        for (let i = 0; i < lineCount; i++) {
-            const y = 8 + i * (isMobile ? 7 : 3.5);
-            const width = Math.sqrt(sunRadius * sunRadius - y * y) * 2;
-            if (width > 0) {
-                const line = new THREE.Mesh(
-                    new THREE.PlaneGeometry(width, 0.8),
-                    new THREE.MeshBasicMaterial({
-                        color: RED,
-                        transparent: true,
-                        opacity: 0.9 - i * (isMobile ? 0.07 : 0.03),
-                        side: THREE.DoubleSide
-                    })
-                );
-                line.position.y = y;
-                sunGroup.add(line);
+        // Bikes & Sparks
+        const bikes = [], sparks = [];
+        const bikeCount = isMobile ? 4 : 6;
+        let bikeModel = null;
+
+        function spawnSparks(x, y, z, color, n = 12) {
+            for (let i = 0; i < n; i++) {
+                const s = new THREE.Mesh(new THREE.SphereGeometry(0.25, 6, 6), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 1 }));
+                s.position.set(x, y, z);
+                s.vel = new THREE.Vector3((Math.random() - 0.5) * 2.5, Math.random() * 2.5, (Math.random() - 0.5) * 2.5);
+                s.life = 1;
+                scene.add(s);
+                sparks.push(s);
             }
         }
 
-        sunGroup.position.set(0, -10, -500);
-        scene.add(sunGroup);
+        function createBike(cfg, x, z, dir) {
+            const grp = new THREE.Group();
+            let mesh;
 
-        // Light Cycles (RED bikes with trails)
-        const cycles = [];
-        const cycleCount = isMobile ? 4 : 8;
-
-        for (let i = 0; i < cycleCount; i++) {
-            const isEnemy = i >= cycleCount - (isMobile ? 1 : 2);
-            const color = isEnemy ? ORANGE : RED;
-
-            const trailLength = 200 + Math.random() * 150;
-            const x = (Math.random() - 0.5) * 300;
-            const z = -400 + Math.random() * 200;
-
-            // Trail wall
-            const trail = new THREE.Mesh(
-                new THREE.BoxGeometry(0.8, 4, trailLength),
-                new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.95 })
-            );
-            trail.position.set(x, -8, z + trailLength / 2);
-            scene.add(trail);
-
-            // Glowing head
-            const head = new THREE.Mesh(
-                new THREE.SphereGeometry(2, 16, 16),
-                new THREE.MeshBasicMaterial({ color: isEnemy ? 0xFF9944 : RED_BRIGHT })
-            );
-            scene.add(head);
-
-            // Add point light to head for glow effect
-            const headLight = new THREE.PointLight(isEnemy ? ORANGE : RED, 2, 30);
-            head.add(headLight);
-
-            cycles.push({
-                trail, head, x,
-                startZ: z,
-                length: trailLength,
-                speed: 1.5 + Math.random() * 1.5,
-                progress: Math.random()
-            });
-        }
-
-        // Floating Data Orbs with Physics
-        const orbs = [];
-        const orbCount = isMobile ? 8 : 15;
-
-        const tabData = [
-            { title: 'TabEater - GitHub', url: 'github.com/anonx00/tabeater' },
-            { title: 'Three.js Docs', url: 'threejs.org/docs' },
-            { title: 'Chrome Web Store', url: 'chrome.google.com/webstore' },
-            { title: 'TRON: Ares Trailer', url: 'youtube.com' },
-            { title: 'AI Tab Manager', url: 'tabeater.com' },
-            { title: 'WebGPU Docs', url: 'gpuweb.github.io' },
-            { title: 'React Documentation', url: 'react.dev' },
-            { title: 'MDN Web Docs', url: 'developer.mozilla.org' }
-        ];
-
-        for (let i = 0; i < orbCount; i++) {
-            const group = new THREE.Group();
-            const radius = 2 + Math.random() * 1.5;
-            const isAccent = i % 5 === 0;
-
-            const core = new THREE.Mesh(
-                new THREE.SphereGeometry(radius, 32, 32),
-                new THREE.MeshStandardMaterial({
-                    color: isAccent ? ORANGE : RED_BRIGHT,
-                    metalness: 0.8,
-                    roughness: 0.2,
-                    emissive: isAccent ? ORANGE : RED,
-                    emissiveIntensity: 0.3
-                })
-            );
-            group.add(core);
-
-            const light = new THREE.PointLight(isAccent ? ORANGE : RED, 2, 20);
-            group.add(light);
-
-            const wireGeo = new THREE.IcosahedronGeometry(radius * 1.3, 0);
-            const wireframe = new THREE.LineSegments(
-                new THREE.EdgesGeometry(wireGeo),
-                new THREE.LineBasicMaterial({ color: RED, transparent: true, opacity: 0.4 })
-            );
-            group.add(wireframe);
-
-            const x = (Math.random() - 0.5) * 150;
-            const y = 20 + Math.random() * 40;
-            const z = -50 - Math.random() * 200;
-            group.position.set(x, y, z);
-
-            scene.add(group);
-
-            let body = null;
-            if (world) {
-                body = new CANNON.Body({
-                    mass: 1,
-                    shape: new CANNON.Sphere(radius),
-                    position: new CANNON.Vec3(x, y, z),
-                    linearDamping: 0.3,
-                    angularDamping: 0.3
+            if (bikeModel) {
+                mesh = bikeModel.clone();
+                mesh.scale.set(0.9, 0.9, 0.9);
+                mesh.traverse(c => {
+                    if (c.isMesh) c.material = new THREE.MeshStandardMaterial({ color: cfg.main, emissive: cfg.main, emissiveIntensity: 0.9, metalness: 0.95, roughness: 0.05 });
                 });
-                body.applyImpulse(
-                    new CANNON.Vec3((Math.random() - 0.5) * 5, (Math.random() - 0.5) * 5, (Math.random() - 0.5) * 5),
-                    body.position
-                );
-                world.addBody(body);
+            } else {
+                mesh = new THREE.Group();
+                const body = new THREE.Mesh(new THREE.BoxGeometry(1.8, 1.2, 5), new THREE.MeshStandardMaterial({ color: cfg.main, emissive: cfg.main, emissiveIntensity: 0.7, metalness: 0.9, roughness: 0.1 }));
+                body.position.y = 1;
+                mesh.add(body);
+                const wMat = new THREE.MeshStandardMaterial({ color: cfg.bright, emissive: cfg.bright, emissiveIntensity: 1 });
+                const wGeo = new THREE.CylinderGeometry(0.7, 0.7, 0.25, 16);
+                const fw = new THREE.Mesh(wGeo, wMat); fw.rotation.z = Math.PI / 2; fw.position.set(0, 0.7, 2); mesh.add(fw);
+                const rw = new THREE.Mesh(wGeo, wMat); rw.rotation.z = Math.PI / 2; rw.position.set(0, 0.7, -2); mesh.add(rw);
             }
+            grp.add(mesh);
 
-            // CSS3D label
-            const div = document.createElement('div');
-            div.style.cssText = `
-                background: rgba(255, 51, 51, 0.1);
-                backdrop-filter: blur(10px);
-                border: 1px solid rgba(255, 51, 51, 0.5);
-                border-radius: 8px;
-                padding: 8px 12px;
-                color: #FF3333;
-                font-family: 'JetBrains Mono', monospace;
-                font-size: 11px;
-                pointer-events: none;
-                opacity: 0;
-                transition: opacity 0.3s;
-                white-space: nowrap;
-                box-shadow: 0 0 20px rgba(255, 51, 51, 0.3);
-            `;
-            const tab = tabData[i % tabData.length];
-            div.innerHTML = `<div style="font-weight: 600;">${tab.title}</div><div style="opacity: 0.7; font-size: 9px;">${tab.url}</div>`;
+            // Rear glow light
+            const rearL = new THREE.PointLight(cfg.bright, 4, 30);
+            rearL.position.set(0, 1.2, -3);
+            grp.add(rearL);
 
-            const css3dObject = new CSS3DObject(div);
-            css3dObject.position.copy(group.position);
-            css3dObject.position.y += radius + 5;
-            css3dObject.scale.setScalar(0.1);
-            scene.add(css3dObject);
+            // Trail
+            const tLen = 180 + Math.random() * 120;
+            const trail = new THREE.Mesh(new THREE.BoxGeometry(0.5, 3.5, tLen), new THREE.MeshBasicMaterial({ color: cfg.main, transparent: true, opacity: 0.92 }));
+            trail.position.set(0, 1.8, -tLen / 2 - 3);
+            grp.add(trail);
 
-            orbs.push({
-                group, core, wireframe, light, body, css3dObject, div, radius,
-                baseY: y, floatSpeed: 0.5 + Math.random() * 0.5, floatOffset: Math.random() * Math.PI * 2,
-                hovered: false, tabData: tab
-            });
+            const tGlow = new THREE.Mesh(new THREE.BoxGeometry(1.5, 5, tLen), new THREE.MeshBasicMaterial({ color: cfg.bright, transparent: true, opacity: 0.12 }));
+            tGlow.position.copy(trail.position);
+            grp.add(tGlow);
+
+            grp.position.set(x, 0, z);
+            grp.rotation.y = dir;
+            scene.add(grp);
+
+            return { mesh: grp, trail, tGlow, rearL, cfg, speed: 0.9 + Math.random() * 0.5, dir, turnT: 0 };
         }
 
-        // Identity Disc (RED)
-        const disc = new THREE.Group();
-        [5, 4, 2.5].forEach((r, i) => {
-            const ring = new THREE.Mesh(
-                new THREE.TorusGeometry(r, 0.12 - i * 0.02, 16, 100),
-                new THREE.MeshBasicMaterial({
-                    color: i === 2 ? RED_BRIGHT : RED,
-                    transparent: true,
-                    opacity: 1 - i * 0.2
-                })
-            );
-            disc.add(ring);
-        });
+        const loader = new GLTFLoader();
+        loader.load('bike.glb', gltf => { bikeModel = gltf.scene; initBikes(); }, undefined, () => initBikes());
 
-        for (let i = 0; i < 12; i++) {
-            const angle = (i / 12) * Math.PI * 2;
-            const spoke = new THREE.Line(
-                new THREE.BufferGeometry().setFromPoints([
-                    new THREE.Vector3(Math.cos(angle) * 2.6, Math.sin(angle) * 2.6, 0),
-                    new THREE.Vector3(Math.cos(angle) * 4.9, Math.sin(angle) * 4.9, 0)
-                ]),
-                new THREE.LineBasicMaterial({ color: RED, transparent: true, opacity: 0.5 })
-            );
-            disc.add(spoke);
+        function initBikes() {
+            for (let i = 0; i < bikeCount; i++) {
+                const cfg = BIKE_CONFIGS[i % BIKE_CONFIGS.length];
+                const x = (i - bikeCount / 2) * 50 + (Math.random() - 0.5) * 30;
+                const z = -120 - Math.random() * 250;
+                bikes.push(createBike(cfg, x, z, Math.random() < 0.5 ? 0 : Math.PI));
+            }
+            hideLoading();
         }
 
-        disc.position.set(-40, 20, -80);
-        disc.rotation.x = 0.3;
-        disc.rotation.y = 0.4;
-        scene.add(disc);
-
-        // Particles (RED)
-        const particleCount = isLowPower ? 300 : (isMobile ? 500 : 1500);
-        const positions = new Float32Array(particleCount * 3);
-        const velocities = new Float32Array(particleCount * 3);
-        const colors = new Float32Array(particleCount * 3);
-
-        const redCol = new THREE.Color(RED);
-        const orangeCol = new THREE.Color(ORANGE);
-
-        for (let i = 0; i < particleCount; i++) {
-            positions[i * 3] = (Math.random() - 0.5) * 500;
-            positions[i * 3 + 1] = Math.random() * 120 - 20;
-            positions[i * 3 + 2] = Math.random() * 800 - 600;
-            velocities[i * 3 + 2] = 0.3 + Math.random() * 0.5;
-
-            const col = Math.random() > 0.92 ? orangeCol : redCol;
-            colors[i * 3] = col.r;
-            colors[i * 3 + 1] = col.g;
-            colors[i * 3 + 2] = col.b;
+        function hideLoading() {
+            const l = document.getElementById('loading');
+            if (l) { l.classList.add('hidden'); setTimeout(() => l.remove(), 500); }
         }
 
-        const particleGeo = new THREE.BufferGeometry();
-        particleGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-        particleGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-
-        const particles = new THREE.Points(particleGeo, new THREE.PointsMaterial({
-            size: 1.2,
-            vertexColors: true,
-            transparent: true,
-            opacity: 0.9,
-            blending: THREE.AdditiveBlending
-        }));
-        scene.add(particles);
-
-        // Post-processing with bloom
+        // Post-processing
         const composer = new EffectComposer(renderer);
         composer.addPass(new RenderPass(scene, camera));
-
-        if (!isMobile && !isLowPower) {
-            composer.addPass(new UnrealBloomPass(
-                new THREE.Vector2(window.innerWidth, window.innerHeight),
-                2.0, 0.5, 0.2
-            ));
-        }
-
-        // Light trails system
-        const lightTrails = [];
-
-        function createLightTrail(startX, startY, isPrimary) {
-            const startPos = new THREE.Vector3();
-            startPos.x = (startX / window.innerWidth) * 2 - 1;
-            startPos.y = -(startY / window.innerHeight) * 2 + 1;
-            startPos.z = 0.5;
-            startPos.unproject(camera);
-
-            const endPos = new THREE.Vector3(
-                (Math.random() - 0.5) * 200,
-                Math.random() * 30,
-                -100 - Math.random() * 200
-            );
-
-            const midPoint1 = new THREE.Vector3().lerpVectors(startPos, endPos, 0.3);
-            midPoint1.x += (Math.random() - 0.5) * 50;
-            midPoint1.y += (Math.random() - 0.5) * 30;
-
-            const midPoint2 = new THREE.Vector3().lerpVectors(startPos, endPos, 0.7);
-            midPoint2.x += (Math.random() - 0.5) * 50;
-            midPoint2.y += (Math.random() - 0.5) * 30;
-
-            const curve = new THREE.CatmullRomCurve3([startPos, midPoint1, midPoint2, endPos]);
-            const points = curve.getPoints(50);
-
-            const geometry = new THREE.BufferGeometry().setFromPoints(points);
-            const material = new THREE.LineBasicMaterial({
-                color: isPrimary ? RED_BRIGHT : ORANGE,
-                transparent: true,
-                opacity: 0.8,
-                blending: THREE.AdditiveBlending
-            });
-
-            const trail = new THREE.Line(geometry, material);
-            scene.add(trail);
-
-            const sparkCount = 20;
-            const sparkPositions = new Float32Array(sparkCount * 3);
-            const sparkGeometry = new THREE.BufferGeometry();
-            sparkGeometry.setAttribute('position', new THREE.BufferAttribute(sparkPositions, 3));
-            const sparkMaterial = new THREE.PointsMaterial({
-                color: material.color,
-                size: 1.5,
-                transparent: true,
-                opacity: 1,
-                blending: THREE.AdditiveBlending
-            });
-            const sparks = new THREE.Points(sparkGeometry, sparkMaterial);
-            scene.add(sparks);
-
-            lightTrails.push({ trail, sparks, curve, progress: 0, speed: 0.015, life: 1 });
-        }
-
-        // Button interactions
-        document.querySelectorAll('.btn').forEach(btn => {
-            btn.addEventListener('mouseenter', e => {
-                const rect = btn.getBoundingClientRect();
-                createLightTrail(rect.left + rect.width / 2, rect.top + rect.height / 2, btn.classList.contains('btn-primary'));
-            });
-
-            btn.addEventListener('click', e => {
-                const rect = btn.getBoundingClientRect();
-                for (let i = 0; i < 3; i++) {
-                    setTimeout(() => {
-                        createLightTrail(rect.left + rect.width / 2, rect.top + rect.height / 2, btn.classList.contains('btn-primary'));
-                    }, i * 50);
-                }
-            });
-        });
-
-        // Mouse tracking
-        const mouse = { x: 0, y: 0, tx: 0, ty: 0 };
-        const mouseVector = new THREE.Vector2();
-        const raycaster = new THREE.Raycaster();
-
-        window.addEventListener('mousemove', e => {
-            mouse.tx = (e.clientX / window.innerWidth) * 2 - 1;
-            mouse.ty = -(e.clientY / window.innerHeight) * 2 + 1;
-            mouseVector.x = mouse.tx;
-            mouseVector.y = mouse.ty;
-        }, { passive: true });
-
-        // Click to disperse orbs
-        window.addEventListener('click', e => {
-            if (!world) return;
-            raycaster.setFromCamera(mouseVector, camera);
-            const intersects = raycaster.intersectObjects(orbs.map(o => o.core));
-
-            if (intersects.length > 0) {
-                const clickedOrb = orbs.find(o => o.core === intersects[0].object);
-                if (clickedOrb && clickedOrb.body) {
-                    const force = new CANNON.Vec3(
-                        (Math.random() - 0.5) * 50,
-                        Math.random() * 30,
-                        (Math.random() - 0.5) * 50
-                    );
-                    clickedOrb.body.applyImpulse(force, clickedOrb.body.position);
-
-                    orbs.forEach(orb => {
-                        if (orb !== clickedOrb && orb.body) {
-                            const dist = orb.body.position.distanceTo(clickedOrb.body.position);
-                            if (dist < 30) {
-                                const direction = new CANNON.Vec3();
-                                direction.copy(orb.body.position).vsub(clickedOrb.body.position).normalize();
-                                orb.body.applyImpulse(direction.scale(20 / (dist + 1)), orb.body.position);
-                            }
-                        }
-                    });
-                }
-            }
-        });
+        if (!isMobile) composer.addPass(new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.6, 0.35, 0.12));
 
         let visible = true;
-        const observer = new IntersectionObserver(e => visible = e[0].isIntersecting, { threshold: 0.1 });
-        observer.observe(canvas);
+        new IntersectionObserver(e => visible = e[0].isIntersecting, { threshold: 0.1 }).observe(canvas);
 
-        let lastFrame = 0;
-        const targetFPS = isMobile ? 30 : 60;
-        const frameInterval = 1000 / targetFPS;
+        let last = 0, time = 0;
+        const fps = isMobile ? 30 : 60, interval = 1000 / fps;
 
-        let time = 0;
-
-        function animate(timestamp) {
+        function animate(ts) {
             requestAnimationFrame(animate);
-
-            const elapsed = timestamp - lastFrame;
-            if (elapsed < frameInterval) return;
-            lastFrame = timestamp - (elapsed % frameInterval);
-
+            if (ts - last < interval) return;
+            last = ts - ((ts - last) % interval);
             if (!visible) return;
 
             time += 0.016;
-            mouse.x += (mouse.tx - mouse.x) * 0.03;
-            mouse.y += (mouse.ty - mouse.y) * 0.03;
+            gridMat.uniforms.uTime.value = time;
+            sunGrp.scale.setScalar(1 + Math.sin(time * 0.8) * 0.015);
 
-            gridMaterial.uniforms.uTime.value = time;
-            sunGroup.scale.setScalar(1 + Math.sin(time * 0.8) * 0.02);
+            bikes.forEach((b, i) => {
+                const spd = b.speed * 1.8;
+                b.mesh.position.z += Math.cos(b.dir) * spd;
+                b.mesh.position.x += Math.sin(b.dir) * spd;
 
-            // Light cycles animation
-            cycles.forEach(c => {
-                c.progress += c.speed * 0.004;
-                if (c.progress > 1) c.progress = 0;
-                const z = c.startZ + c.progress * c.length;
-                c.head.position.set(c.x, -6, z + c.length);
-                c.head.scale.setScalar(1 + Math.sin(time * 10) * 0.3);
+                b.turnT += 0.016;
+                if (b.turnT > 2.5 + Math.random() * 2.5) {
+                    b.turnT = 0;
+                    if (Math.random() < 0.25) {
+                        b.dir += (Math.random() - 0.5) * Math.PI / 2.5;
+                        b.mesh.rotation.y = b.dir;
+                    }
+                }
+
+                if (b.mesh.position.x > 300) b.mesh.position.x = -300;
+                if (b.mesh.position.x < -300) b.mesh.position.x = 300;
+                if (b.mesh.position.z > 150) b.mesh.position.z = -500;
+                if (b.mesh.position.z < -500) b.mesh.position.z = 150;
+
+                b.rearL.intensity = 3 + Math.sin(time * 10) * 1.5;
+
+                // Trail clash detection
+                bikes.forEach((o, j) => {
+                    if (i >= j) return;
+                    const dx = b.mesh.position.x - o.mesh.position.x;
+                    const dz = b.mesh.position.z - o.mesh.position.z;
+                    const d = Math.sqrt(dx * dx + dz * dz);
+                    if (d < 22 && Math.random() < 0.35) {
+                        const mx = (b.mesh.position.x + o.mesh.position.x) / 2;
+                        const mz = (b.mesh.position.z + o.mesh.position.z) / 2;
+                        spawnSparks(mx, 2, mz, Math.random() < 0.5 ? b.cfg.bright : o.cfg.bright, 15);
+                    }
+                });
             });
 
-            // Physics update
-            if (world) world.step(1 / 60);
-
-            // Orbs with physics and hover
-            raycaster.setFromCamera(mouseVector, camera);
-            const intersects = raycaster.intersectObjects(orbs.map(o => o.core));
-
-            orbs.forEach(o => {
-                if (o.body) {
-                    o.group.position.copy(o.body.position);
-                    o.group.quaternion.copy(o.body.quaternion);
-                } else {
-                    // Floating animation fallback
-                    o.group.position.y = o.baseY + Math.sin(time * o.floatSpeed + o.floatOffset) * 3;
-                }
-
-                o.wireframe.rotation.x += 0.01;
-                o.wireframe.rotation.y += 0.007;
-
-                const isHovered = intersects.length > 0 && intersects[0].object === o.core;
-                if (isHovered !== o.hovered) {
-                    o.hovered = isHovered;
-                    const targetScale = isHovered ? 1.2 : 1;
-                    o.group.scale.setScalar(targetScale);
-                    o.div.style.opacity = isHovered ? '1' : '0';
-                    canvas.style.cursor = isHovered ? 'pointer' : 'default';
-                }
-
-                o.css3dObject.position.copy(o.group.position);
-                o.css3dObject.position.y += o.radius + 5;
-                o.css3dObject.lookAt(camera.position);
-
-                const pulse = 0.2 + Math.sin(time * 2) * 0.1;
-                o.core.material.emissiveIntensity = pulse;
-                o.light.intensity = 1.5 + pulse;
-            });
-
-            // Disc animation
-            disc.rotation.z += 0.008;
-            disc.position.y = 20 + Math.sin(time * 0.5) * 2;
-
-            // Particles with mouse attraction
-            const pos = particles.geometry.attributes.position.array;
-            const mousePos3D = new THREE.Vector3(mouse.x * 100, mouse.y * 50, -100);
-
-            for (let i = 0; i < particleCount; i++) {
-                const idx = i * 3;
-                pos[idx + 2] += velocities[idx + 2];
-
-                const particlePos = new THREE.Vector3(pos[idx], pos[idx + 1], pos[idx + 2]);
-                const dist = particlePos.distanceTo(mousePos3D);
-
-                if (dist < 100) {
-                    const attraction = (100 - dist) / 100;
-                    const direction = mousePos3D.clone().sub(particlePos).normalize();
-                    pos[idx] += direction.x * attraction * 0.5;
-                    pos[idx + 1] += direction.y * attraction * 0.5;
-                }
-
-                if (pos[idx + 2] > 200) {
-                    pos[idx + 2] = -600;
-                    pos[idx] = (Math.random() - 0.5) * 500;
-                    pos[idx + 1] = Math.random() * 120 - 20;
+            for (let i = sparks.length - 1; i >= 0; i--) {
+                const s = sparks[i];
+                s.position.add(s.vel);
+                s.vel.y -= 0.06;
+                s.life -= 0.035;
+                s.material.opacity = s.life;
+                s.scale.setScalar(s.life);
+                if (s.life <= 0) {
+                    scene.remove(s);
+                    s.geometry.dispose();
+                    s.material.dispose();
+                    sparks.splice(i, 1);
                 }
             }
-            particles.geometry.attributes.position.needsUpdate = true;
-
-            // Light trails animation
-            lightTrails.forEach((lt, index) => {
-                lt.progress += lt.speed;
-                lt.life -= 0.005;
-
-                if (lt.progress < 1 && lt.life > 0) {
-                    const headPos = lt.curve.getPoint(Math.min(lt.progress, 1));
-                    const sparkPos = lt.sparks.geometry.attributes.position.array;
-
-                    for (let i = 0; i < 20; i++) {
-                        sparkPos[i * 3] = headPos.x + (Math.random() - 0.5) * 3;
-                        sparkPos[i * 3 + 1] = headPos.y + (Math.random() - 0.5) * 3;
-                        sparkPos[i * 3 + 2] = headPos.z + (Math.random() - 0.5) * 3;
-                    }
-                    lt.sparks.geometry.attributes.position.needsUpdate = true;
-                    lt.trail.material.opacity = 0.8 * lt.life;
-                    lt.sparks.material.opacity = lt.life;
-                } else {
-                    scene.remove(lt.trail);
-                    scene.remove(lt.sparks);
-                    lt.trail.geometry.dispose();
-                    lt.trail.material.dispose();
-                    lt.sparks.geometry.dispose();
-                    lt.sparks.material.dispose();
-                    lightTrails.splice(index, 1);
-                }
-            });
 
             controls.update();
             composer.render();
-            css3dRenderer.render(scene, camera);
-
-            if (typeof TWEEN !== 'undefined') TWEEN.update();
         }
 
         animate(0);
-        hideLoading();
+        setTimeout(() => { if (!bikes.length) initBikes(); }, 3500);
 
-        // Resize handler
-        let resizeTimeout;
         window.addEventListener('resize', () => {
-            clearTimeout(resizeTimeout);
-            resizeTimeout = setTimeout(() => {
-                camera.aspect = window.innerWidth / window.innerHeight;
-                camera.updateProjectionMatrix();
-                renderer.setSize(window.innerWidth, window.innerHeight);
-                composer.setSize(window.innerWidth, window.innerHeight);
-                css3dRenderer.setSize(window.innerWidth, window.innerHeight);
-            }, 100);
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            composer.setSize(window.innerWidth, window.innerHeight);
         }, { passive: true });
     }
     </script>
