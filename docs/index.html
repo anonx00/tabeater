@@ -1805,11 +1805,11 @@
             // Bike configurations - TRON race formation with wide lane spread
             // Bikes closer together for racing/collision feel
             const bikeConfigs = [
-                { color: TRON.cyan, bright: TRON.cyanBright, x: 0, z: 5, speed: 1.0, lane: 0 },
-                { color: TRON.orange, bright: TRON.orangeBright, x: -12, z: -5, speed: 0.95, lane: -1 },
-                { color: TRON.yellow, bright: TRON.yellowBright, x: 12, z: -3, speed: 0.97, lane: 1 },
-                { color: TRON.purple, bright: TRON.purpleBright, x: -6, z: -12, speed: 0.92, lane: 0 },
-                { color: TRON.red, bright: TRON.redBright, x: 18, z: -15, speed: 0.90, lane: 2 }
+                { color: TRON.cyan, bright: TRON.cyanBright, x: 0, z: 10, speed: 1.0, lane: 0 },
+                { color: TRON.orange, bright: TRON.orangeBright, x: -20, z: -8, speed: 0.95, lane: -1 },
+                { color: TRON.yellow, bright: TRON.yellowBright, x: 20, z: -5, speed: 0.97, lane: 1 },
+                { color: TRON.purple, bright: TRON.purpleBright, x: -10, z: -20, speed: 0.92, lane: 0 },
+                { color: TRON.red, bright: TRON.redBright, x: 28, z: -18, speed: 0.90, lane: 2 }
             ];
 
             // ============================================
@@ -2128,16 +2128,11 @@
                     beamLight.position.set(0, 0.8, 5);
                     bike.add(beamLight);
 
-                    // Undercarriage glow
-                    const underLight = new THREE.PointLight(config.color, 3, 20);
-                    underLight.position.set(0, 0.3, 0);
-                    bike.add(underLight);
-
                     // ============================================
-                    // TRON-STYLE WALL TRAIL - Sleek racing trail
+                    // TRON-STYLE WALL TRAIL - Short, sharp trail
                     // ============================================
-                    const trailLength = 55; // Compact, sleek trail
-                    const trailHeight = 1.0; // Thinner profile
+                    const trailLength = 32; // Short, sharp trail
+                    const trailHeight = 0.9; // Slim profile
 
                     // Main vertical wall trail - sharp neon core
                     const trailGeo = new THREE.PlaneGeometry(trailLength, trailHeight);
@@ -2192,8 +2187,8 @@
                     bike.add(groundGlow);
 
                     // Trail light - focused glow
-                    const trailLight = new THREE.PointLight(config.color, 4, 40);
-                    trailLight.position.set(0, 0.8, -15);
+                    const trailLight = new THREE.PointLight(config.color, 3.5, 30);
+                    trailLight.position.set(0, 0.7, -10);
                     bike.add(trailLight);
 
                     scene.add(bike);
@@ -2601,21 +2596,43 @@
                         bike.velocity.z = (bike.velocity.z / speed) * bike.maxSpeed;
                     }
 
-                    // Collision avoidance with other bikes
-                    let avoidX = 0, avoidZ = 0;
+                    // REALISTIC collision physics - bikes cannot pass through each other
+                    const bikeRadius = 5;
                     bikes.forEach((other, j) => {
                         if (i === j) return;
-                        const dx = other.mesh.position.x - bike.mesh.position.x;
-                        const dz = other.mesh.position.z - bike.mesh.position.z;
+                        const dx = bike.mesh.position.x - other.mesh.position.x;
+                        const dz = bike.mesh.position.z - other.mesh.position.z;
                         const dist = Math.sqrt(dx * dx + dz * dz);
-                        if (dist < 15) {
-                            const force = 1 - (dist / 15);
-                            avoidX -= (dx / (dist + 0.1)) * force * 2.5;
-                            avoidZ -= (dz / (dist + 0.1)) * force * 2.5;
+                        const minDist = bikeRadius * 2;
+
+                        // Hard collision - push bikes apart immediately
+                        if (dist < minDist && dist > 0.01) {
+                            const overlap = minDist - dist;
+                            const nx = dx / dist;
+                            const nz = dz / dist;
+
+                            // Separate bikes
+                            bike.mesh.position.x += nx * overlap * 0.6;
+                            bike.mesh.position.z += nz * overlap * 0.6;
+
+                            // Elastic collision - exchange momentum
+                            const relVelX = bike.velocity.x - other.velocity.x;
+                            const relVelZ = bike.velocity.z - other.velocity.z;
+                            const relVelDotN = relVelX * nx + relVelZ * nz;
+
+                            if (relVelDotN < 0) {
+                                bike.velocity.x -= relVelDotN * nx * 0.7;
+                                bike.velocity.z -= relVelDotN * nz * 0.7;
+                            }
+                        }
+
+                        // Soft steering avoidance at medium range
+                        if (dist < 20 && dist >= minDist) {
+                            const force = 1 - (dist / 20);
+                            bike.velocity.x += (dx / dist) * force * 1.2;
+                            bike.velocity.z += (dz / dist) * force * 1.2;
                         }
                     });
-                    bike.velocity.x += avoidX * 0.08;
-                    bike.velocity.z += avoidZ * 0.08;
 
                     // Apply velocity
                     bike.mesh.position.x += bike.velocity.x * 0.016;
