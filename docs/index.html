@@ -2033,54 +2033,72 @@
                     bike.add(headLight);
 
                     // ============================================
-                    // TRON-STYLE WALL TRAIL - long racing trail
+                    // TRON-STYLE WALL TRAIL - ENHANCED long racing trail
                     // ============================================
-                    const trailLength = 45;
-                    const trailHeight = 1.2;
+                    const trailLength = 110; // 2.4x longer trails
+                    const trailHeight = 1.5;
 
-                    // Main vertical wall trail - attached right at bike
+                    // Main vertical wall trail - bright neon core
                     const trailGeo = new THREE.PlaneGeometry(trailLength, trailHeight);
                     const trailMat = new THREE.MeshBasicMaterial({
                         color: config.bright,
                         transparent: true,
-                        opacity: 0.75,
+                        opacity: 0.85,
                         side: THREE.DoubleSide
                     });
                     const trail = new THREE.Mesh(trailGeo, trailMat);
                     trail.rotation.y = Math.PI / 2;
-                    trail.position.set(0, trailHeight / 2 + 0.1, -trailLength / 2);
+                    trail.position.set(0, trailHeight / 2 + 0.15, -trailLength / 2);
                     bike.add(trail);
 
-                    // Trail glow layer
-                    const glowGeo = new THREE.PlaneGeometry(trailLength, trailHeight * 1.4);
-                    const glowMat = new THREE.MeshBasicMaterial({
-                        color: config.color,
+                    // Inner glow layer - brighter core
+                    const innerGlowGeo = new THREE.PlaneGeometry(trailLength, trailHeight * 1.3);
+                    const innerGlowMat = new THREE.MeshBasicMaterial({
+                        color: config.bright,
                         transparent: true,
-                        opacity: 0.2,
+                        opacity: 0.35,
                         side: THREE.DoubleSide
                     });
-                    const glow = new THREE.Mesh(glowGeo, glowMat);
-                    glow.rotation.y = Math.PI / 2;
-                    glow.position.set(0, trailHeight / 2 + 0.1, -trailLength / 2);
-                    bike.add(glow);
+                    const innerGlow = new THREE.Mesh(innerGlowGeo, innerGlowMat);
+                    innerGlow.rotation.y = Math.PI / 2;
+                    innerGlow.position.set(0, trailHeight / 2 + 0.15, -trailLength / 2 + 0.1);
+                    bike.add(innerGlow);
 
-                    // Ground light strip - reflection of trail
-                    const groundGlowGeo = new THREE.PlaneGeometry(trailLength, 2.5);
-                    const groundGlowMat = new THREE.MeshBasicMaterial({
+                    // Outer glow layer - diffuse halo
+                    const glowGeo = new THREE.PlaneGeometry(trailLength, trailHeight * 2.0);
+                    const glowMat = new THREE.MeshBasicMaterial({
                         color: config.color,
                         transparent: true,
                         opacity: 0.15,
                         side: THREE.DoubleSide
                     });
+                    const glow = new THREE.Mesh(glowGeo, glowMat);
+                    glow.rotation.y = Math.PI / 2;
+                    glow.position.set(0, trailHeight / 2 + 0.15, -trailLength / 2 - 0.1);
+                    bike.add(glow);
+
+                    // Ground light strip - enhanced reflection
+                    const groundGlowGeo = new THREE.PlaneGeometry(trailLength, 4.0);
+                    const groundGlowMat = new THREE.MeshBasicMaterial({
+                        color: config.color,
+                        transparent: true,
+                        opacity: 0.2,
+                        side: THREE.DoubleSide
+                    });
                     const groundGlow = new THREE.Mesh(groundGlowGeo, groundGlowMat);
                     groundGlow.rotation.x = -Math.PI / 2;
-                    groundGlow.position.set(0, 0.02, -trailLength / 2);
+                    groundGlow.position.set(0, 0.03, -trailLength / 2);
                     bike.add(groundGlow);
 
-                    // Trail point light for glow effect
-                    const trailLight = new THREE.PointLight(config.color, 2, 20);
-                    trailLight.position.set(0, 0.8, -10);
+                    // Primary trail light - stronger glow
+                    const trailLight = new THREE.PointLight(config.color, 5, 70);
+                    trailLight.position.set(0, 1.2, -25);
                     bike.add(trailLight);
+
+                    // Secondary trail light for spread
+                    const trailLight2 = new THREE.PointLight(config.bright, 3, 50);
+                    trailLight2.position.set(0, 0.6, -50);
+                    bike.add(trailLight2);
 
                     scene.add(bike);
 
@@ -2089,12 +2107,22 @@
                         trail: trail,
                         glow: glow,
                         groundGlow: groundGlow,
+                        trailLight: trailLight,
                         config: config,
                         baseX: config.x,
                         baseZ: config.z,
                         time: Math.random() * Math.PI * 2,
                         targetRotZ: 0,
-                        currentRotZ: 0
+                        currentRotZ: 0,
+                        // Physics-based movement
+                        velocity: { x: 0, z: 0 },
+                        targetVelocity: { x: 0, z: 0 },
+                        acceleration: 0.12 + Math.random() * 0.08,
+                        maxSpeed: 6 + Math.random() * 3,
+                        changeTimer: 0,
+                        changeInterval: 60 + Math.floor(Math.random() * 80),
+                        racingIntensity: 0.5 + Math.random() * 0.5,
+                        lastVelocity: { x: 0, z: 0 }
                     });
                 }
             }, undefined, (error) => {
@@ -2184,12 +2212,28 @@
             }
 
             // ============================================
-            // SPARK/CRASH EFFECTS - When bikes get close
+            // SPARK/CRASH EFFECTS - ENHANCED with varied particles
             // ============================================
             const sparkPool = [];
-            const maxSparks = 50;
+            const maxSparks = 150; // 3x more sparks
             for (let i = 0; i < maxSparks; i++) {
-                const sparkGeo = new THREE.SphereGeometry(0.1, 4, 4);
+                // Varied spark sizes for visual interest
+                const sizeType = Math.random();
+                let sparkGeo, baseOpacity;
+                if (sizeType < 0.5) {
+                    // Small dust particles
+                    sparkGeo = new THREE.SphereGeometry(0.06, 3, 3);
+                    baseOpacity = 0.9;
+                } else if (sizeType < 0.85) {
+                    // Medium sparks
+                    sparkGeo = new THREE.SphereGeometry(0.12, 4, 4);
+                    baseOpacity = 1.0;
+                } else {
+                    // Large bright flares
+                    sparkGeo = new THREE.OctahedronGeometry(0.18);
+                    baseOpacity = 1.0;
+                }
+
                 const sparkMat = new THREE.MeshBasicMaterial({
                     color: 0xffffff,
                     transparent: true,
@@ -2201,24 +2245,41 @@
                     mesh: spark,
                     active: false,
                     life: 0,
-                    vx: 0, vy: 0, vz: 0
+                    maxLife: 1.0,
+                    vx: 0, vy: 0, vz: 0,
+                    rotVel: { x: 0, y: 0, z: 0 },
+                    baseOpacity: baseOpacity,
+                    sizeType: sizeType
                 });
             }
 
-            // Spawn sparks at position
-            function spawnSparks(x, y, z, color, count = 8) {
+            // Enhanced spark spawning with more variety
+            function spawnSparks(x, y, z, color, count = 12, intensity = 1.0) {
                 let spawned = 0;
                 for (let i = 0; i < sparkPool.length && spawned < count; i++) {
                     const spark = sparkPool[i];
                     if (!spark.active) {
                         spark.active = true;
-                        spark.life = 1.0;
+                        spark.maxLife = 0.8 + Math.random() * 0.6;
+                        spark.life = spark.maxLife;
                         spark.mesh.position.set(x, y, z);
                         spark.mesh.material.color.set(color);
-                        spark.mesh.material.opacity = 1;
-                        spark.vx = (Math.random() - 0.5) * 2;
-                        spark.vy = Math.random() * 2;
-                        spark.vz = (Math.random() - 0.5) * 2;
+                        spark.mesh.material.opacity = spark.baseOpacity;
+
+                        // Enhanced velocity - more spread and speed
+                        const angle = Math.random() * Math.PI * 2;
+                        const elevation = Math.random() * Math.PI - Math.PI / 2;
+                        const speed = (2 + Math.random() * 4) * intensity;
+
+                        spark.vx = Math.cos(elevation) * Math.cos(angle) * speed;
+                        spark.vy = Math.sin(elevation) * speed + Math.random() * 2.5;
+                        spark.vz = Math.cos(elevation) * Math.sin(angle) * speed;
+
+                        // Random rotation for larger particles
+                        spark.rotVel.x = (Math.random() - 0.5) * 0.3;
+                        spark.rotVel.y = (Math.random() - 0.5) * 0.3;
+                        spark.rotVel.z = (Math.random() - 0.5) * 0.3;
+
                         spawned++;
                     }
                 }
@@ -2236,14 +2297,17 @@
                 composer = new EffectComposer(renderer);
                 composer.addPass(new RenderPass(scene, camera));
 
-                // Balanced TRON neon bloom effect
+                // ENHANCED TRON neon bloom effect
                 const bloomPass = new UnrealBloomPass(
                     new THREE.Vector2(window.innerWidth, window.innerHeight),
-                    1.6,   // strength - balanced glow (not blown out)
-                    0.4,   // radius - moderate spread
-                    0.2    // threshold - only bright areas
+                    2.0,   // strength - enhanced glow
+                    0.5,   // radius - wider spread
+                    0.15   // threshold - catches more bright areas
                 );
                 composer.addPass(bloomPass);
+
+                // Store for dynamic updates
+                window.bloomPass = bloomPass;
             }
 
             // ============================================
@@ -2298,59 +2362,148 @@
                     gridHelper2.position.z = gridHelper1.position.z - gridSize;
                 }
 
-                // Animate bikes - racing dynamics with smooth orientation
+                // Animate bikes - ENHANCED physics-based racing dynamics
                 bikes.forEach((bike, i) => {
                     bike.time += 0.025 * bike.config.speed;
+                    bike.changeTimer++;
 
-                    // Subtle hover effect
-                    bike.mesh.position.y = 0.8 + Math.sin(bike.time * 1.5) * 0.12;
-
-                    // Racing movement - bikes jockey for position (forward/back)
-                    const raceOscillation = Math.sin(bike.time * 0.4 + i * 1.5) * 10;
-                    bike.mesh.position.z = bike.baseZ + raceOscillation;
-
-                    // Lane weaving - bikes shift between lanes during race
-                    const laneShift = Math.sin(bike.time * 0.2 + i * 2) * 5;
-                    bike.mesh.position.x = bike.baseX + laneShift;
-
-                    // Smooth orientation - bikes lean into turns gradually
-                    bike.targetRotZ = -laneShift * 0.025;
-                    bike.currentRotZ += (bike.targetRotZ - bike.currentRotZ) * 0.08;
-                    bike.mesh.rotation.z = bike.currentRotZ;
-
-                    // Pulse trail opacity with racing intensity
-                    bike.trail.material.opacity = 0.65 + Math.sin(bike.time * 2.5) * 0.1;
-                    bike.glow.material.opacity = 0.18 + Math.sin(bike.time * 2) * 0.08;
-                    if (bike.groundGlow) {
-                        bike.groundGlow.material.opacity = 0.1 + Math.sin(bike.time * 3) * 0.04;
+                    // Physics-based movement: change behavior periodically
+                    if (bike.changeTimer > bike.changeInterval) {
+                        const behavior = Math.random();
+                        if (behavior < 0.35) {
+                            // Aggressive lane takeover
+                            bike.targetVelocity.z = 10 * bike.config.speed * bike.racingIntensity;
+                            bike.targetVelocity.x = (Math.random() - 0.5) * 8;
+                        } else if (behavior < 0.65) {
+                            // Weaving evasion
+                            bike.targetVelocity.x = Math.sin(bike.time * 0.4) * 8 * bike.racingIntensity;
+                            bike.targetVelocity.z = 6 * bike.config.speed;
+                        } else {
+                            // Conservative positioning
+                            bike.targetVelocity.z = 4 * bike.config.speed;
+                            bike.targetVelocity.x = Math.cos(bike.time * 0.2) * 4;
+                        }
+                        bike.changeTimer = 0;
+                        bike.changeInterval = 50 + Math.floor(Math.random() * 100);
                     }
 
-                    // Check for near-collisions with other bikes - trails clash!
+                    // Smooth velocity interpolation (physics feel)
+                    bike.velocity.x += (bike.targetVelocity.x - bike.velocity.x) * bike.acceleration;
+                    bike.velocity.z += (bike.targetVelocity.z - bike.velocity.z) * bike.acceleration;
+
+                    // Clamp to max speed
+                    const speed = Math.sqrt(bike.velocity.x * bike.velocity.x + bike.velocity.z * bike.velocity.z);
+                    if (speed > bike.maxSpeed) {
+                        bike.velocity.x = (bike.velocity.x / speed) * bike.maxSpeed;
+                        bike.velocity.z = (bike.velocity.z / speed) * bike.maxSpeed;
+                    }
+
+                    // Collision avoidance with other bikes
+                    let avoidX = 0, avoidZ = 0;
+                    bikes.forEach((other, j) => {
+                        if (i === j) return;
+                        const dx = other.mesh.position.x - bike.mesh.position.x;
+                        const dz = other.mesh.position.z - bike.mesh.position.z;
+                        const dist = Math.sqrt(dx * dx + dz * dz);
+                        if (dist < 15) {
+                            const force = 1 - (dist / 15);
+                            avoidX -= (dx / (dist + 0.1)) * force * 2.5;
+                            avoidZ -= (dz / (dist + 0.1)) * force * 2.5;
+                        }
+                    });
+                    bike.velocity.x += avoidX * 0.08;
+                    bike.velocity.z += avoidZ * 0.08;
+
+                    // Apply velocity
+                    bike.mesh.position.x += bike.velocity.x * 0.016;
+                    bike.mesh.position.z += bike.velocity.z * 0.016;
+
+                    // Arena bounds with bounce
+                    const boundsX = 35, boundsZ = 45;
+                    if (Math.abs(bike.mesh.position.x) > boundsX) {
+                        bike.mesh.position.x = Math.sign(bike.mesh.position.x) * boundsX;
+                        bike.velocity.x *= -0.6;
+                    }
+                    if (Math.abs(bike.mesh.position.z) > boundsZ) {
+                        bike.mesh.position.z = Math.sign(bike.mesh.position.z) * boundsZ;
+                        bike.velocity.z *= -0.6;
+                    }
+
+                    // Subtle hover effect
+                    bike.mesh.position.y = 0.8 + Math.sin(bike.time * 1.5) * 0.1;
+
+                    // Lean into turns based on velocity
+                    const movementAngle = Math.atan2(bike.velocity.x, bike.velocity.z);
+                    bike.targetRotZ = -bike.velocity.x * 0.015;
+                    bike.currentRotZ += (bike.targetRotZ - bike.currentRotZ) * 0.1;
+                    bike.mesh.rotation.z = bike.currentRotZ;
+
+                    // Speed-responsive trail effects
+                    const normalizedSpeed = Math.min(speed / bike.maxSpeed, 1.0);
+                    bike.trail.material.opacity = 0.6 + normalizedSpeed * 0.25 + Math.sin(bike.time * 2.5) * 0.08;
+                    bike.glow.material.opacity = 0.12 + normalizedSpeed * 0.18 + Math.sin(bike.time * 2) * 0.06;
+                    if (bike.groundGlow) {
+                        bike.groundGlow.material.opacity = 0.12 + normalizedSpeed * 0.12 + Math.sin(bike.time * 3) * 0.04;
+                    }
+                    if (bike.trailLight) {
+                        bike.trailLight.intensity = 4 + normalizedSpeed * 2 + Math.sin(bike.time * 1.8) * 0.6;
+                    }
+
+                    // Store velocity for next frame
+                    bike.lastVelocity = { x: bike.velocity.x, z: bike.velocity.z };
+
+                    // Enhanced near-collision detection with more sparks
                     bikes.forEach((other, j) => {
                         if (i >= j) return;
                         const dx = bike.mesh.position.x - other.mesh.position.x;
                         const dz = bike.mesh.position.z - other.mesh.position.z;
                         const dist = Math.sqrt(dx * dx + dz * dz);
 
-                        // Near collision - spawn sparks when close!
-                        if (dist < 18 && Math.random() < 0.25) {
-                            const midX = (bike.mesh.position.x + other.mesh.position.x) / 2;
-                            const midZ = (bike.mesh.position.z + other.mesh.position.z) / 2;
-                            const sparkColor = Math.random() < 0.5 ? bike.config.bright : other.config.bright;
-                            spawnSparks(midX, 1.2, midZ, sparkColor, 8);
+                        // Multi-stage collision response
+                        if (dist < 22) {
+                            const closeness = 1 - (dist / 22);
+                            const spawnChance = Math.min(0.35 * closeness, 0.5);
+
+                            if (Math.random() < spawnChance) {
+                                const midX = (bike.mesh.position.x + other.mesh.position.x) / 2;
+                                const midY = 1.4 + Math.sin(bike.time) * 0.4;
+                                const midZ = (bike.mesh.position.z + other.mesh.position.z) / 2;
+                                const colors = [bike.config.bright, other.config.bright, bike.config.color, other.config.color];
+                                const sparkColor = colors[Math.floor(Math.random() * colors.length)];
+                                const sparkCount = 10 + Math.floor(closeness * 15);
+                                spawnSparks(midX, midY, midZ, sparkColor, sparkCount, closeness);
+                            }
                         }
                     });
                 });
 
-                // Animate sparks
+                // Animate sparks - ENHANCED physics
                 sparkPool.forEach(spark => {
                     if (spark.active) {
-                        spark.life -= 0.03;
-                        spark.mesh.position.x += spark.vx * 0.5;
-                        spark.mesh.position.y += spark.vy * 0.5;
-                        spark.mesh.position.z += spark.vz * 0.5;
-                        spark.vy -= 0.08; // Gravity
-                        spark.mesh.material.opacity = spark.life;
+                        spark.life -= 0.016 / spark.maxLife;
+
+                        // Physics with air drag
+                        spark.mesh.position.x += spark.vx * 0.08;
+                        spark.mesh.position.y += spark.vy * 0.08;
+                        spark.mesh.position.z += spark.vz * 0.08;
+                        spark.vy -= 0.12; // Stronger gravity
+                        spark.vx *= 0.97; // Air drag
+                        spark.vy *= 0.97;
+                        spark.vz *= 0.97;
+
+                        // Rotation for larger particles
+                        spark.mesh.rotation.x += spark.rotVel.x;
+                        spark.mesh.rotation.y += spark.rotVel.y;
+                        spark.mesh.rotation.z += spark.rotVel.z;
+
+                        // Non-linear fade for dramatic effect
+                        const lifePercent = Math.max(0, spark.life / spark.maxLife);
+                        const fadeOut = Math.pow(lifePercent, 1.5);
+                        spark.mesh.material.opacity = spark.baseOpacity * fadeOut;
+
+                        // Slight scale reduction
+                        const scale = 0.5 + lifePercent * 0.5;
+                        spark.mesh.scale.setScalar(scale);
 
                         if (spark.life <= 0) {
                             spark.active = false;
