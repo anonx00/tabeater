@@ -2628,44 +2628,21 @@
                     // Subtle hover effect
                     bike.mesh.position.y = 0.8 + Math.sin(bike.time * 1.5) * 0.08;
 
-                    // Rotate bike to face direction of movement
-                    if (speed > 0.5) {
-                        const targetAngle = Math.atan2(bike.velocity.x, bike.velocity.z);
-                        // Smooth rotation interpolation
-                        let angleDiff = targetAngle - bike.mesh.rotation.y;
-                        // Normalize angle difference
-                        while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
-                        while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
-                        bike.mesh.rotation.y += angleDiff * 0.08;
-                    }
-
-                    // Lean into turns based on lateral velocity
-                    bike.targetRotZ = -bike.velocity.x * 0.02;
-                    bike.currentRotZ += (bike.targetRotZ - bike.currentRotZ) * 0.12;
+                    // Lean into turns based on lateral velocity (no Y rotation - keeps trail stable)
+                    bike.targetRotZ = -bike.velocity.x * 0.018;
+                    bike.currentRotZ += (bike.targetRotZ - bike.currentRotZ) * 0.1;
                     bike.mesh.rotation.z = bike.currentRotZ;
 
-                    // Speed-responsive trail effects - more dynamic
+                    // Speed-responsive trail effects
                     const normalizedSpeed = Math.min(speed / bike.maxSpeed, 1.0);
-                    const trailIntensity = 0.5 + normalizedSpeed * 0.4;
-                    bike.trail.material.opacity = trailIntensity + Math.sin(bike.time * 3) * 0.05;
-
-                    // Scale trail length based on speed
-                    const trailScale = 0.7 + normalizedSpeed * 0.5;
-                    bike.trail.scale.x = trailScale;
-                    bike.trail.position.z = -16 * trailScale;
-
-                    bike.glow.material.opacity = 0.1 + normalizedSpeed * 0.15 + Math.sin(bike.time * 2) * 0.03;
-                    bike.glow.scale.x = trailScale;
-                    bike.glow.position.z = -16 * trailScale + 0.05;
+                    bike.trail.material.opacity = 0.7 + normalizedSpeed * 0.2 + Math.sin(bike.time * 2.5) * 0.05;
+                    bike.glow.material.opacity = 0.1 + normalizedSpeed * 0.12 + Math.sin(bike.time * 2) * 0.03;
 
                     if (bike.groundGlow) {
-                        bike.groundGlow.material.opacity = 0.15 + normalizedSpeed * 0.15;
-                        bike.groundGlow.scale.x = trailScale;
-                        bike.groundGlow.position.z = -16 * trailScale;
+                        bike.groundGlow.material.opacity = 0.18 + normalizedSpeed * 0.12;
                     }
                     if (bike.trailLight) {
-                        bike.trailLight.intensity = 3 + normalizedSpeed * 3;
-                        bike.trailLight.position.z = -8 * trailScale;
+                        bike.trailLight.intensity = 3 + normalizedSpeed * 2.5;
                     }
 
                     // Store velocity for next frame
