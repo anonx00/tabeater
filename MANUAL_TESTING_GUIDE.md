@@ -31,7 +31,7 @@ When Chrome opens:
 1. Click the extension icon (puzzle piece in toolbar)
 2. Click "Options" or settings gear icon
 3. Select "Gemini" as your AI provider
-4. Enter API key: `AIzaSyCwpAeeZONOAHJG9Lx5UX_9cZJsN4s2T0Q`
+4. Enter API key: `YOUR_GEMINI_API_KEY` (get one from https://aistudio.google.com/apikey)
 5. Click "Save"
 
 #### 2. Open Real-World Tabs
@@ -159,7 +159,7 @@ For this test session (5-10 organizes):
 - Rebuild: `npm run build`
 
 **"API key invalid" error:**
-- Verify key in Options matches: `AIzaSyCwpAeeZONOAHJG9Lx5UX_9cZJsN4s2T0Q`
+- Verify your API key is correctly entered in Options
 - Check if key has Gemini API enabled in Google Cloud Console
 
 **Rate limiting (429 error):**
