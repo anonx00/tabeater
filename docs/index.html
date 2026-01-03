@@ -1828,22 +1828,26 @@
             renderer.toneMappingExposure = 0.7; // Balanced exposure
 
             // ============================================
-            // SCENE & CAMERA - Low dramatic angle
+            // SCENE & CAMERA - TRON cinematic racing angle
             // ============================================
             const scene = new THREE.Scene();
-            scene.fog = new THREE.FogExp2(0x000005, 0.006); // Denser fog for cinematic depth
+            scene.fog = new THREE.FogExp2(0x000008, 0.005); // Deep fog for TRON atmosphere
 
-            const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
-            camera.position.set(0, 6, 70);
-            camera.lookAt(0, 0, -20);
+            const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 5, 65);
+            camera.lookAt(0, 1, -25);
 
-            // Camera parameters - cinematic sweep + user controls
+            // Camera parameters - TRON racing cinematics
             const cameraOrbit = {
-                radius: 75,
-                height: 7,
-                speed: 0.025,
-                lookAtHeight: 0
+                radius: 70,
+                height: 5,        // Lower for racing drama
+                speed: 0.02,
+                lookAtHeight: 1,  // Look slightly up at bikes
+                trackBikes: true  // Dynamic bike tracking
             };
+
+            // Dynamic camera target (average of bike positions)
+            const cameraTarget = new THREE.Vector3(0, 1, -10);
 
             // User camera control state
             const userCamera = {
@@ -1945,102 +1949,137 @@
             scene.add(redLight);
 
             // ============================================
-            // THE GRID - Enhanced racing grid with speed lines
+            // THE GRID - Authentic TRON racing arena
             // ============================================
-            const gridSize = 250;
-            const gridDivisions = isMobile ? 50 : 100;
+            const gridSize = 300;
+            const gridDivisions = isMobile ? 60 : 120;
 
-            // Create two grids for seamless scrolling - brighter for racing
-            const gridHelper1 = new THREE.GridHelper(gridSize, gridDivisions, TRON.cyan, TRON.gridDark);
-            gridHelper1.material.opacity = 0.6;
+            // Primary grid - bright cyan like TRON movie
+            const gridHelper1 = new THREE.GridHelper(gridSize, gridDivisions, TRON.cyanBright, 0x001a2a);
+            gridHelper1.material.opacity = 0.7;
             gridHelper1.material.transparent = true;
             gridHelper1.position.z = 0;
             scene.add(gridHelper1);
 
-            // Second grid for seamless loop
-            const gridHelper2 = new THREE.GridHelper(gridSize, gridDivisions, TRON.cyan, TRON.gridDark);
-            gridHelper2.material.opacity = 0.6;
+            // Second grid for seamless scrolling
+            const gridHelper2 = new THREE.GridHelper(gridSize, gridDivisions, TRON.cyanBright, 0x001a2a);
+            gridHelper2.material.opacity = 0.7;
             gridHelper2.material.transparent = true;
             gridHelper2.position.z = -gridSize;
             scene.add(gridHelper2);
 
-            // Grid speed for movement illusion - FAST racing feel
-            const gridSpeed = 65; // Much faster for intense racing
+            // Grid speed - intense TRON racing
+            const gridSpeed = 75;
 
             // ============================================
-            // RACING LANE LINES - perspective speed lines
+            // TRON RACING LANES - wide glowing lanes
             // ============================================
-            const laneColors = [TRON.cyan, TRON.orange, TRON.purple];
+            const laneConfigs = [
+                { x: -28, color: TRON.purple, width: 0.2 },
+                { x: -14, color: TRON.cyan, width: 0.25 },
+                { x: 0, color: TRON.cyanBright, width: 0.35 }, // Center lane brightest
+                { x: 14, color: TRON.cyan, width: 0.25 },
+                { x: 28, color: TRON.orange, width: 0.2 }
+            ];
+
             const laneLines = [];
-            for (let i = -2; i <= 2; i++) {
-                const laneGeo = new THREE.PlaneGeometry(0.15, 500);
+            laneConfigs.forEach(config => {
+                // Main lane line
+                const laneGeo = new THREE.PlaneGeometry(config.width, 600);
                 const laneMat = new THREE.MeshBasicMaterial({
-                    color: laneColors[Math.abs(i) % laneColors.length],
+                    color: config.color,
                     transparent: true,
-                    opacity: 0.4,
+                    opacity: 0.6,
                     side: THREE.DoubleSide
                 });
                 const lane = new THREE.Mesh(laneGeo, laneMat);
                 lane.rotation.x = -Math.PI / 2;
-                lane.position.set(i * 18, 0.01, -100);
+                lane.position.set(config.x, 0.015, -150);
                 scene.add(lane);
-                laneLines.push(lane);
-            }
+                laneLines.push({ mesh: lane, config: config });
 
-            // Center racing stripe - bright accent
-            const centerStripeGeo = new THREE.PlaneGeometry(0.3, 500);
+                // Lane glow effect
+                const glowGeo = new THREE.PlaneGeometry(config.width * 4, 600);
+                const glowMat = new THREE.MeshBasicMaterial({
+                    color: config.color,
+                    transparent: true,
+                    opacity: 0.08,
+                    side: THREE.DoubleSide
+                });
+                const glow = new THREE.Mesh(glowGeo, glowMat);
+                glow.rotation.x = -Math.PI / 2;
+                glow.position.set(config.x, 0.01, -150);
+                scene.add(glow);
+            });
+
+            // Center racing stripe with bright glow
+            const centerStripeGeo = new THREE.PlaneGeometry(0.5, 600);
             const centerStripeMat = new THREE.MeshBasicMaterial({
-                color: TRON.cyan,
+                color: 0xffffff,
                 transparent: true,
-                opacity: 0.7,
+                opacity: 0.85,
                 side: THREE.DoubleSide
             });
             const centerStripe = new THREE.Mesh(centerStripeGeo, centerStripeMat);
             centerStripe.rotation.x = -Math.PI / 2;
-            centerStripe.position.set(0, 0.015, -100);
+            centerStripe.position.set(0, 0.02, -150);
             scene.add(centerStripe);
 
             // ============================================
-            // REFLECTIVE GROUND PLANE - darker for contrast
+            // TRON GROUND - Deep black with subtle glow
             // ============================================
-            const groundGeo = new THREE.PlaneGeometry(500, 500);
+            const groundGeo = new THREE.PlaneGeometry(600, 600);
             const groundMat = new THREE.MeshStandardMaterial({
-                color: 0x000004,
-                metalness: 0.95,
-                roughness: 0.2,
+                color: 0x000002,
+                metalness: 0.98,
+                roughness: 0.1,
                 transparent: true,
-                opacity: 0.7
+                opacity: 0.85,
+                emissive: 0x000510,
+                emissiveIntensity: 0.3
             });
             const ground = new THREE.Mesh(groundGeo, groundMat);
             ground.rotation.x = -Math.PI / 2;
-            ground.position.y = -0.1;
+            ground.position.y = -0.12;
             scene.add(ground);
 
-            // Horizon glow effect - brighter
-            const horizonGeo = new THREE.PlaneGeometry(500, 60);
+            // TRON horizon glow - iconic movie look
+            const horizonGeo = new THREE.PlaneGeometry(600, 80);
             const horizonMat = new THREE.MeshBasicMaterial({
                 color: TRON.cyan,
                 transparent: true,
-                opacity: 0.12,
+                opacity: 0.15,
                 side: THREE.DoubleSide
             });
             const horizon = new THREE.Mesh(horizonGeo, horizonMat);
-            horizon.position.set(0, 30, -220);
+            horizon.position.set(0, 35, -280);
             scene.add(horizon);
 
-            // Speed blur lines at edges
+            // Secondary horizon layer
+            const horizon2Geo = new THREE.PlaneGeometry(600, 40);
+            const horizon2Mat = new THREE.MeshBasicMaterial({
+                color: TRON.purple,
+                transparent: true,
+                opacity: 0.08,
+                side: THREE.DoubleSide
+            });
+            const horizon2 = new THREE.Mesh(horizon2Geo, horizon2Mat);
+            horizon2.position.set(0, 50, -300);
+            scene.add(horizon2);
+
+            // Speed perspective lines at edges
             for (let side = -1; side <= 1; side += 2) {
-                for (let j = 0; j < 3; j++) {
-                    const blurGeo = new THREE.PlaneGeometry(0.08, 400);
+                for (let j = 0; j < 5; j++) {
+                    const blurGeo = new THREE.PlaneGeometry(0.1 - j * 0.015, 500);
                     const blurMat = new THREE.MeshBasicMaterial({
-                        color: TRON.cyan,
+                        color: j < 2 ? TRON.cyan : TRON.purple,
                         transparent: true,
-                        opacity: 0.2 - j * 0.05,
+                        opacity: 0.3 - j * 0.05,
                         side: THREE.DoubleSide
                     });
                     const blur = new THREE.Mesh(blurGeo, blurMat);
                     blur.rotation.x = -Math.PI / 2;
-                    blur.position.set(side * (50 + j * 8), 0.01, -100);
+                    blur.position.set(side * (55 + j * 10), 0.01, -100);
                     scene.add(blur);
                 }
             }
@@ -2063,24 +2102,36 @@
                     bike.position.set(config.x, 0.8, config.z);
                     bike.rotation.y = Math.PI / 2; // Face forward
 
-                    // Enhanced bike glow - headlights and engine
+                    // TRON-style bike glow - strong emission like movie
                     bike.traverse((child) => {
                         if (child.isMesh && child.material) {
                             child.material = child.material.clone();
                             child.material.emissive = new THREE.Color(config.color);
-                            child.material.emissiveIntensity = 0.35; // Stronger glow
+                            child.material.emissiveIntensity = 0.7; // Strong TRON glow
+                            child.material.metalness = 0.4;
+                            child.material.roughness = 0.15;
                         }
                     });
 
-                    // Stronger bike light for light bleeding effect
-                    const bikeLight = new THREE.PointLight(config.color, 4, 35);
-                    bikeLight.position.set(0, 1.5, -3);
-                    bike.add(bikeLight);
+                    // Engine glow - rear light emission
+                    const engineLight = new THREE.PointLight(config.color, 6, 45);
+                    engineLight.position.set(0, 1.2, -4);
+                    bike.add(engineLight);
 
-                    // Front headlight glow
-                    const headLight = new THREE.PointLight(config.bright, 2, 15);
-                    headLight.position.set(0, 1, 3);
+                    // Bright front headlight
+                    const headLight = new THREE.PointLight(config.bright, 4, 25);
+                    headLight.position.set(0, 1.0, 4);
                     bike.add(headLight);
+
+                    // White accent headlight beam
+                    const beamLight = new THREE.PointLight(0xffffff, 2.5, 35);
+                    beamLight.position.set(0, 0.8, 5);
+                    bike.add(beamLight);
+
+                    // Undercarriage glow
+                    const underLight = new THREE.PointLight(config.color, 3, 20);
+                    underLight.position.set(0, 0.3, 0);
+                    bike.add(underLight);
 
                     // ============================================
                     // TRON-STYLE WALL TRAIL - Sleek racing trail
@@ -2298,6 +2349,97 @@
                 });
             }
 
+            // ============================================
+            // TRON DEREZZ EFFECT - Pixelated cube explosion
+            // ============================================
+            const derezPool = [];
+            const maxDerez = 60;
+            for (let i = 0; i < maxDerez; i++) {
+                const boxGeo = new THREE.BoxGeometry(0.25, 0.25, 0.25);
+                const boxMat = new THREE.MeshBasicMaterial({
+                    color: 0x00ffff,
+                    transparent: true,
+                    opacity: 0
+                });
+                const box = new THREE.Mesh(boxGeo, boxMat);
+                scene.add(box);
+                derezPool.push({
+                    mesh: box,
+                    active: false,
+                    life: 0,
+                    maxLife: 1.0,
+                    vx: 0, vy: 0, vz: 0,
+                    rotSpeed: { x: 0, y: 0, z: 0 }
+                });
+            }
+
+            // Flash burst pool for collision core
+            const flashPool = [];
+            const maxFlash = 10;
+            for (let i = 0; i < maxFlash; i++) {
+                const flashGeo = new THREE.SphereGeometry(0.8, 8, 8);
+                const flashMat = new THREE.MeshBasicMaterial({
+                    color: 0xffffff,
+                    transparent: true,
+                    opacity: 0
+                });
+                const flash = new THREE.Mesh(flashGeo, flashMat);
+                scene.add(flash);
+                flashPool.push({
+                    mesh: flash,
+                    active: false,
+                    life: 0,
+                    maxLife: 0.3
+                });
+            }
+
+            // TRON Derezz explosion spawner
+            function spawnDerezz(x, y, z, color, intensity = 1.0) {
+                const count = 6 + Math.floor(intensity * 10);
+                let spawned = 0;
+
+                // Spawn pixelated cubes
+                for (let i = 0; i < derezPool.length && spawned < count; i++) {
+                    const box = derezPool[i];
+                    if (!box.active) {
+                        box.active = true;
+                        box.maxLife = 0.8 + Math.random() * 0.5;
+                        box.life = box.maxLife;
+                        box.mesh.position.set(x + (Math.random() - 0.5) * 2, y + Math.random(), z + (Math.random() - 0.5) * 2);
+                        box.mesh.material.color.set(color);
+                        box.mesh.material.opacity = 1.0;
+                        box.mesh.scale.setScalar(0.8 + Math.random() * 0.4);
+
+                        // Explosive velocity
+                        const angle = Math.random() * Math.PI * 2;
+                        const elev = Math.random() * Math.PI * 0.6;
+                        const speed = (6 + Math.random() * 10) * intensity;
+                        box.vx = Math.cos(elev) * Math.cos(angle) * speed;
+                        box.vy = Math.sin(elev) * speed + 4;
+                        box.vz = Math.cos(elev) * Math.sin(angle) * speed;
+                        box.rotSpeed.x = (Math.random() - 0.5) * 0.5;
+                        box.rotSpeed.y = (Math.random() - 0.5) * 0.5;
+                        box.rotSpeed.z = (Math.random() - 0.5) * 0.5;
+                        spawned++;
+                    }
+                }
+
+                // Spawn core flash
+                for (let i = 0; i < flashPool.length; i++) {
+                    const flash = flashPool[i];
+                    if (!flash.active) {
+                        flash.active = true;
+                        flash.maxLife = 0.25;
+                        flash.life = flash.maxLife;
+                        flash.mesh.position.set(x, y, z);
+                        flash.mesh.material.color.set(color);
+                        flash.mesh.material.opacity = 1.0;
+                        flash.mesh.scale.setScalar(0.5);
+                        break;
+                    }
+                }
+            }
+
             // Enhanced spark spawning with more variety
             function spawnSparks(x, y, z, color, count = 12, intensity = 1.0) {
                 let spawned = 0;
@@ -2385,15 +2527,31 @@
 
                 time += 0.016;
 
-                // Camera movement: auto-rotate + user controls
+                // TRON Racing Camera - dynamic tracking with cinematic sweep
                 const autoAngle = userCamera.autoRotate ? time * cameraOrbit.speed : 0;
                 const totalAngle = autoAngle + userCamera.angleOffset;
                 const effectiveRadius = cameraOrbit.radius * userCamera.zoom;
 
-                camera.position.x = Math.sin(totalAngle) * effectiveRadius;
+                // Track average bike position for dynamic camera focus
+                if (bikes.length > 0 && cameraOrbit.trackBikes) {
+                    let avgX = 0, avgZ = 0;
+                    bikes.forEach(b => {
+                        avgX += b.mesh.position.x;
+                        avgZ += b.mesh.position.z;
+                    });
+                    avgX /= bikes.length;
+                    avgZ /= bikes.length;
+                    // Smooth camera target interpolation
+                    cameraTarget.x += (avgX * 0.3 - cameraTarget.x) * 0.05;
+                    cameraTarget.z += (avgZ * 0.5 - cameraTarget.z) * 0.05;
+                }
+
+                camera.position.x = Math.sin(totalAngle) * effectiveRadius + cameraTarget.x * 0.3;
                 camera.position.z = Math.cos(totalAngle) * effectiveRadius;
-                camera.position.y = cameraOrbit.height + userCamera.heightOffset + (userCamera.autoRotate ? Math.sin(time * 0.15) * 1.5 : 0);
-                camera.lookAt(0, cameraOrbit.lookAtHeight, -15);
+                camera.position.y = cameraOrbit.height + userCamera.heightOffset + (userCamera.autoRotate ? Math.sin(time * 0.12) * 1.2 : 0);
+
+                // Look at dynamic target point (bikes area)
+                camera.lookAt(cameraTarget.x * 0.5, cameraOrbit.lookAtHeight, cameraTarget.z - 20);
 
                 // Animate grid - scrolling to create movement illusion
                 gridHelper1.position.z += gridSpeed * 0.016;
@@ -2504,18 +2662,25 @@
                         const dz = bike.mesh.position.z - other.mesh.position.z;
                         const dist = Math.sqrt(dx * dx + dz * dz);
 
-                        // Multi-stage collision response
-                        if (dist < 22) {
-                            const closeness = 1 - (dist / 22);
-                            const spawnChance = Math.min(0.35 * closeness, 0.5);
+                        // TRON-style trail collision response
+                        if (dist < 25) {
+                            const closeness = 1 - (dist / 25);
+                            const spawnChance = Math.min(0.45 * closeness, 0.6);
 
                             if (Math.random() < spawnChance) {
                                 const midX = (bike.mesh.position.x + other.mesh.position.x) / 2;
-                                const midY = 1.4 + Math.sin(bike.time) * 0.4;
+                                const midY = 1.2 + Math.random() * 0.5;
                                 const midZ = (bike.mesh.position.z + other.mesh.position.z) / 2;
-                                const colors = [bike.config.bright, other.config.bright, bike.config.color, other.config.color];
+                                const colors = [bike.config.bright, other.config.bright];
                                 const sparkColor = colors[Math.floor(Math.random() * colors.length)];
-                                const sparkCount = 10 + Math.floor(closeness * 15);
+
+                                // Spawn TRON derezz cubes for major collisions
+                                if (closeness > 0.5) {
+                                    spawnDerezz(midX, midY, midZ, sparkColor, closeness);
+                                }
+
+                                // Always spawn sparks
+                                const sparkCount = 8 + Math.floor(closeness * 12);
                                 spawnSparks(midX, midY, midZ, sparkColor, sparkCount, closeness);
                             }
                         }
@@ -2553,6 +2718,47 @@
                         if (spark.life <= 0) {
                             spark.active = false;
                             spark.mesh.material.opacity = 0;
+                        }
+                    }
+                });
+
+                // Animate TRON derezz cubes
+                derezPool.forEach(box => {
+                    if (box.active) {
+                        box.life -= 0.016;
+                        box.mesh.position.x += box.vx * 0.05;
+                        box.mesh.position.y += box.vy * 0.05;
+                        box.mesh.position.z += box.vz * 0.05;
+                        box.vy -= 0.15; // Gravity
+                        box.vx *= 0.98;
+                        box.vz *= 0.98;
+
+                        box.mesh.rotation.x += box.rotSpeed.x;
+                        box.mesh.rotation.y += box.rotSpeed.y;
+                        box.mesh.rotation.z += box.rotSpeed.z;
+
+                        const lifePercent = Math.max(0, box.life / box.maxLife);
+                        box.mesh.material.opacity = lifePercent;
+                        box.mesh.scale.setScalar((0.8 + Math.random() * 0.2) * lifePercent);
+
+                        if (box.life <= 0) {
+                            box.active = false;
+                            box.mesh.material.opacity = 0;
+                        }
+                    }
+                });
+
+                // Animate flash bursts
+                flashPool.forEach(flash => {
+                    if (flash.active) {
+                        flash.life -= 0.016;
+                        const lifePercent = flash.life / flash.maxLife;
+                        flash.mesh.material.opacity = lifePercent;
+                        flash.mesh.scale.setScalar(0.5 + (1 - lifePercent) * 3); // Expand outward
+
+                        if (flash.life <= 0) {
+                            flash.active = false;
+                            flash.mesh.material.opacity = 0;
                         }
                     }
                 });
@@ -2615,15 +2821,21 @@
                 orangeLight.intensity = 2 + Math.cos(time * 1.2) * 0.5;
                 purpleLight.intensity = 1.5 + Math.sin(time * 0.8) * 0.3;
 
-                // Pulse grid opacity for racing intensity
-                const gridPulse = 0.55 + Math.sin(time * 2) * 0.1;
+                // TRON grid pulse - racing intensity
+                const gridPulse = 0.6 + Math.sin(time * 2.5) * 0.12;
                 gridHelper1.material.opacity = gridPulse;
                 gridHelper2.material.opacity = gridPulse;
 
-                // Pulse center stripe
+                // Pulse center stripe - bright racing line
                 if (centerStripe) {
-                    centerStripe.material.opacity = 0.6 + Math.sin(time * 3) * 0.15;
+                    centerStripe.material.opacity = 0.75 + Math.sin(time * 4) * 0.15;
                 }
+
+                // Pulse lane lines for racing atmosphere
+                laneLines.forEach((lane, i) => {
+                    const phase = time * 3 + i * 0.5;
+                    lane.mesh.material.opacity = 0.5 + Math.sin(phase) * 0.15;
+                });
 
                 // Render
                 if (composer) {
