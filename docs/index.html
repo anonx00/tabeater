@@ -32,20 +32,20 @@
 
     <!-- Additional SEO -->
     <link rel="canonical" href="https://anonx00.github.io/tabeater/">
-    <meta name="theme-color" content="#000000">
+    <meta name="theme-color" content="#1a0000">
     <meta name="robots" content="index, follow">
     <meta name="author" content="TabEater">
     <meta name="keywords" content="tab manager, chrome extension, AI tab organizer, browser tabs, productivity, tab grouping">
 
     <!-- Favicon -->
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%230a0a0a' rx='4'/%3E%3Cpath d='M4 8.5V26C4 27 5 28 6 28H26C27 28 28 27 28 26V11C28 10 27 9 26 9H16L13 5H6C5 5 4 6 4 7V8.5Z' fill='none' stroke='%2300FF88' stroke-width='2'/%3E%3Crect x='8' y='13' width='6' height='6' fill='%2300FF88'/%3E%3C/svg%3E">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%230a0a0a' rx='4'/%3E%3Cpath d='M4 8.5V26C4 27 5 28 6 28H26C27 28 28 27 28 26V11C28 10 27 9 26 9H16L13 5H6C5 5 4 6 4 7V8.5Z' fill='none' stroke='%23FF3333' stroke-width='2'/%3E%3Crect x='8' y='13' width='6' height='6' fill='%23FF3333'/%3E%3C/svg%3E">
 
     <!-- Preconnect for performance -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preconnect" href="https://unpkg.com">
 
-    <!-- Fonts with display swap for better LCP -->
+    <!-- Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Orbitron:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 
     <!-- Structured Data -->
@@ -57,20 +57,8 @@
         "applicationCategory": "BrowserApplication",
         "operatingSystem": "Chrome",
         "description": "AI-powered tab intelligence for Chrome. Organize, analyze, and manage your tabs instantly with privacy-first local AI.",
-        "offers": {
-            "@type": "Offer",
-            "price": "0",
-            "priceCurrency": "USD"
-        },
-        "aggregateRating": {
-            "@type": "AggregateRating",
-            "ratingValue": "5",
-            "ratingCount": "10"
-        },
-        "author": {
-            "@type": "Organization",
-            "name": "TabEater"
-        }
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+        "author": { "@type": "Organization", "name": "TabEater" }
     }
     </script>
 
@@ -78,37 +66,35 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
         :root {
-            --neon-cyan: #00FFFF;
-            --neon-blue: #00D4FF;
-            --neon-orange: #FF6B00;
-            --neon-pink: #FF0080;
-            --accent: #6FFFE9;
+            --neon-red: #FF3333;
+            --neon-crimson: #FF1A1A;
+            --neon-orange: #FF6600;
+            --neon-pink: #FF0066;
+            --accent: #FF4444;
+            --accent-bright: #FF6666;
             --bg: #000000;
             --text: #ffffff;
-            --text-dim: #B8E8E8;
-            --text-muted: #7AB8B8;
-            --focus-ring: 0 0 0 3px rgba(111, 255, 233, 0.5);
+            --text-dim: #FFB8B8;
+            --text-muted: #CC8888;
+            --focus-ring: 0 0 0 3px rgba(255, 68, 68, 0.5);
         }
 
-        /* Reduced motion preference */
         @media (prefers-reduced-motion: reduce) {
             *, *::before, *::after {
                 animation-duration: 0.01ms !important;
                 animation-iteration-count: 1 !important;
                 transition-duration: 0.01ms !important;
             }
-            .hero-content { animation: none !important; }
             #bg-canvas { display: none !important; }
             body::before {
                 content: '';
                 position: fixed;
                 inset: 0;
-                background: linear-gradient(180deg, #000510 0%, #001020 100%);
+                background: linear-gradient(180deg, #0a0000 0%, #1a0505 100%);
                 z-index: 0;
             }
         }
 
-        /* Skip to content link for accessibility */
         .skip-link {
             position: absolute;
             top: -100%;
@@ -124,10 +110,7 @@
             z-index: 9999;
             transition: top 0.3s ease;
         }
-        .skip-link:focus {
-            top: 0;
-            outline: none;
-        }
+        .skip-link:focus { top: 0; outline: none; }
 
         html { scroll-behavior: smooth; }
 
@@ -140,7 +123,6 @@
             line-height: 1.6;
         }
 
-        /* Loading state */
         .loading-overlay {
             position: fixed;
             inset: 0;
@@ -151,22 +133,16 @@
             z-index: 10000;
             transition: opacity 0.5s ease, visibility 0.5s ease;
         }
-        .loading-overlay.hidden {
-            opacity: 0;
-            visibility: hidden;
-            pointer-events: none;
-        }
+        .loading-overlay.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
         .loading-spinner {
             width: 60px;
             height: 60px;
-            border: 3px solid rgba(0, 255, 255, 0.2);
+            border: 3px solid rgba(255, 51, 51, 0.2);
             border-top-color: var(--accent);
             border-radius: 50%;
             animation: spin 1s linear infinite;
         }
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
+        @keyframes spin { to { transform: rotate(360deg); } }
 
         #bg-canvas {
             position: fixed;
@@ -177,12 +153,8 @@
             z-index: 0;
         }
 
-        .content {
-            position: relative;
-            z-index: 10;
-        }
+        .content { position: relative; z-index: 10; }
 
-        /* Hero */
         .hero {
             min-height: 100vh;
             display: flex;
@@ -194,35 +166,29 @@
         }
 
         .hero-content {
-            background: rgba(0, 20, 40, 0.75);
+            background: rgba(40, 0, 0, 0.75);
             backdrop-filter: blur(30px);
             -webkit-backdrop-filter: blur(30px);
             padding: 3rem;
             border-radius: 20px;
-            border: 1px solid rgba(0, 255, 255, 0.3);
+            border: 1px solid rgba(255, 51, 51, 0.3);
             box-shadow:
-                0 0 60px rgba(0, 255, 255, 0.15),
-                inset 0 0 60px rgba(0, 255, 255, 0.05);
+                0 0 60px rgba(255, 51, 51, 0.15),
+                inset 0 0 60px rgba(255, 51, 51, 0.05);
             max-width: 520px;
             animation: fadeInUp 0.8s ease-out;
         }
 
         @keyframes fadeInUp {
-            from {
-                opacity: 0;
-                transform: translateY(30px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
         .logo {
             width: 80px;
             height: 80px;
             margin-bottom: 1.5rem;
-            filter: drop-shadow(0 0 30px rgba(111, 255, 233, 0.8));
+            filter: drop-shadow(0 0 30px rgba(255, 68, 68, 0.8));
         }
 
         .headline {
@@ -232,14 +198,14 @@
             letter-spacing: 0.05em;
             margin-bottom: 0.5rem;
             text-transform: uppercase;
-            background: linear-gradient(180deg, #fff 0%, #6FFFE9 100%);
+            background: linear-gradient(180deg, #fff 0%, #FF6666 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
         }
 
         .headline-accent {
-            background: linear-gradient(90deg, #00FFFF, #6FFFE9, #00FFFF);
+            background: linear-gradient(90deg, #FF3333, #FF6666, #FF3333);
             background-size: 200% 100%;
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
@@ -285,10 +251,7 @@
             overflow: hidden;
         }
 
-        .btn:focus-visible {
-            outline: none;
-            box-shadow: var(--focus-ring);
-        }
+        .btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 
         .btn::before {
             content: '';
@@ -300,31 +263,26 @@
             background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
             transition: left 0.5s ease;
         }
-
-        .btn:hover::before {
-            left: 100%;
-        }
+        .btn:hover::before { left: 100%; }
 
         .btn-primary {
-            background: linear-gradient(135deg, #6FFFE9 0%, #00FFFF 100%);
+            background: linear-gradient(135deg, #FF6666 0%, #FF3333 100%);
             color: #000;
-            box-shadow: 0 0 30px rgba(111, 255, 233, 0.5);
+            box-shadow: 0 0 30px rgba(255, 68, 68, 0.5);
         }
-
         .btn-primary:hover {
             transform: translateY(-3px) scale(1.02);
-            box-shadow: 0 0 50px rgba(111, 255, 233, 0.8);
+            box-shadow: 0 0 50px rgba(255, 68, 68, 0.8);
         }
 
         .btn-secondary {
             background: transparent;
-            color: var(--neon-cyan);
-            border: 2px solid var(--neon-cyan);
+            color: var(--neon-red);
+            border: 2px solid var(--neon-red);
         }
-
         .btn-secondary:hover {
-            background: rgba(0, 255, 255, 0.15);
-            box-shadow: 0 0 30px rgba(0, 255, 255, 0.3);
+            background: rgba(255, 51, 51, 0.15);
+            box-shadow: 0 0 30px rgba(255, 51, 51, 0.3);
         }
 
         .btn svg { width: 18px; height: 18px; flex-shrink: 0; }
@@ -345,7 +303,6 @@
             50% { opacity: 1; transform: translateY(5px); }
         }
 
-        /* Status */
         .status-indicator {
             position: fixed;
             top: 20px;
@@ -353,12 +310,11 @@
             display: flex;
             align-items: center;
             gap: 10px;
-            background: rgba(0, 20, 40, 0.85);
+            background: rgba(40, 0, 0, 0.85);
             backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
             padding: 10px 16px;
             border-radius: 8px;
-            border: 1px solid rgba(0, 255, 255, 0.2);
+            border: 1px solid rgba(255, 51, 51, 0.2);
             z-index: 100;
             font-family: 'Orbitron', sans-serif;
             font-size: 0.65rem;
@@ -381,22 +337,15 @@
             50% { opacity: 0.3; }
         }
 
-        /* Sections */
         .section-backdrop {
-            background: rgba(0, 10, 20, 0.92);
+            background: rgba(20, 0, 0, 0.92);
             backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border-top: 1px solid rgba(0, 255, 255, 0.15);
+            border-top: 1px solid rgba(255, 51, 51, 0.15);
         }
 
-        .features {
-            padding: 6rem 2rem;
-        }
+        .features { padding: 6rem 2rem; }
 
-        .section-header {
-            text-align: center;
-            margin-bottom: 4rem;
-        }
+        .section-header { text-align: center; margin-bottom: 4rem; }
 
         .section-label {
             font-family: 'Orbitron', sans-serif;
@@ -425,17 +374,16 @@
 
         .feature-card {
             padding: 2rem;
-            background: rgba(0, 30, 60, 0.5);
-            border: 1px solid rgba(0, 255, 255, 0.15);
+            background: rgba(60, 0, 0, 0.4);
+            border: 1px solid rgba(255, 51, 51, 0.15);
             border-radius: 12px;
             transition: all 0.4s ease;
         }
 
-        .feature-card:hover,
-        .feature-card:focus-within {
-            border-color: var(--neon-cyan);
+        .feature-card:hover {
+            border-color: var(--neon-red);
             transform: translateY(-5px);
-            box-shadow: 0 20px 60px rgba(0, 255, 255, 0.15);
+            box-shadow: 0 20px 60px rgba(255, 51, 51, 0.15);
         }
 
         .feature-icon {
@@ -445,11 +393,10 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            background: rgba(0, 255, 255, 0.12);
+            background: rgba(255, 51, 51, 0.12);
             border-radius: 10px;
             color: var(--accent);
         }
-
         .feature-icon svg { width: 24px; height: 24px; }
 
         .feature-card h3 {
@@ -467,10 +414,7 @@
             line-height: 1.7;
         }
 
-        /* Privacy */
-        .privacy {
-            padding: 6rem 2rem;
-        }
+        .privacy { padding: 6rem 2rem; }
 
         .privacy-container {
             max-width: 800px;
@@ -485,7 +429,7 @@
             width: 100px;
             height: 100px;
             color: var(--accent);
-            filter: drop-shadow(0 0 40px rgba(111, 255, 233, 0.5));
+            filter: drop-shadow(0 0 40px rgba(255, 68, 68, 0.5));
         }
 
         .privacy-content h2 {
@@ -502,9 +446,7 @@
             font-size: 1.05rem;
         }
 
-        .privacy-list {
-            list-style: none;
-        }
+        .privacy-list { list-style: none; }
 
         .privacy-list li {
             display: flex;
@@ -522,10 +464,7 @@
             flex-shrink: 0;
         }
 
-        /* Providers */
-        .providers {
-            padding: 3rem 2rem;
-        }
+        .providers { padding: 3rem 2rem; }
 
         .providers-container {
             max-width: 800px;
@@ -557,15 +496,10 @@
             font-size: 0.95rem;
             transition: color 0.3s;
         }
-
-        .provider:hover { color: var(--neon-cyan); }
+        .provider:hover { color: var(--neon-red); }
         .provider svg { width: 22px; height: 22px; opacity: 0.7; }
 
-        /* CTA */
-        .cta-section {
-            padding: 6rem 2rem;
-            text-align: center;
-        }
+        .cta-section { padding: 6rem 2rem; text-align: center; }
 
         .cta-section h2 {
             font-family: 'Orbitron', sans-serif;
@@ -584,12 +518,11 @@
             font-size: 1.05rem;
         }
 
-        /* Footer */
         .footer {
             padding: 2.5rem 2rem;
             text-align: center;
-            background: rgba(0, 5, 15, 0.95);
-            border-top: 1px solid rgba(0, 255, 255, 0.1);
+            background: rgba(15, 0, 0, 0.95);
+            border-top: 1px solid rgba(255, 51, 51, 0.1);
         }
 
         .footer-links {
@@ -606,24 +539,11 @@
             transition: color 0.3s;
             padding: 0.25rem;
         }
+        .footer-links a:hover { color: var(--neon-red); }
+        .footer-links a:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: 4px; }
 
-        .footer-links a:hover,
-        .footer-links a:focus {
-            color: var(--neon-cyan);
-        }
+        .footer-copy { font-size: 0.75rem; color: rgba(255,255,255,0.4); }
 
-        .footer-links a:focus-visible {
-            outline: none;
-            box-shadow: var(--focus-ring);
-            border-radius: 4px;
-        }
-
-        .footer-copy {
-            font-size: 0.75rem;
-            color: rgba(255,255,255,0.4);
-        }
-
-        /* Responsive */
         @media (max-width: 768px) {
             .hero-content { padding: 2rem; }
             .privacy-container { grid-template-columns: 1fr; text-align: center; }
@@ -632,24 +552,15 @@
             .cta-group { flex-direction: column; }
             .btn { width: 100%; justify-content: center; padding: 1.1rem 2rem; }
             .status-indicator { display: none; }
-            .features { padding: 4rem 1.5rem; }
-            .privacy { padding: 4rem 1.5rem; }
-            .cta-section { padding: 4rem 1.5rem; }
+            .features, .privacy, .cta-section { padding: 4rem 1.5rem; }
             .footer-links { gap: 1.5rem; flex-wrap: wrap; }
         }
 
-        /* High contrast mode support */
         @media (prefers-contrast: high) {
-            :root {
-                --text-dim: #ffffff;
-                --text-muted: #cccccc;
-            }
-            .btn-secondary {
-                border-width: 3px;
-            }
+            :root { --text-dim: #ffffff; --text-muted: #dddddd; }
+            .btn-secondary { border-width: 3px; }
         }
 
-        /* Visually hidden utility for screen readers */
         .sr-only {
             position: absolute;
             width: 1px;
@@ -664,10 +575,8 @@
     </style>
 </head>
 <body>
-    <!-- Skip to content for accessibility -->
     <a href="#main-content" class="skip-link">Skip to main content</a>
 
-    <!-- Loading overlay -->
     <div class="loading-overlay" id="loading" aria-hidden="true">
         <div class="loading-spinner"></div>
     </div>
@@ -682,14 +591,14 @@
     <div class="content" id="main-content">
         <section class="hero" aria-labelledby="hero-heading">
             <div class="hero-content">
-                <svg class="logo" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" role="img">
+                <svg class="logo" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                     <title>TabEater Logo</title>
                     <rect width="128" height="128" fill="#000" rx="20"/>
                     <g filter="url(#glow)">
-                        <path d="M20 36V100C20 106 25 111 31 111H97C103 111 108 106 108 100V46C108 40 103 35 97 35H64L54 22H31C25 22 20 27 20 33V36Z" fill="none" stroke="#6FFFE9" stroke-width="4"/>
-                        <rect x="34" y="52" width="20" height="20" fill="#6FFFE9" rx="3"/>
-                        <line x1="34" y1="86" x2="94" y2="86" stroke="#6FFFE9" stroke-width="3" opacity="0.6"/>
-                        <line x1="34" y1="96" x2="76" y2="96" stroke="#6FFFE9" stroke-width="2.5" opacity="0.4"/>
+                        <path d="M20 36V100C20 106 25 111 31 111H97C103 111 108 106 108 100V46C108 40 103 35 97 35H64L54 22H31C25 22 20 27 20 33V36Z" fill="none" stroke="#FF4444" stroke-width="4"/>
+                        <rect x="34" y="52" width="20" height="20" fill="#FF4444" rx="3"/>
+                        <line x1="34" y1="86" x2="94" y2="86" stroke="#FF4444" stroke-width="3" opacity="0.6"/>
+                        <line x1="34" y1="96" x2="76" y2="96" stroke="#FF4444" stroke-width="2.5" opacity="0.4"/>
                     </g>
                     <defs>
                         <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
@@ -753,8 +662,7 @@
 
         <section class="privacy section-backdrop" aria-labelledby="privacy-heading">
             <div class="privacy-container">
-                <svg class="shield-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true" role="img">
-                    <title>Security Shield</title>
+                <svg class="shield-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
                     <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
                     <path d="M9 12l2 2 4-4" stroke-width="2"/>
                 </svg>
@@ -821,11 +729,21 @@
     }
     </script>
 
+    <!-- Physics and animation libraries -->
+    <script src="https://unpkg.com/cannon-es@0.20.0/dist/cannon-es.js"></script>
+    <script src="https://unpkg.com/@tweenjs/tween.js@23.1.2/dist/tween.umd.js"></script>
+
     <script type="module">
-    // Check for reduced motion preference
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { CSS3DRenderer, CSS3DObject } from 'three/addons/renderers/CSS3DRenderer.js';
+    import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+    import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+    import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+
+    // Check for reduced motion
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-    // Hide loading overlay
     function hideLoading() {
         const loading = document.getElementById('loading');
         if (loading) {
@@ -834,38 +752,26 @@
         }
     }
 
-    // If user prefers reduced motion, skip 3D scene entirely
     if (prefersReducedMotion) {
         hideLoading();
     } else {
-        // Dynamic imports for better performance
-        Promise.all([
-            import('three'),
-            import('three/addons/controls/OrbitControls.js'),
-            import('three/addons/postprocessing/EffectComposer.js'),
-            import('three/addons/postprocessing/RenderPass.js'),
-            import('three/addons/postprocessing/UnrealBloomPass.js')
-        ]).then(([THREE, { OrbitControls }, { EffectComposer }, { RenderPass }, { UnrealBloomPass }]) => {
-            initScene(THREE, OrbitControls, EffectComposer, RenderPass, UnrealBloomPass);
-            hideLoading();
-        }).catch(err => {
-            console.warn('3D scene failed to load:', err);
-            hideLoading();
-        });
+        initScene();
     }
 
-    function initScene(THREE, OrbitControls, EffectComposer, RenderPass, UnrealBloomPass) {
+    function initScene() {
         const isMobile = window.innerWidth < 768;
         const isLowPower = navigator.hardwareConcurrency <= 4;
 
-        // TRON Colors
-        const CYAN = 0x00FFFF;
-        const CYAN_BRIGHT = 0x6FFFE9;
-        const ORANGE = 0xFF6B00;
+        // RED TRON Colors
+        const RED = 0xFF3333;
+        const RED_BRIGHT = 0xFF6666;
+        const CRIMSON = 0xFF1A1A;
+        const ORANGE = 0xFF6600;
+        const WHITE = 0xFFFFFF;
 
         // Setup
         const canvas = document.getElementById('bg-canvas');
-        if (!canvas) return;
+        if (!canvas) { hideLoading(); return; }
 
         const renderer = new THREE.WebGLRenderer({
             canvas,
@@ -878,15 +784,40 @@
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
         renderer.toneMappingExposure = 1.2;
 
-        const scene = new THREE.Scene();
-        scene.fog = new THREE.FogExp2(0x000510, 0.002);
+        // CSS3D Renderer for overlays
+        const css3dRenderer = new CSS3DRenderer();
+        css3dRenderer.setSize(window.innerWidth, window.innerHeight);
+        css3dRenderer.domElement.style.position = 'absolute';
+        css3dRenderer.domElement.style.top = '0';
+        css3dRenderer.domElement.style.pointerEvents = 'none';
+        document.body.appendChild(css3dRenderer.domElement);
 
-        const ambientLight = new THREE.AmbientLight(0x6FFFE9, 0.3);
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x0a0000, 0.002);
+
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(RED_BRIGHT, 0.3);
         scene.add(ambientLight);
 
-        const directionalLight = new THREE.DirectionalLight(0x00FFFF, 0.5);
+        const directionalLight = new THREE.DirectionalLight(RED, 0.5);
         directionalLight.position.set(50, 100, 50);
         scene.add(directionalLight);
+
+        // Physics world
+        let world = null;
+        if (typeof CANNON !== 'undefined') {
+            world = new CANNON.World({ gravity: new CANNON.Vec3(0, -2, 0) });
+            world.defaultContactMaterial.friction = 0.3;
+            world.defaultContactMaterial.restitution = 0.6;
+
+            const floorBody = new CANNON.Body({
+                mass: 0,
+                shape: new CANNON.Plane(),
+                position: new CANNON.Vec3(0, -10, 0)
+            });
+            floorBody.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2);
+            world.addBody(floorBody);
+        }
 
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
         camera.position.set(0, 50, 100);
@@ -901,13 +832,13 @@
         controls.autoRotate = true;
         controls.autoRotateSpeed = 0.3;
 
-        // Shader-based infinite grid
+        // Shader-based infinite grid (RED)
         const gridShader = {
             uniforms: {
                 uTime: { value: 0 },
-                uColor1: { value: new THREE.Color(CYAN) },
-                uColor2: { value: new THREE.Color(CYAN_BRIGHT) },
-                uFogColor: { value: new THREE.Color(0x000510) },
+                uColor1: { value: new THREE.Color(RED) },
+                uColor2: { value: new THREE.Color(RED_BRIGHT) },
+                uFogColor: { value: new THREE.Color(0x0a0000) },
                 uFogDensity: { value: 0.015 }
             },
             vertexShader: `
@@ -961,25 +892,24 @@
         grid.position.y = -10;
         scene.add(grid);
 
-        // TRON Sun
+        // TRON Sun (RED)
         const sunGroup = new THREE.Group();
         const sunRadius = 100;
 
         const sunArc = new THREE.Mesh(
             new THREE.TorusGeometry(sunRadius, 1.5, 32, 256, Math.PI),
-            new THREE.MeshBasicMaterial({ color: CYAN_BRIGHT })
+            new THREE.MeshBasicMaterial({ color: RED_BRIGHT })
         );
         sunArc.rotation.x = Math.PI / 2;
         sunArc.rotation.z = Math.PI;
         sunGroup.add(sunArc);
 
-        // Reduced glow layers for performance
         const glowCount = isMobile ? 2 : 5;
         for (let i = 1; i <= glowCount; i++) {
             const glow = new THREE.Mesh(
                 new THREE.TorusGeometry(sunRadius, i * 3, 8, 128, Math.PI),
                 new THREE.MeshBasicMaterial({
-                    color: CYAN,
+                    color: RED,
                     transparent: true,
                     opacity: 0.08 / i
                 })
@@ -989,7 +919,6 @@
             sunGroup.add(glow);
         }
 
-        // Horizontal lines on sun
         const lineCount = isMobile ? 12 : 25;
         for (let i = 0; i < lineCount; i++) {
             const y = 8 + i * (isMobile ? 7 : 3.5);
@@ -998,7 +927,7 @@
                 const line = new THREE.Mesh(
                     new THREE.PlaneGeometry(width, 0.8),
                     new THREE.MeshBasicMaterial({
-                        color: CYAN,
+                        color: RED,
                         transparent: true,
                         opacity: 0.9 - i * (isMobile ? 0.07 : 0.03),
                         side: THREE.DoubleSide
@@ -1012,18 +941,19 @@
         sunGroup.position.set(0, -10, -500);
         scene.add(sunGroup);
 
-        // Light Cycles (reduced on mobile)
+        // Light Cycles (RED bikes with trails)
         const cycles = [];
         const cycleCount = isMobile ? 4 : 8;
 
         for (let i = 0; i < cycleCount; i++) {
             const isEnemy = i >= cycleCount - (isMobile ? 1 : 2);
-            const color = isEnemy ? ORANGE : CYAN;
+            const color = isEnemy ? ORANGE : RED;
 
             const trailLength = 200 + Math.random() * 150;
             const x = (Math.random() - 0.5) * 300;
             const z = -400 + Math.random() * 200;
 
+            // Trail wall
             const trail = new THREE.Mesh(
                 new THREE.BoxGeometry(0.8, 4, trailLength),
                 new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.95 })
@@ -1031,11 +961,16 @@
             trail.position.set(x, -8, z + trailLength / 2);
             scene.add(trail);
 
+            // Glowing head
             const head = new THREE.Mesh(
                 new THREE.SphereGeometry(2, 16, 16),
-                new THREE.MeshBasicMaterial({ color: isEnemy ? 0xFF9944 : CYAN_BRIGHT })
+                new THREE.MeshBasicMaterial({ color: isEnemy ? 0xFF9944 : RED_BRIGHT })
             );
             scene.add(head);
+
+            // Add point light to head for glow effect
+            const headLight = new THREE.PointLight(isEnemy ? ORANGE : RED, 2, 30);
+            head.add(headLight);
 
             cycles.push({
                 trail, head, x,
@@ -1046,13 +981,111 @@
             });
         }
 
-        // Identity Disc
+        // Floating Data Orbs with Physics
+        const orbs = [];
+        const orbCount = isMobile ? 8 : 15;
+
+        const tabData = [
+            { title: 'TabEater - GitHub', url: 'github.com/anonx00/tabeater' },
+            { title: 'Three.js Docs', url: 'threejs.org/docs' },
+            { title: 'Chrome Web Store', url: 'chrome.google.com/webstore' },
+            { title: 'TRON: Ares Trailer', url: 'youtube.com' },
+            { title: 'AI Tab Manager', url: 'tabeater.com' },
+            { title: 'WebGPU Docs', url: 'gpuweb.github.io' },
+            { title: 'React Documentation', url: 'react.dev' },
+            { title: 'MDN Web Docs', url: 'developer.mozilla.org' }
+        ];
+
+        for (let i = 0; i < orbCount; i++) {
+            const group = new THREE.Group();
+            const radius = 2 + Math.random() * 1.5;
+            const isAccent = i % 5 === 0;
+
+            const core = new THREE.Mesh(
+                new THREE.SphereGeometry(radius, 32, 32),
+                new THREE.MeshStandardMaterial({
+                    color: isAccent ? ORANGE : RED_BRIGHT,
+                    metalness: 0.8,
+                    roughness: 0.2,
+                    emissive: isAccent ? ORANGE : RED,
+                    emissiveIntensity: 0.3
+                })
+            );
+            group.add(core);
+
+            const light = new THREE.PointLight(isAccent ? ORANGE : RED, 2, 20);
+            group.add(light);
+
+            const wireGeo = new THREE.IcosahedronGeometry(radius * 1.3, 0);
+            const wireframe = new THREE.LineSegments(
+                new THREE.EdgesGeometry(wireGeo),
+                new THREE.LineBasicMaterial({ color: RED, transparent: true, opacity: 0.4 })
+            );
+            group.add(wireframe);
+
+            const x = (Math.random() - 0.5) * 150;
+            const y = 20 + Math.random() * 40;
+            const z = -50 - Math.random() * 200;
+            group.position.set(x, y, z);
+
+            scene.add(group);
+
+            let body = null;
+            if (world) {
+                body = new CANNON.Body({
+                    mass: 1,
+                    shape: new CANNON.Sphere(radius),
+                    position: new CANNON.Vec3(x, y, z),
+                    linearDamping: 0.3,
+                    angularDamping: 0.3
+                });
+                body.applyImpulse(
+                    new CANNON.Vec3((Math.random() - 0.5) * 5, (Math.random() - 0.5) * 5, (Math.random() - 0.5) * 5),
+                    body.position
+                );
+                world.addBody(body);
+            }
+
+            // CSS3D label
+            const div = document.createElement('div');
+            div.style.cssText = `
+                background: rgba(255, 51, 51, 0.1);
+                backdrop-filter: blur(10px);
+                border: 1px solid rgba(255, 51, 51, 0.5);
+                border-radius: 8px;
+                padding: 8px 12px;
+                color: #FF3333;
+                font-family: 'JetBrains Mono', monospace;
+                font-size: 11px;
+                pointer-events: none;
+                opacity: 0;
+                transition: opacity 0.3s;
+                white-space: nowrap;
+                box-shadow: 0 0 20px rgba(255, 51, 51, 0.3);
+            `;
+            const tab = tabData[i % tabData.length];
+            div.innerHTML = `<div style="font-weight: 600;">${tab.title}</div><div style="opacity: 0.7; font-size: 9px;">${tab.url}</div>`;
+
+            const css3dObject = new CSS3DObject(div);
+            css3dObject.position.copy(group.position);
+            css3dObject.position.y += radius + 5;
+            css3dObject.scale.setScalar(0.1);
+            scene.add(css3dObject);
+
+            orbs.push({
+                group, core, wireframe, light, body, css3dObject, div, radius,
+                baseY: y, floatSpeed: 0.5 + Math.random() * 0.5, floatOffset: Math.random() * Math.PI * 2,
+                hovered: false, tabData: tab
+            });
+        }
+
+        // Identity Disc (RED)
         const disc = new THREE.Group();
         [5, 4, 2.5].forEach((r, i) => {
             const ring = new THREE.Mesh(
                 new THREE.TorusGeometry(r, 0.12 - i * 0.02, 16, 100),
                 new THREE.MeshBasicMaterial({
-                    color: i === 2 ? CYAN_BRIGHT : CYAN,
+                    color: i === 2 ? RED_BRIGHT : RED,
                     transparent: true,
                     opacity: 1 - i * 0.2
                 })
@@ -1067,7 +1100,7 @@
                     new THREE.Vector3(Math.cos(angle) * 2.6, Math.sin(angle) * 2.6, 0),
                     new THREE.Vector3(Math.cos(angle) * 4.9, Math.sin(angle) * 4.9, 0)
                 ]),
-                new THREE.LineBasicMaterial({ color: CYAN, transparent: true, opacity: 0.5 })
+                new THREE.LineBasicMaterial({ color: RED, transparent: true, opacity: 0.5 })
             );
             disc.add(spoke);
         }
@@ -1077,13 +1110,13 @@
         disc.rotation.y = 0.4;
         scene.add(disc);
 
-        // Particles (reduced for mobile/low power)
+        // Particles (RED)
         const particleCount = isLowPower ? 300 : (isMobile ? 500 : 1500);
         const positions = new Float32Array(particleCount * 3);
         const velocities = new Float32Array(particleCount * 3);
         const colors = new Float32Array(particleCount * 3);
 
-        const cyanCol = new THREE.Color(CYAN);
+        const redCol = new THREE.Color(RED);
         const orangeCol = new THREE.Color(ORANGE);
 
         for (let i = 0; i < particleCount; i++) {
@@ -1092,7 +1125,7 @@
             positions[i * 3 + 2] = Math.random() * 800 - 600;
             velocities[i * 3 + 2] = 0.3 + Math.random() * 0.5;
 
-            const col = Math.random() > 0.92 ? orangeCol : cyanCol;
+            const col = Math.random() > 0.92 ? orangeCol : redCol;
             colors[i * 3] = col.r;
             colors[i * 3 + 1] = col.g;
             colors[i * 3 + 2] = col.b;
@@ -1111,40 +1144,144 @@
         }));
         scene.add(particles);
 
-        // Post-processing (simplified on mobile)
+        // Post-processing with bloom
         const composer = new EffectComposer(renderer);
         composer.addPass(new RenderPass(scene, camera));
 
         if (!isMobile && !isLowPower) {
             composer.addPass(new UnrealBloomPass(
                 new THREE.Vector2(window.innerWidth, window.innerHeight),
-                1.5, 0.4, 0.2
+                2.0, 0.5, 0.2
             ));
         }
 
+        // Light trails system
+        const lightTrails = [];
+
+        function createLightTrail(startX, startY, isPrimary) {
+            const startPos = new THREE.Vector3();
+            startPos.x = (startX / window.innerWidth) * 2 - 1;
+            startPos.y = -(startY / window.innerHeight) * 2 + 1;
+            startPos.z = 0.5;
+            startPos.unproject(camera);
+
+            const endPos = new THREE.Vector3(
+                (Math.random() - 0.5) * 200,
+                Math.random() * 30,
+                -100 - Math.random() * 200
+            );
+
+            const midPoint1 = new THREE.Vector3().lerpVectors(startPos, endPos, 0.3);
+            midPoint1.x += (Math.random() - 0.5) * 50;
+            midPoint1.y += (Math.random() - 0.5) * 30;
+
+            const midPoint2 = new THREE.Vector3().lerpVectors(startPos, endPos, 0.7);
+            midPoint2.x += (Math.random() - 0.5) * 50;
+            midPoint2.y += (Math.random() - 0.5) * 30;
+
+            const curve = new THREE.CatmullRomCurve3([startPos, midPoint1, midPoint2, endPos]);
+            const points = curve.getPoints(50);
+
+            const geometry = new THREE.BufferGeometry().setFromPoints(points);
+            const material = new THREE.LineBasicMaterial({
+                color: isPrimary ? RED_BRIGHT : ORANGE,
+                transparent: true,
+                opacity: 0.8,
+                blending: THREE.AdditiveBlending
+            });
+
+            const trail = new THREE.Line(geometry, material);
+            scene.add(trail);
+
+            const sparkCount = 20;
+            const sparkPositions = new Float32Array(sparkCount * 3);
+            const sparkGeometry = new THREE.BufferGeometry();
+            sparkGeometry.setAttribute('position', new THREE.BufferAttribute(sparkPositions, 3));
+            const sparkMaterial = new THREE.PointsMaterial({
+                color: material.color,
+                size: 1.5,
+                transparent: true,
+                opacity: 1,
+                blending: THREE.AdditiveBlending
+            });
+            const sparks = new THREE.Points(sparkGeometry, sparkMaterial);
+            scene.add(sparks);
+
+            lightTrails.push({ trail, sparks, curve, progress: 0, speed: 0.015, life: 1 });
+        }
+
+        // Button interactions
+        document.querySelectorAll('.btn').forEach(btn => {
+            btn.addEventListener('mouseenter', e => {
+                const rect = btn.getBoundingClientRect();
+                createLightTrail(rect.left + rect.width / 2, rect.top + rect.height / 2, btn.classList.contains('btn-primary'));
+            });
+
+            btn.addEventListener('click', e => {
+                const rect = btn.getBoundingClientRect();
+                for (let i = 0; i < 3; i++) {
+                    setTimeout(() => {
+                        createLightTrail(rect.left + rect.width / 2, rect.top + rect.height / 2, btn.classList.contains('btn-primary'));
+                    }, i * 50);
+                }
+            });
+        });
+
         // Mouse tracking
         const mouse = { x: 0, y: 0, tx: 0, ty: 0 };
+        const mouseVector = new THREE.Vector2();
+        const raycaster = new THREE.Raycaster();
+
         window.addEventListener('mousemove', e => {
             mouse.tx = (e.clientX / window.innerWidth) * 2 - 1;
             mouse.ty = -(e.clientY / window.innerHeight) * 2 + 1;
+            mouseVector.x = mouse.tx;
+            mouseVector.y = mouse.ty;
         }, { passive: true });
 
-        // Visibility tracking for performance
+        // Click to disperse orbs
+        window.addEventListener('click', e => {
+            if (!world) return;
+            raycaster.setFromCamera(mouseVector, camera);
+            const intersects = raycaster.intersectObjects(orbs.map(o => o.core));
+
+            if (intersects.length > 0) {
+                const clickedOrb = orbs.find(o => o.core === intersects[0].object);
+                if (clickedOrb && clickedOrb.body) {
+                    const force = new CANNON.Vec3(
+                        (Math.random() - 0.5) * 50,
+                        Math.random() * 30,
+                        (Math.random() - 0.5) * 50
+                    );
+                    clickedOrb.body.applyImpulse(force, clickedOrb.body.position);
+
+                    orbs.forEach(orb => {
+                        if (orb !== clickedOrb && orb.body) {
+                            const dist = orb.body.position.distanceTo(clickedOrb.body.position);
+                            if (dist < 30) {
+                                const direction = new CANNON.Vec3();
+                                direction.copy(orb.body.position).vsub(clickedOrb.body.position).normalize();
+                                orb.body.applyImpulse(direction.scale(20 / (dist + 1)), orb.body.position);
+                            }
+                        }
+                    });
+                }
+            }
+        });
+
         let visible = true;
         const observer = new IntersectionObserver(e => visible = e[0].isIntersecting, { threshold: 0.1 });
         observer.observe(canvas);
 
-        // FPS limiting for mobile
         let lastFrame = 0;
         const targetFPS = isMobile ? 30 : 60;
         const frameInterval = 1000 / targetFPS;
 
-        // Animation loop
         let time = 0;
+
         function animate(timestamp) {
             requestAnimationFrame(animate);
 
-            // FPS limiting
             const elapsed = timestamp - lastFrame;
             if (elapsed < frameInterval) return;
             lastFrame = timestamp - (elapsed % frameInterval);
@@ -1155,13 +1292,10 @@
             mouse.x += (mouse.tx - mouse.x) * 0.03;
             mouse.y += (mouse.ty - mouse.y) * 0.03;
 
-            // Grid pulse
             gridMaterial.uniforms.uTime.value = time;
-
-            // Sun
             sunGroup.scale.setScalar(1 + Math.sin(time * 0.8) * 0.02);
 
-            // Light cycles
+            // Light cycles animation
             cycles.forEach(c => {
                 c.progress += c.speed * 0.004;
                 if (c.progress > 1) c.progress = 0;
@@ -1170,15 +1304,65 @@
                 c.head.scale.setScalar(1 + Math.sin(time * 10) * 0.3);
             });
 
-            // Disc
+            // Physics update
+            if (world) world.step(1 / 60);
+
+            // Orbs with physics and hover
+            raycaster.setFromCamera(mouseVector, camera);
+            const intersects = raycaster.intersectObjects(orbs.map(o => o.core));
+
+            orbs.forEach(o => {
+                if (o.body) {
+                    o.group.position.copy(o.body.position);
+                    o.group.quaternion.copy(o.body.quaternion);
+                } else {
+                    // Floating animation fallback
+                    o.group.position.y = o.baseY + Math.sin(time * o.floatSpeed + o.floatOffset) * 3;
+                }
+
+                o.wireframe.rotation.x += 0.01;
+                o.wireframe.rotation.y += 0.007;
+
+                const isHovered = intersects.length > 0 && intersects[0].object === o.core;
+                if (isHovered !== o.hovered) {
+                    o.hovered = isHovered;
+                    const targetScale = isHovered ? 1.2 : 1;
+                    o.group.scale.setScalar(targetScale);
+                    o.div.style.opacity = isHovered ? '1' : '0';
+                    canvas.style.cursor = isHovered ? 'pointer' : 'default';
+                }
+
+                o.css3dObject.position.copy(o.group.position);
+                o.css3dObject.position.y += o.radius + 5;
+                o.css3dObject.lookAt(camera.position);
+
+                const pulse = 0.2 + Math.sin(time * 2) * 0.1;
+                o.core.material.emissiveIntensity = pulse;
+                o.light.intensity = 1.5 + pulse;
+            });
+
+            // Disc animation
             disc.rotation.z += 0.008;
             disc.position.y = 20 + Math.sin(time * 0.5) * 2;
 
-            // Particles
+            // Particles with mouse attraction
             const pos = particles.geometry.attributes.position.array;
+            const mousePos3D = new THREE.Vector3(mouse.x * 100, mouse.y * 50, -100);
+
             for (let i = 0; i < particleCount; i++) {
                 const idx = i * 3;
                 pos[idx + 2] += velocities[idx + 2];
+
+                const particlePos = new THREE.Vector3(pos[idx], pos[idx + 1], pos[idx + 2]);
+                const dist = particlePos.distanceTo(mousePos3D);
+
+                if (dist < 100) {
+                    const attraction = (100 - dist) / 100;
+                    const direction = mousePos3D.clone().sub(particlePos).normalize();
+                    pos[idx] += direction.x * attraction * 0.5;
+                    pos[idx + 1] += direction.y * attraction * 0.5;
+                }
+
                 if (pos[idx + 2] > 200) {
                     pos[idx + 2] = -600;
                     pos[idx] = (Math.random() - 0.5) * 500;
@@ -1187,13 +1371,45 @@
             }
             particles.geometry.attributes.position.needsUpdate = true;
 
+            // Light trails animation
+            lightTrails.forEach((lt, index) => {
+                lt.progress += lt.speed;
+                lt.life -= 0.005;
+
+                if (lt.progress < 1 && lt.life > 0) {
+                    const headPos = lt.curve.getPoint(Math.min(lt.progress, 1));
+                    const sparkPos = lt.sparks.geometry.attributes.position.array;
+
+                    for (let i = 0; i < 20; i++) {
+                        sparkPos[i * 3] = headPos.x + (Math.random() - 0.5) * 3;
+                        sparkPos[i * 3 + 1] = headPos.y + (Math.random() - 0.5) * 3;
+                        sparkPos[i * 3 + 2] = headPos.z + (Math.random() - 0.5) * 3;
+                    }
+                    lt.sparks.geometry.attributes.position.needsUpdate = true;
+                    lt.trail.material.opacity = 0.8 * lt.life;
+                    lt.sparks.material.opacity = lt.life;
+                } else {
+                    scene.remove(lt.trail);
+                    scene.remove(lt.sparks);
+                    lt.trail.geometry.dispose();
+                    lt.trail.material.dispose();
+                    lt.sparks.geometry.dispose();
+                    lt.sparks.material.dispose();
+                    lightTrails.splice(index, 1);
+                }
+            });
+
             controls.update();
             composer.render();
+            css3dRenderer.render(scene, camera);
+
+            if (typeof TWEEN !== 'undefined') TWEEN.update();
         }
 
         animate(0);
+        hideLoading();
 
-        // Resize handler with debounce
+        // Resize handler
         let resizeTimeout;
         window.addEventListener('resize', () => {
             clearTimeout(resizeTimeout);
@@ -1202,6 +1418,7 @@
                 camera.updateProjectionMatrix();
                 renderer.setSize(window.innerWidth, window.innerHeight);
                 composer.setSize(window.innerWidth, window.innerHeight);
+                css3dRenderer.setSize(window.innerWidth, window.innerHeight);
             }, 100);
         }, { passive: true });
     }
