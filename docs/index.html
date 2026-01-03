@@ -2124,9 +2124,6 @@
                     bike.add(headLight);
 
                     // White accent headlight beam
-                    const beamLight = new THREE.PointLight(0xffffff, 2.5, 35);
-                    beamLight.position.set(0, 0.8, 5);
-                    bike.add(beamLight);
 
                     // ============================================
                     // TRON-STYLE WALL TRAIL - Short, sharp trail
@@ -2368,25 +2365,6 @@
                 });
             }
 
-            // Flash burst pool for collision core
-            const flashPool = [];
-            const maxFlash = 10;
-            for (let i = 0; i < maxFlash; i++) {
-                const flashGeo = new THREE.SphereGeometry(0.8, 8, 8);
-                const flashMat = new THREE.MeshBasicMaterial({
-                    color: 0xffffff,
-                    transparent: true,
-                    opacity: 0
-                });
-                const flash = new THREE.Mesh(flashGeo, flashMat);
-                scene.add(flash);
-                flashPool.push({
-                    mesh: flash,
-                    active: false,
-                    life: 0,
-                    maxLife: 0.3
-                });
-            }
 
             // TRON Derezz explosion spawner
             function spawnDerezz(x, y, z, color, intensity = 1.0) {
@@ -2419,20 +2397,6 @@
                     }
                 }
 
-                // Spawn core flash
-                for (let i = 0; i < flashPool.length; i++) {
-                    const flash = flashPool[i];
-                    if (!flash.active) {
-                        flash.active = true;
-                        flash.maxLife = 0.25;
-                        flash.life = flash.maxLife;
-                        flash.mesh.position.set(x, y, z);
-                        flash.mesh.material.color.set(color);
-                        flash.mesh.material.opacity = 1.0;
-                        flash.mesh.scale.setScalar(0.5);
-                        break;
-                    }
-                }
             }
 
             // Enhanced spark spawning with more variety
@@ -2565,29 +2529,38 @@
                     bike.time += 0.025 * bike.config.speed;
                     bike.changeTimer++;
 
-                    // Physics-based movement: change behavior periodically
+                    // Physics-based movement: more racing-like behavior
                     if (bike.changeTimer > bike.changeInterval) {
                         const behavior = Math.random();
-                        if (behavior < 0.35) {
-                            // Aggressive lane takeover
-                            bike.targetVelocity.z = 10 * bike.config.speed * bike.racingIntensity;
-                            bike.targetVelocity.x = (Math.random() - 0.5) * 8;
-                        } else if (behavior < 0.65) {
-                            // Weaving evasion
-                            bike.targetVelocity.x = Math.sin(bike.time * 0.4) * 8 * bike.racingIntensity;
+                        if (behavior < 0.4) {
+                            // Racing forward burst - primary direction
+                            bike.targetVelocity.z = (8 + Math.random() * 4) * bike.config.speed * bike.racingIntensity;
+                            bike.targetVelocity.x = (Math.random() - 0.5) * 3;
+                        } else if (behavior < 0.7) {
+                            // Lane change maneuver
+                            const targetLane = (Math.random() - 0.5) * 60; // Pick a lane position
+                            bike.targetVelocity.x = (targetLane - bike.mesh.position.x) * 0.15;
                             bike.targetVelocity.z = 6 * bike.config.speed;
-                        } else {
-                            // Conservative positioning
+                        } else if (behavior < 0.85) {
+                            // Sharp turn / evasion
+                            bike.targetVelocity.x = (Math.random() > 0.5 ? 1 : -1) * 6 * bike.racingIntensity;
                             bike.targetVelocity.z = 4 * bike.config.speed;
-                            bike.targetVelocity.x = Math.cos(bike.time * 0.2) * 4;
+                        } else {
+                            // Cruise mode - steady forward
+                            bike.targetVelocity.z = 5 * bike.config.speed;
+                            bike.targetVelocity.x *= 0.5; // Reduce lateral
                         }
                         bike.changeTimer = 0;
-                        bike.changeInterval = 50 + Math.floor(Math.random() * 100);
+                        bike.changeInterval = 40 + Math.floor(Math.random() * 60);
                     }
 
-                    // Smooth velocity interpolation (physics feel)
+                    // Smooth velocity interpolation with momentum
                     bike.velocity.x += (bike.targetVelocity.x - bike.velocity.x) * bike.acceleration;
                     bike.velocity.z += (bike.targetVelocity.z - bike.velocity.z) * bike.acceleration;
+
+                    // Apply friction/drag
+                    bike.velocity.x *= 0.995;
+                    bike.velocity.z *= 0.998;
 
                     // Clamp to max speed
                     const speed = Math.sqrt(bike.velocity.x * bike.velocity.x + bike.velocity.z * bike.velocity.z);
@@ -2597,7 +2570,7 @@
                     }
 
                     // REALISTIC collision physics - bikes cannot pass through each other
-                    const bikeRadius = 5;
+                    const bikeRadius = 4.5;
                     bikes.forEach((other, j) => {
                         if (i === j) return;
                         const dx = bike.mesh.position.x - other.mesh.position.x;
@@ -2605,32 +2578,34 @@
                         const dist = Math.sqrt(dx * dx + dz * dz);
                         const minDist = bikeRadius * 2;
 
-                        // Hard collision - push bikes apart immediately
+                        // Hard collision - push bikes apart with recoil
                         if (dist < minDist && dist > 0.01) {
                             const overlap = minDist - dist;
                             const nx = dx / dist;
                             const nz = dz / dist;
 
-                            // Separate bikes
-                            bike.mesh.position.x += nx * overlap * 0.6;
-                            bike.mesh.position.z += nz * overlap * 0.6;
+                            // Separate bikes with stronger push
+                            bike.mesh.position.x += nx * overlap * 0.55;
+                            bike.mesh.position.z += nz * overlap * 0.55;
 
-                            // Elastic collision - exchange momentum
+                            // Elastic collision with recoil effect
                             const relVelX = bike.velocity.x - other.velocity.x;
                             const relVelZ = bike.velocity.z - other.velocity.z;
                             const relVelDotN = relVelX * nx + relVelZ * nz;
 
                             if (relVelDotN < 0) {
-                                bike.velocity.x -= relVelDotN * nx * 0.7;
-                                bike.velocity.z -= relVelDotN * nz * 0.7;
+                                // Bounce off with energy loss
+                                bike.velocity.x -= relVelDotN * nx * 0.85;
+                                bike.velocity.z -= relVelDotN * nz * 0.85;
+                                // Add slight lateral deflection for realism
+                                bike.velocity.x += (Math.random() - 0.5) * 2;
                             }
                         }
 
-                        // Soft steering avoidance at medium range
-                        if (dist < 20 && dist >= minDist) {
-                            const force = 1 - (dist / 20);
-                            bike.velocity.x += (dx / dist) * force * 1.2;
-                            bike.velocity.z += (dz / dist) * force * 1.2;
+                        // Soft steering avoidance at medium range - more subtle
+                        if (dist < 18 && dist >= minDist) {
+                            const force = Math.pow(1 - (dist / 18), 2);
+                            bike.velocity.x += (dx / dist) * force * 0.8;
                         }
                     });
 
@@ -2638,66 +2613,90 @@
                     bike.mesh.position.x += bike.velocity.x * 0.016;
                     bike.mesh.position.z += bike.velocity.z * 0.016;
 
-                    // Arena bounds with bounce
-                    const boundsX = 35, boundsZ = 45;
+                    // Arena bounds with smooth bounce
+                    const boundsX = 38, boundsZ = 50;
                     if (Math.abs(bike.mesh.position.x) > boundsX) {
                         bike.mesh.position.x = Math.sign(bike.mesh.position.x) * boundsX;
-                        bike.velocity.x *= -0.6;
+                        bike.velocity.x *= -0.5;
+                        bike.targetVelocity.x *= -0.5;
                     }
                     if (Math.abs(bike.mesh.position.z) > boundsZ) {
                         bike.mesh.position.z = Math.sign(bike.mesh.position.z) * boundsZ;
-                        bike.velocity.z *= -0.6;
+                        bike.velocity.z *= -0.4;
                     }
 
                     // Subtle hover effect
-                    bike.mesh.position.y = 0.8 + Math.sin(bike.time * 1.5) * 0.1;
+                    bike.mesh.position.y = 0.8 + Math.sin(bike.time * 1.5) * 0.08;
 
-                    // Lean into turns based on velocity
-                    const movementAngle = Math.atan2(bike.velocity.x, bike.velocity.z);
-                    bike.targetRotZ = -bike.velocity.x * 0.015;
-                    bike.currentRotZ += (bike.targetRotZ - bike.currentRotZ) * 0.1;
+                    // Rotate bike to face direction of movement
+                    if (speed > 0.5) {
+                        const targetAngle = Math.atan2(bike.velocity.x, bike.velocity.z);
+                        // Smooth rotation interpolation
+                        let angleDiff = targetAngle - bike.mesh.rotation.y;
+                        // Normalize angle difference
+                        while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+                        while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+                        bike.mesh.rotation.y += angleDiff * 0.08;
+                    }
+
+                    // Lean into turns based on lateral velocity
+                    bike.targetRotZ = -bike.velocity.x * 0.02;
+                    bike.currentRotZ += (bike.targetRotZ - bike.currentRotZ) * 0.12;
                     bike.mesh.rotation.z = bike.currentRotZ;
 
-                    // Speed-responsive trail effects
+                    // Speed-responsive trail effects - more dynamic
                     const normalizedSpeed = Math.min(speed / bike.maxSpeed, 1.0);
-                    bike.trail.material.opacity = 0.6 + normalizedSpeed * 0.25 + Math.sin(bike.time * 2.5) * 0.08;
-                    bike.glow.material.opacity = 0.12 + normalizedSpeed * 0.18 + Math.sin(bike.time * 2) * 0.06;
+                    const trailIntensity = 0.5 + normalizedSpeed * 0.4;
+                    bike.trail.material.opacity = trailIntensity + Math.sin(bike.time * 3) * 0.05;
+
+                    // Scale trail length based on speed
+                    const trailScale = 0.7 + normalizedSpeed * 0.5;
+                    bike.trail.scale.x = trailScale;
+                    bike.trail.position.z = -16 * trailScale;
+
+                    bike.glow.material.opacity = 0.1 + normalizedSpeed * 0.15 + Math.sin(bike.time * 2) * 0.03;
+                    bike.glow.scale.x = trailScale;
+                    bike.glow.position.z = -16 * trailScale + 0.05;
+
                     if (bike.groundGlow) {
-                        bike.groundGlow.material.opacity = 0.12 + normalizedSpeed * 0.12 + Math.sin(bike.time * 3) * 0.04;
+                        bike.groundGlow.material.opacity = 0.15 + normalizedSpeed * 0.15;
+                        bike.groundGlow.scale.x = trailScale;
+                        bike.groundGlow.position.z = -16 * trailScale;
                     }
                     if (bike.trailLight) {
-                        bike.trailLight.intensity = 4 + normalizedSpeed * 2 + Math.sin(bike.time * 1.8) * 0.6;
+                        bike.trailLight.intensity = 3 + normalizedSpeed * 3;
+                        bike.trailLight.position.z = -8 * trailScale;
                     }
 
                     // Store velocity for next frame
                     bike.lastVelocity = { x: bike.velocity.x, z: bike.velocity.z };
 
-                    // Enhanced near-collision detection with more sparks
+                    // Near-collision sparks - cleaner effect
                     bikes.forEach((other, j) => {
                         if (i >= j) return;
                         const dx = bike.mesh.position.x - other.mesh.position.x;
                         const dz = bike.mesh.position.z - other.mesh.position.z;
                         const dist = Math.sqrt(dx * dx + dz * dz);
 
-                        // TRON-style trail collision response
-                        if (dist < 25) {
-                            const closeness = 1 - (dist / 25);
-                            const spawnChance = Math.min(0.45 * closeness, 0.6);
+                        // TRON-style trail collision sparks
+                        if (dist < 20) {
+                            const closeness = 1 - (dist / 20);
+                            const spawnChance = Math.min(0.3 * closeness, 0.4);
 
                             if (Math.random() < spawnChance) {
                                 const midX = (bike.mesh.position.x + other.mesh.position.x) / 2;
-                                const midY = 1.2 + Math.random() * 0.5;
+                                const midY = 1.0 + Math.random() * 0.3;
                                 const midZ = (bike.mesh.position.z + other.mesh.position.z) / 2;
                                 const colors = [bike.config.bright, other.config.bright];
                                 const sparkColor = colors[Math.floor(Math.random() * colors.length)];
 
-                                // Spawn TRON derezz cubes for major collisions
-                                if (closeness > 0.5) {
-                                    spawnDerezz(midX, midY, midZ, sparkColor, closeness);
+                                // Spawn derezz cubes for close encounters
+                                if (closeness > 0.6) {
+                                    spawnDerezz(midX, midY, midZ, sparkColor, closeness * 0.8);
                                 }
 
-                                // Always spawn sparks
-                                const sparkCount = 8 + Math.floor(closeness * 12);
+                                // Sparks on proximity
+                                const sparkCount = 5 + Math.floor(closeness * 8);
                                 spawnSparks(midX, midY, midZ, sparkColor, sparkCount, closeness);
                             }
                         }
@@ -2761,21 +2760,6 @@
                         if (box.life <= 0) {
                             box.active = false;
                             box.mesh.material.opacity = 0;
-                        }
-                    }
-                });
-
-                // Animate flash bursts
-                flashPool.forEach(flash => {
-                    if (flash.active) {
-                        flash.life -= 0.016;
-                        const lifePercent = flash.life / flash.maxLife;
-                        flash.mesh.material.opacity = lifePercent;
-                        flash.mesh.scale.setScalar(0.5 + (1 - lifePercent) * 3); // Expand outward
-
-                        if (flash.life <= 0) {
-                            flash.active = false;
-                            flash.mesh.material.opacity = 0;
                         }
                     }
                 });
