@@ -266,6 +266,7 @@ Rules:
             gemini: 'Gemini',
             openai: 'OpenAI',
             anthropic: 'Claude',
+            deepseek: 'DeepSeek',
             none: 'Not configured'
         };
         return labels[provider] || provider;

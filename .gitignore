@@ -5,3 +5,8 @@ dist
 *.local
 .env
 .env.*
+!.env.example
+store-assets.zip
+phantom-tabs.zip
+tabeater.zip
+tabeater-extension.zip

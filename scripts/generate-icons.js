@@ -10,16 +10,15 @@ async function generateIcons() {
         const svgPath = path.join(publicDir, `icon${size}.svg`);
         const pngPath = path.join(publicDir, `icon${size}.png`);
 
-        const svgBuffer = fs.readFileSync(svgPath);
-
-        await sharp(svgBuffer)
-            .resize(size, size)
-            .png()
-            .toFile(pngPath);
-
-        console.log(`Generated icon${size}.png`);
+        if (fs.existsSync(svgPath)) {
+            const svgBuffer = fs.readFileSync(svgPath);
+            await sharp(svgBuffer)
+                .resize(size, size)
+                .png()
+                .toFile(pngPath);
+            console.log(`Generated ${pngPath}`);
+        }
     }
-    console.log('All icons generated successfully!');
 }
 
 generateIcons().catch(console.error);

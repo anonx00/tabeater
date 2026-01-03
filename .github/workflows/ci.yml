@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+
+    - name: Install Dependencies
+      run: npm ci
+      working-directory: .
+
+    - name: Lint
+      run: npm run lint
+      working-directory: .
+
+    - name: Build Extension
+      run: npm run build
+      working-directory: .
+
+    - name: Install Cloud Functions Dependencies
+      run: npm ci
+      working-directory: ./cloud-functions
+
+    - name: Build Cloud Functions
+      run: npm run build
+      working-directory: ./cloud-functions

@@ -1,14 +1,18 @@
+import { licenseService } from './license';
+import { webllmService, WebLLMState } from '../ai/webllm';
+
 type AISession = {
     prompt: (text: string) => Promise<string>;
     destroy?: () => void;
 };
 
-type AIProvider = 'gemini' | 'openai' | 'anthropic' | 'none';
+type AIProvider = 'webllm' | 'nano' | 'gemini' | 'openai' | 'anthropic' | 'deepseek' | 'none';
 
 interface AIConfig {
-    cloudProvider?: 'gemini' | 'openai' | 'anthropic';
+    cloudProvider?: 'gemini' | 'openai' | 'anthropic' | 'deepseek';
     apiKey?: string;
     model?: string;
+    preferWebLLM?: boolean;  // User preference to use local WebLLM
 }
 
 const PROVIDER_CONFIGS = {
@@ -29,8 +33,19 @@ const PROVIDER_CONFIGS = {
             'x-api-key': key,
             'anthropic-version': '2023-06-01'
         }),
+    },
+    deepseek: {
+        endpoint: 'https://api.deepseek.com/v1/chat/completions',
+        defaultModel: 'deepseek-chat',
+        authHeader: (key: string) => ({ 'Authorization': `Bearer ${key}` }),
     }
 };
+
+interface NanoStatus {
+    available: boolean;
+    status: 'ready' | 'downloading' | 'not_available' | 'error';
+    message: string;
+}
 
 // API usage tracking
 interface APIUsageStats {
@@ -49,7 +64,7 @@ interface RateLimitConfig {
     warningThreshold: number;
 }
 
-// Default rate limits for cloud API usage
+// Default rate limits for fly mode auto-grouping
 const DEFAULT_RATE_LIMITS: RateLimitConfig = {
     maxPerHour: 30,       // Max 30 calls per hour
     maxPerDay: 100,       // Max 100 calls per day
@@ -60,6 +75,7 @@ class AIService {
     private session: AISession | null = null;
     private provider: AIProvider = 'none';
     private config: AIConfig = {};
+    private nanoStatus: NanoStatus = { available: false, status: 'not_available', message: 'Not checked' };
     private rateLimits: RateLimitConfig = { ...DEFAULT_RATE_LIMITS };
     private usageStats: APIUsageStats = {
         totalCalls: 0,
@@ -88,7 +104,28 @@ class AIService {
         // Reset counters if needed
         this.resetCountersIfNeeded();
 
-        // Cloud provider
+        // Priority 1: WebLLM (if user prefers and it's ready)
+        if (this.config.preferWebLLM && webllmService.isReady()) {
+            this.provider = 'webllm';
+            return 'webllm';
+        }
+
+        // Priority 2: Gemini Nano (Chrome's built-in AI)
+        if (await this.initializeNano()) {
+            this.provider = 'nano';
+            return 'nano';
+        }
+
+        // Priority 3: WebLLM (try to initialize if preferred)
+        if (this.config.preferWebLLM) {
+            const webllmReady = await webllmService.initialize();
+            if (webllmReady) {
+                this.provider = 'webllm';
+                return 'webllm';
+            }
+        }
+
+        // Priority 4: Cloud provider
         if (this.config.apiKey && this.config.cloudProvider) {
             this.provider = this.config.cloudProvider;
             return this.config.cloudProvider;
@@ -96,6 +133,203 @@ class AIService {
 
         this.provider = 'none';
         return 'none';
+    }
+
+    /**
+     * Initialize WebLLM explicitly (for manual activation)
+     */
+    async initializeWebLLM(): Promise<boolean> {
+        const success = await webllmService.initialize();
+        if (success) {
+            this.provider = 'webllm';
+            // Save preference
+            this.config.preferWebLLM = true;
+            await chrome.storage.local.set({ aiConfig: this.config });
+        }
+        return success;
+    }
+
+    /**
+     * Get WebLLM state for UI updates
+     */
+    getWebLLMState(): WebLLMState {
+        return webllmService.getState();
+    }
+
+    /**
+     * Check WebGPU capabilities
+     */
+    async checkWebGPUSupport() {
+        return webllmService.checkWebGPUSupport();
+    }
+
+    /**
+     * Unload WebLLM to free memory
+     */
+    async unloadWebLLM(): Promise<void> {
+        await webllmService.unload();
+        this.config.preferWebLLM = false;
+        await chrome.storage.local.set({ aiConfig: this.config });
+        // Re-initialize to fall back to another provider
+        await this.initialize();
+    }
+
+    /**
+     * Subscribe to WebLLM state changes
+     */
+    onWebLLMStateChange(listener: (state: WebLLMState) => void): () => void {
+        return webllmService.onStateChange(listener);
+    }
+
+    private getAIApi(): any {
+        // Chrome Built-in AI (Gemini Nano) access patterns
+        // The API location varies by Chrome version and context
+        try {
+            // Chrome 128+: self.ai in service workers
+            if (typeof self !== 'undefined' && (self as any).ai?.languageModel) {
+                return (self as any).ai;
+            }
+            // Alternative: globalThis.ai
+            if (typeof globalThis !== 'undefined' && (globalThis as any).ai?.languageModel) {
+                return (globalThis as any).ai;
+            }
+            // Chrome extension specific: chrome.aiOriginTrial or chrome.ai
+            if (typeof chrome !== 'undefined') {
+                if ((chrome as any).aiOriginTrial?.languageModel) {
+                    return (chrome as any).aiOriginTrial;
+                }
+                if ((chrome as any).ai?.languageModel) {
+                    return (chrome as any).ai;
+                }
+            }
+            return null;
+        } catch {
+            return null;
+        }
+    }
+
+    async checkNanoAvailability(): Promise<NanoStatus> {
+        try {
+            // Debug: Check what's available
+            const hasGlobalAi = typeof globalThis !== 'undefined' && !!(globalThis as any).ai;
+            const hasSelfAi = typeof self !== 'undefined' && !!(self as any).ai;
+            const hasChromeAi = typeof chrome !== 'undefined' && !!(chrome as any).ai;
+
+            const ai = this.getAIApi();
+
+            if (!ai) {
+                // Provide detailed info about why it's not available
+                let details = 'Gemini Nano not detected. ';
+                if (!hasGlobalAi && !hasSelfAi && !hasChromeAi) {
+                    details += 'Chrome 128+ required with flags enabled. ';
+                }
+                details += 'Using cloud AI instead.';
+
+                this.nanoStatus = {
+                    available: false,
+                    status: 'not_available',
+                    message: details
+                };
+                return this.nanoStatus;
+            }
+
+            if (!ai.languageModel) {
+                this.nanoStatus = {
+                    available: false,
+                    status: 'not_available',
+                    message: 'Language Model API found but not ready. Enable chrome://flags/#prompt-api-for-gemini-nano'
+                };
+                return this.nanoStatus;
+            }
+
+            const capabilities = await ai.languageModel.capabilities();
+
+            if (capabilities.available === 'no') {
+                this.nanoStatus = {
+                    available: false,
+                    status: 'not_available',
+                    message: 'Nano model not available. Ensure both Chrome flags are enabled and Chrome is relaunched.'
+                };
+                return this.nanoStatus;
+            }
+
+            if (capabilities.available === 'after-download') {
+                this.nanoStatus = {
+                    available: false,
+                    status: 'downloading',
+                    message: 'Downloading Gemini Nano model (~1.7GB). Check chrome://components for progress.'
+                };
+                // Trigger the download
+                try {
+                    await ai.languageModel.create();
+                } catch {
+                    // Download may be in progress
+                }
+                return this.nanoStatus;
+            }
+
+            if (capabilities.available === 'readily') {
+                this.nanoStatus = {
+                    available: true,
+                    status: 'ready',
+                    message: 'Gemini Nano ready - local AI enabled!'
+                };
+                return this.nanoStatus;
+            }
+
+            this.nanoStatus = {
+                available: false,
+                status: 'not_available',
+                message: `Status: ${capabilities.available}. Try relaunching Chrome.`
+            };
+            return this.nanoStatus;
+        } catch (err: any) {
+            this.nanoStatus = {
+                available: false,
+                status: 'error',
+                message: `Detection error: ${err.message}`
+            };
+            return this.nanoStatus;
+        }
+    }
+
+    private async initializeNano(): Promise<boolean> {
+        try {
+            const ai = this.getAIApi();
+            if (!ai?.languageModel) {
+                this.nanoStatus = { available: false, status: 'not_available', message: 'Nano unavailable - using cloud AI' };
+                return false;
+            }
+
+            const capabilities = await ai.languageModel.capabilities();
+            if (capabilities.available === 'no') {
+                this.nanoStatus = { available: false, status: 'not_available', message: 'Not available' };
+                return false;
+            }
+
+            if (capabilities.available === 'after-download') {
+                this.nanoStatus = { available: false, status: 'downloading', message: 'Model downloading...' };
+                // Try to trigger download but don't wait
+                ai.languageModel.create().catch(() => {});
+                return false;
+            }
+
+            this.session = await ai.languageModel.create({
+                systemPrompt: `You are TabEater, a tactical tab intelligence assistant.
+                Provide concise, actionable insights about browser tabs and web content.
+                Keep responses brief and focused.`
+            });
+
+            this.nanoStatus = { available: true, status: 'ready', message: 'Ready' };
+            return true;
+        } catch (err: any) {
+            this.nanoStatus = { available: false, status: 'error', message: err.message };
+            return false;
+        }
+    }
+
+    getNanoStatus(): NanoStatus {
+        return this.nanoStatus;
     }
 
     // Reset counters if day/hour changed
@@ -127,6 +361,11 @@ class AIService {
             this.rateLimits = { ...DEFAULT_RATE_LIMITS, ...stored.rateLimits };
         }
         this.resetCountersIfNeeded();
+
+        // Nano is free - no limits
+        if (this.provider === 'nano') {
+            return { allowed: true };
+        }
 
         // Check hourly limit
         if (this.usageStats.hourCalls >= this.rateLimits.maxPerHour) {
@@ -191,7 +430,10 @@ class AIService {
         this.usageStats.hourCalls++;
 
         // Estimate cost per call (in cents) - rough estimates for typical usage
+        // Local AI (WebLLM, Nano) is free, cloud providers vary
         const costPerCall: { [key: string]: number } = {
+            'webllm': 0,     // Free (local)
+            'nano': 0,       // Free (local)
             'gemini': 0.01,  // ~$0.0001 for flash
             'openai': 0.05,  // ~$0.0005 for gpt-4o-mini
             'anthropic': 0.03 // ~$0.0003 for haiku
@@ -232,15 +474,37 @@ class AIService {
     }
 
     async prompt(text: string): Promise<string> {
+        const useResult = await licenseService.checkAndUse();
+
+        if (!useResult.allowed) {
+            if (useResult.reason === 'trial_expired') {
+                throw new Error('TRIAL_EXPIRED:Your free trial has ended. Upgrade to Pro for unlimited access.');
+            }
+            if (useResult.reason === 'limit_reached') {
+                throw new Error('LIMIT_REACHED:Daily limit reached. Upgrade to Pro for unlimited access.');
+            }
+            throw new Error('LICENSE_ERROR:Unable to verify license.');
+        }
+
         // Track usage before making call
         await this.trackAPIUsage(this.provider);
+
+        // WebLLM - Local AI (highest priority when active)
+        if (this.provider === 'webllm' && webllmService.isReady()) {
+            return await webllmService.prompt(text);
+        }
+
+        // Gemini Nano - Chrome's built-in AI
+        if (this.provider === 'nano' && this.session) {
+            return await this.session.prompt(text);
+        }
 
         // Cloud providers
         if (this.provider !== 'none' && this.config.apiKey) {
             return await this.cloudPrompt(text);
         }
 
-        throw new Error('No AI provider configured. Please configure an API key in options.');
+        throw new Error('No AI provider available. Configure API key in options or enable Local AI.');
     }
 
     private async cloudPrompt(text: string): Promise<string> {
@@ -253,6 +517,8 @@ class AIService {
             return this.callOpenAI(text, model);
         } else if (this.config.cloudProvider === 'anthropic') {
             return this.callAnthropic(text, model);
+        } else if (this.config.cloudProvider === 'deepseek') {
+            return this.callDeepSeek(text, model);
         }
 
         throw new Error('Unknown provider');
@@ -345,6 +611,40 @@ class AIService {
         return data.content?.[0]?.text || 'No response';
     }
 
+    private async callDeepSeek(text: string, model: string): Promise<string> {
+        // Check if using reasoning model
+        const isReasoningModel = model.includes('reasoner') || model.includes('r1');
+        const maxTokens = isReasoningModel ? 4000 : 500;
+        const systemPrompt = isReasoningModel
+            ? 'You are TabEater, an expert tab intelligence assistant. Think step-by-step and provide detailed reasoning before your conclusions.'
+            : 'You are TabEater, a tactical tab intelligence assistant. Provide concise, actionable insights.';
+
+        const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${this.config.apiKey}`
+            },
+            body: JSON.stringify({
+                model: model,
+                messages: [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: text }
+                ],
+                max_tokens: maxTokens,
+                temperature: isReasoningModel ? 0.6 : 0.7,
+            })
+        });
+
+        if (!response.ok) {
+            const error = await response.text();
+            throw new Error(`DeepSeek API error: ${response.status} - ${error}`);
+        }
+
+        const data = await response.json();
+        return data.choices?.[0]?.message?.content || 'No response';
+    }
+
     async setConfig(config: AIConfig): Promise<void> {
         this.config = { ...this.config, ...config };
         await chrome.storage.local.set({ aiConfig: this.config });
@@ -363,13 +663,34 @@ class AIService {
      * Check if the current provider sends data to cloud servers
      */
     isCloudProvider(): boolean {
-        return this.provider === 'gemini' || this.provider === 'openai' || this.provider === 'anthropic';
+        return this.provider === 'gemini' || this.provider === 'openai' || this.provider === 'anthropic' || this.provider === 'deepseek';
+    }
+
+    /**
+     * Check if the current provider is local (no data leaves device)
+     */
+    isLocalProvider(): boolean {
+        return this.provider === 'webllm' || this.provider === 'nano';
     }
 
     /**
      * Get privacy info about current provider
      */
     getPrivacyInfo(): { isLocal: boolean; provider: string; message: string } {
+        if (this.provider === 'webllm') {
+            return {
+                isLocal: true,
+                provider: 'Local AI (SmolLM2)',
+                message: 'AI runs 100% locally using WebGPU. No data ever leaves your device.'
+            };
+        }
+        if (this.provider === 'nano') {
+            return {
+                isLocal: true,
+                provider: 'Gemini Nano',
+                message: 'AI runs locally on your device. No data leaves your browser.'
+            };
+        }
         if (this.provider === 'gemini') {
             return {
                 isLocal: false,
@@ -407,5 +728,6 @@ class AIService {
 }
 
 export const aiService = new AIService();
-export type { AIConfig, AIProvider, RateLimitConfig };
+export type { AIConfig, AIProvider, NanoStatus, RateLimitConfig };
+export type { WebLLMState } from '../ai/webllm';
 export { DEFAULT_RATE_LIMITS };
