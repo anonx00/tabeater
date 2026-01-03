@@ -1833,21 +1833,21 @@
             const scene = new THREE.Scene();
             scene.fog = new THREE.FogExp2(0x000008, 0.005); // Deep fog for TRON atmosphere
 
-            const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 1000);
-            camera.position.set(0, 5, 65);
-            camera.lookAt(0, 1, -25);
+            const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 12, 95);
+            camera.lookAt(0, 0, -20);
 
             // Camera parameters - TRON racing cinematics
             const cameraOrbit = {
-                radius: 70,
-                height: 5,        // Lower for racing drama
-                speed: 0.02,
-                lookAtHeight: 1,  // Look slightly up at bikes
-                trackBikes: true  // Dynamic bike tracking
+                radius: 100,       // Further back for better view
+                height: 14,        // Higher vantage point
+                speed: 0.015,      // Slower, smoother rotation
+                lookAtHeight: 0,   // Look at ground level
+                trackBikes: true   // Dynamic bike tracking
             };
 
             // Dynamic camera target (average of bike positions)
-            const cameraTarget = new THREE.Vector3(0, 1, -10);
+            const cameraTarget = new THREE.Vector3(0, 0, -15);
 
             // User camera control state
             const userCamera = {
@@ -2524,43 +2524,43 @@
                     gridHelper2.position.z = gridHelper1.position.z - gridSize;
                 }
 
-                // Animate bikes - ENHANCED physics-based racing dynamics
+                // Animate bikes - SMOOTH racing dynamics
                 bikes.forEach((bike, i) => {
-                    bike.time += 0.025 * bike.config.speed;
+                    bike.time += 0.02 * bike.config.speed;
                     bike.changeTimer++;
 
-                    // Physics-based movement: more racing-like behavior
+                    // Smooth racing behavior - longer intervals, gentler changes
                     if (bike.changeTimer > bike.changeInterval) {
                         const behavior = Math.random();
-                        if (behavior < 0.4) {
-                            // Racing forward burst - primary direction
-                            bike.targetVelocity.z = (8 + Math.random() * 4) * bike.config.speed * bike.racingIntensity;
-                            bike.targetVelocity.x = (Math.random() - 0.5) * 3;
-                        } else if (behavior < 0.7) {
-                            // Lane change maneuver
-                            const targetLane = (Math.random() - 0.5) * 60; // Pick a lane position
-                            bike.targetVelocity.x = (targetLane - bike.mesh.position.x) * 0.15;
+                        if (behavior < 0.5) {
+                            // Steady racing - primary behavior
+                            bike.targetVelocity.z = (5 + Math.random() * 3) * bike.config.speed;
+                            bike.targetVelocity.x += (Math.random() - 0.5) * 1.5; // Gentle drift
+                        } else if (behavior < 0.75) {
+                            // Smooth lane change
+                            const targetX = (Math.random() - 0.5) * 50;
+                            bike.targetVelocity.x = (targetX - bike.mesh.position.x) * 0.08;
                             bike.targetVelocity.z = 6 * bike.config.speed;
-                        } else if (behavior < 0.85) {
-                            // Sharp turn / evasion
-                            bike.targetVelocity.x = (Math.random() > 0.5 ? 1 : -1) * 6 * bike.racingIntensity;
-                            bike.targetVelocity.z = 4 * bike.config.speed;
+                        } else if (behavior < 0.9) {
+                            // Overtake maneuver
+                            bike.targetVelocity.z = 8 * bike.config.speed * bike.racingIntensity;
+                            bike.targetVelocity.x = (Math.random() - 0.5) * 2;
                         } else {
-                            // Cruise mode - steady forward
+                            // Slight weave
+                            bike.targetVelocity.x = Math.sin(bike.time * 0.5) * 3;
                             bike.targetVelocity.z = 5 * bike.config.speed;
-                            bike.targetVelocity.x *= 0.5; // Reduce lateral
                         }
                         bike.changeTimer = 0;
-                        bike.changeInterval = 40 + Math.floor(Math.random() * 60);
+                        bike.changeInterval = 80 + Math.floor(Math.random() * 100); // Longer intervals
                     }
 
-                    // Smooth velocity interpolation with momentum
-                    bike.velocity.x += (bike.targetVelocity.x - bike.velocity.x) * bike.acceleration;
-                    bike.velocity.z += (bike.targetVelocity.z - bike.velocity.z) * bike.acceleration;
+                    // Very smooth velocity interpolation
+                    bike.velocity.x += (bike.targetVelocity.x - bike.velocity.x) * 0.04;
+                    bike.velocity.z += (bike.targetVelocity.z - bike.velocity.z) * 0.06;
 
-                    // Apply friction/drag
-                    bike.velocity.x *= 0.995;
-                    bike.velocity.z *= 0.998;
+                    // Gentle friction
+                    bike.velocity.x *= 0.992;
+                    bike.velocity.z *= 0.996;
 
                     // Clamp to max speed
                     const speed = Math.sqrt(bike.velocity.x * bike.velocity.x + bike.velocity.z * bike.velocity.z);
@@ -2569,8 +2569,8 @@
                         bike.velocity.z = (bike.velocity.z / speed) * bike.maxSpeed;
                     }
 
-                    // REALISTIC collision physics - bikes cannot pass through each other
-                    const bikeRadius = 4.5;
+                    // Collision physics - smooth push apart
+                    const bikeRadius = 5;
                     bikes.forEach((other, j) => {
                         if (i === j) return;
                         const dx = bike.mesh.position.x - other.mesh.position.x;
@@ -2578,51 +2578,47 @@
                         const dist = Math.sqrt(dx * dx + dz * dz);
                         const minDist = bikeRadius * 2;
 
-                        // Hard collision - push bikes apart with recoil
+                        // Soft collision - gentle separation
                         if (dist < minDist && dist > 0.01) {
                             const overlap = minDist - dist;
                             const nx = dx / dist;
                             const nz = dz / dist;
 
-                            // Separate bikes with stronger push
-                            bike.mesh.position.x += nx * overlap * 0.55;
-                            bike.mesh.position.z += nz * overlap * 0.55;
+                            // Gently separate bikes
+                            bike.mesh.position.x += nx * overlap * 0.4;
+                            bike.mesh.position.z += nz * overlap * 0.4;
 
-                            // Elastic collision with recoil effect
-                            const relVelX = bike.velocity.x - other.velocity.x;
-                            const relVelZ = bike.velocity.z - other.velocity.z;
-                            const relVelDotN = relVelX * nx + relVelZ * nz;
+                            // Soft velocity exchange
+                            const relVelDotN = (bike.velocity.x - other.velocity.x) * nx +
+                                               (bike.velocity.z - other.velocity.z) * nz;
 
                             if (relVelDotN < 0) {
-                                // Bounce off with energy loss
-                                bike.velocity.x -= relVelDotN * nx * 0.85;
-                                bike.velocity.z -= relVelDotN * nz * 0.85;
-                                // Add slight lateral deflection for realism
-                                bike.velocity.x += (Math.random() - 0.5) * 2;
+                                bike.velocity.x -= relVelDotN * nx * 0.5;
+                                bike.velocity.z -= relVelDotN * nz * 0.5;
                             }
                         }
 
-                        // Soft steering avoidance at medium range - more subtle
-                        if (dist < 18 && dist >= minDist) {
-                            const force = Math.pow(1 - (dist / 18), 2);
-                            bike.velocity.x += (dx / dist) * force * 0.8;
+                        // Smooth avoidance at medium range
+                        if (dist < 20 && dist >= minDist) {
+                            const force = Math.pow(1 - (dist / 20), 2) * 0.4;
+                            bike.velocity.x += (dx / dist) * force;
                         }
                     });
 
-                    // Apply velocity
-                    bike.mesh.position.x += bike.velocity.x * 0.016;
-                    bike.mesh.position.z += bike.velocity.z * 0.016;
+                    // Apply velocity with smooth movement
+                    bike.mesh.position.x += bike.velocity.x * 0.018;
+                    bike.mesh.position.z += bike.velocity.z * 0.018;
 
-                    // Arena bounds with smooth bounce
-                    const boundsX = 38, boundsZ = 50;
+                    // Soft arena bounds
+                    const boundsX = 45, boundsZ = 55;
                     if (Math.abs(bike.mesh.position.x) > boundsX) {
                         bike.mesh.position.x = Math.sign(bike.mesh.position.x) * boundsX;
-                        bike.velocity.x *= -0.5;
-                        bike.targetVelocity.x *= -0.5;
+                        bike.velocity.x *= -0.3;
+                        bike.targetVelocity.x *= -0.3;
                     }
                     if (Math.abs(bike.mesh.position.z) > boundsZ) {
                         bike.mesh.position.z = Math.sign(bike.mesh.position.z) * boundsZ;
-                        bike.velocity.z *= -0.4;
+                        bike.velocity.z *= -0.2;
                     }
 
                     // Subtle hover effect
