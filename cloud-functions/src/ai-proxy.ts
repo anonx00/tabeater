@@ -35,9 +35,10 @@ functions.http('aiProxy', (req, res) => {
             const result = completion.choices[0]?.message?.content || '{}';
             res.json({ result });
 
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Groq Error:', error);
-            res.status(500).json({ error: error.message });
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            res.status(500).json({ error: errorMessage });
         }
     });
 });

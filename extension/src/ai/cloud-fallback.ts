@@ -18,7 +18,7 @@ export class CloudFallbackService {
         return this.callCloudFunction('prompt', prompt);
     }
 
-    private async callCloudFunction(action: string, prompt: string): Promise<any> {
+    private async callCloudFunction(action: string, prompt: string): Promise<unknown> {
         try {
             const response = await fetch(this.API_ENDPOINT, {
                 method: 'POST',

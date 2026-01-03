@@ -148,7 +148,7 @@ async function getExtensionId(context: BrowserContext): Promise<string> {
       ?.shadowRoot?.querySelectorAll('extensions-item');
     
     if (extensions && extensions.length > 0) {
-      const firstExtension = extensions[0] as any;
+      const firstExtension = extensions[0] as HTMLElement & { id: string };
       return firstExtension.id;
     }
     return null;

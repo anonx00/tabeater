@@ -33,7 +33,7 @@ declare global {
 const MODEL_ID = 'SmolLM2-360M-Instruct-q4f16_1-MLC';
 
 // Alternative models if needed (larger but more capable)
-const FALLBACK_MODELS = [
+const _FALLBACK_MODELS = [
     'SmolLM2-360M-Instruct-q4f32_1-MLC',  // Slightly larger, better precision
     'Qwen2.5-0.5B-Instruct-q4f16_1-MLC',  // Larger, better reasoning
 ];

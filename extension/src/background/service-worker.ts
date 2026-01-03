@@ -1,5 +1,5 @@
 import { aiService } from '../services/ai';
-import { tabService, TabInfo } from '../services/tabs';
+import { tabService } from '../services/tabs';
 import { licenseService } from '../services/license';
 import { autoPilotService } from '../services/autopilot';
 import { memoryService } from '../services/memory.service';
@@ -7,8 +7,8 @@ import { TabManager } from './tab-manager';
 
 // Offscreen document management for WebLLM
 let offscreenCreating: Promise<void> | null = null;
-let offscreenLastHeartbeat = 0;
-let offscreenEngineReady = false;
+let _offscreenLastHeartbeat = 0;
+let _offscreenEngineReady = false;
 
 async function ensureOffscreenDocument(): Promise<void> {
     const existingContexts = await chrome.runtime.getContexts({
@@ -60,7 +60,7 @@ async function ensureOffscreenHealthy(): Promise<boolean> {
         // Try to close existing and recreate
         try {
             await chrome.offscreen.closeDocument();
-        } catch {}
+        } catch { /* ignore close errors */ }
         offscreenCreating = null;
         await ensureOffscreenDocument();
         return pingOffscreen();
@@ -321,8 +321,8 @@ chrome.runtime.onMessage.addListener((message: Message & { target?: string; data
             }).catch(() => {});
         } else if (message.action === 'offscreen-heartbeat') {
             // Track offscreen health
-            offscreenLastHeartbeat = Date.now();
-            offscreenEngineReady = message.data?.engineReady || false;
+            _offscreenLastHeartbeat = Date.now();
+            _offscreenEngineReady = message.data?.engineReady || false;
         }
         return;
     }
@@ -365,26 +365,29 @@ async function handleMessage(message: Message): Promise<MessageResponse> {
             await tabService.closeTabs(message.payload.tabIds);
             return { success: true };
 
-        case 'groupTabs':
+        case 'groupTabs': {
             const groupId = await tabService.groupTabs(
                 message.payload.tabIds,
                 message.payload.title
             );
             return { success: true, data: { groupId } };
+        }
 
         case 'searchTabs':
             return { success: true, data: await tabService.searchTabs(message.payload.query) };
 
-        case 'getDuplicates':
+        case 'getDuplicates': {
             const tabs = await tabService.getAllTabs();
             return { success: true, data: tabService.findDuplicates(tabs) };
+        }
 
-        case 'getGroupedByDomain':
+        case 'getGroupedByDomain': {
             const allTabs = await tabService.getAllTabs();
             return { success: true, data: tabService.groupByDomain(allTabs) };
+        }
 
         // Quick Focus Score (free for all users - no AI, just analysis)
-        case 'getQuickFocusScore':
+        case 'getQuickFocusScore': {
             const quickReport = await autoPilotService.analyze();
             return {
                 success: true,
@@ -393,6 +396,7 @@ async function handleMessage(message: Message): Promise<MessageResponse> {
                     report: quickReport
                 }
             };
+        }
 
         case 'summarizeTab':
             return await summarizeTab(message.payload.tabId);
@@ -568,35 +572,40 @@ async function handleMessage(message: Message): Promise<MessageResponse> {
         case 'getAIPrivacyInfo':
             return { success: true, data: aiService.getPrivacyInfo() };
 
-        case 'checkNanoStatus':
+        case 'checkNanoStatus': {
             const nanoStatus = await aiService.checkNanoAvailability();
             return { success: true, data: nanoStatus };
+        }
 
-        case 'reinitializeAI':
+        case 'reinitializeAI': {
             const newProvider = await aiService.initialize();
             const currentNanoStatus = aiService.getNanoStatus();
             return { success: true, data: { provider: newProvider, nanoStatus: currentNanoStatus } };
+        }
 
         case 'setAIConfig':
             await aiService.setConfig(message.payload);
             return { success: true, data: { provider: aiService.getProvider() } };
 
-        case 'askAI':
+        case 'askAI': {
             const response = await aiService.prompt(message.payload.prompt);
             return { success: true, data: { response } };
+        }
 
-        case 'getAPIUsageStats':
+        case 'getAPIUsageStats': {
             const usageStats = await aiService.getUsageStats();
             return { success: true, data: usageStats };
+        }
 
         case 'setRateLimits':
             await aiService.setRateLimits(message.payload);
             return { success: true };
 
         // WebLLM (Local AI) handlers
-        case 'initializeWebLLM':
+        case 'initializeWebLLM': {
             const webllmSuccess = await aiService.initializeWebLLM();
             return { success: true, data: { initialized: webllmSuccess, state: aiService.getWebLLMState() } };
+        }
 
         case 'getWebLLMState':
             return { success: true, data: aiService.getWebLLMState() };
@@ -605,43 +614,50 @@ async function handleMessage(message: Message): Promise<MessageResponse> {
             await aiService.unloadWebLLM();
             return { success: true, data: { provider: aiService.getProvider() } };
 
-        case 'checkWebGPUSupport':
+        case 'checkWebGPUSupport': {
             const capabilities = await aiService.checkWebGPUSupport();
             return { success: true, data: capabilities };
+        }
 
-        case 'getRateLimits':
+        case 'getRateLimits': {
             const rateLimits = aiService.getRateLimits();
             return { success: true, data: rateLimits };
+        }
 
         case 'resetUsageStats':
             await aiService.resetUsageStats();
             return { success: true };
 
-        case 'getLicenseStatus':
+        case 'getLicenseStatus': {
             const status = await licenseService.getStatus(message.payload?.forceRefresh);
             return { success: true, data: status };
+        }
 
-        case 'getCheckoutUrl':
+        case 'getCheckoutUrl': {
             const checkoutUrl = await licenseService.getCheckoutUrl();
             return { success: true, data: { url: checkoutUrl } };
+        }
 
-        case 'verifyByEmail':
+        case 'verifyByEmail': {
             if (!message.payload?.email) {
                 return { success: false, error: 'Email is required' };
             }
             const verifyResult = await licenseService.verifyByEmail(message.payload.email);
             return { success: verifyResult.verified, data: verifyResult, error: verifyResult.message };
+        }
 
-        case 'isDeviceAuthorized':
+        case 'isDeviceAuthorized': {
             const authResult = await licenseService.isDeviceAuthorized();
             return { success: authResult.authorized, data: authResult };
+        }
 
-        case 'getVerifiedEmail':
+        case 'getVerifiedEmail': {
             const verifiedEmail = await licenseService.getVerifiedEmail();
             return { success: true, data: { email: verifiedEmail } };
+        }
 
         // Auto Pilot actions (PRO features)
-        case 'autoPilotAnalyze':
+        case 'autoPilotAnalyze': {
             // Check if user has PRO license
             const analyzeStatus = await licenseService.getStatus();
             if (!analyzeStatus.paid) {
@@ -649,8 +665,9 @@ async function handleMessage(message: Message): Promise<MessageResponse> {
             }
             const analyzeReport = await autoPilotService.analyze();
             return { success: true, data: analyzeReport };
+        }
 
-        case 'autoPilotAnalyzeWithAI':
+        case 'autoPilotAnalyzeWithAI': {
             // Check if user has PRO license
             const aiStatus = await licenseService.getStatus();
             if (!aiStatus.paid) {
@@ -658,8 +675,9 @@ async function handleMessage(message: Message): Promise<MessageResponse> {
             }
             const aiReport = await autoPilotService.analyzeWithAI();
             return { success: true, data: aiReport };
+        }
 
-        case 'autoPilotExecute':
+        case 'autoPilotExecute': {
             // Check if user has PRO license
             const executeStatus = await licenseService.getStatus();
             if (!executeStatus.paid) {
@@ -667,8 +685,9 @@ async function handleMessage(message: Message): Promise<MessageResponse> {
             }
             const executeResult = await autoPilotService.executeAutoPilot();
             return { success: true, data: executeResult };
+        }
 
-        case 'autoPilotCleanup':
+        case 'autoPilotCleanup': {
             // Check if user has PRO license
             const cleanupStatus = await licenseService.getStatus();
             if (!cleanupStatus.paid) {
@@ -676,8 +695,9 @@ async function handleMessage(message: Message): Promise<MessageResponse> {
             }
             const cleanupResult = await autoPilotService.executeCleanup(message.payload.tabIds);
             return { success: true, data: cleanupResult };
+        }
 
-        case 'autoPilotGroup':
+        case 'autoPilotGroup': {
             // Check if user has PRO license
             const groupStatus = await licenseService.getStatus();
             if (!groupStatus.paid) {
@@ -685,9 +705,10 @@ async function handleMessage(message: Message): Promise<MessageResponse> {
             }
             const groupResult = await autoPilotService.executeGrouping(message.payload.groups);
             return { success: true, data: groupResult };
+        }
 
         // Contextual Tab Grouping - groups based on page content analysis
-        case 'contextualGroup':
+        case 'contextualGroup': {
             // Check if user has PRO license
             const contextualStatus = await licenseService.getStatus();
             if (!contextualStatus.paid) {
@@ -695,47 +716,55 @@ async function handleMessage(message: Message): Promise<MessageResponse> {
             }
             const contextualResult = await contextualGroupTabs();
             return contextualResult;
+        }
 
-        case 'getAutoPilotSettings':
+        case 'getAutoPilotSettings': {
             const settings = await autoPilotService.loadSettings();
             return { success: true, data: settings };
+        }
 
         case 'setAutoPilotSettings':
             await autoPilotService.saveSettings(message.payload);
             return { success: true };
 
         // Device management for Pro users
-        case 'getDevices':
+        case 'getDevices': {
             const devices = await licenseService.getDevices();
             return { success: true, data: devices };
+        }
 
-        case 'removeDevice':
+        case 'removeDevice': {
             if (!message.payload?.deviceId) {
                 return { success: false, error: 'Device ID required' };
             }
             const removed = await licenseService.removeDevice(message.payload.deviceId);
             return { success: removed, data: { removed } };
+        }
 
         // Trial info
-        case 'getTrialInfo':
+        case 'getTrialInfo': {
             const trialInfo = await licenseService.getTrialInfo();
             return { success: true, data: trialInfo };
+        }
 
         // Memory tracking
-        case 'getMemoryReport':
+        case 'getMemoryReport': {
             const memoryReport = await memoryService.generateReport();
             return { success: true, data: memoryReport };
+        }
 
-        case 'getMemoryOptimizations':
+        case 'getMemoryOptimizations': {
             const suggestions = await memoryService.getOptimizationSuggestions();
             return { success: true, data: { suggestions } };
+        }
 
         case 'hasAdvancedMemory':
             return { success: true, data: { available: memoryService.hasAdvancedMemory() } };
 
-        case 'requestAdvancedMemory':
+        case 'requestAdvancedMemory': {
             const granted = await memoryService.requestAdvancedMemoryPermission();
             return { success: true, data: { granted } };
+        }
 
         default:
             return { success: false, error: 'Unknown action' };
